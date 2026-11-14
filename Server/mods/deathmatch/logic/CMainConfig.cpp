@@ -2,15 +2,29 @@
  *
  *  PROJECT:     Multi Theft Auto v1.0
  *  LICENSE:     See LICENSE in the top level directory
+ *
  *  FILE:        mods/deathmatch/logic/CMainConfig.cpp
  *  PURPOSE:     XML-based main configuration file parser class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
-#define MTA_SERVER_CONF_TEMPLATE "mtaserver.conf.template"
+#include "CMainConfig.h"
+#include "CBandwidthSettings.h"
+#include "CTickRateSettings.h"
+#include "Utils.h"
+#include "ASE.h"
+#include "CGame.h"
+#include "CScriptDebugging.h"
+#include "CResourceManager.h"
+#include "CConsoleCommands.h"
+#include "CHTTPD.h"
+#include "CStaticFunctionDefinitions.h"
+#include "CLanBroadcast.h"
+
+#define SETTINGS_TEMPLATE_PATH "mtaserver.conf.template"
 
 extern CGame* g_pGame;
 
@@ -55,7 +69,7 @@ CMainConfig::CMainConfig(CConsole* pConsole) : CXMLConfig(NULL)
     m_bScriptDebugLogEnabled = false;
     m_uiScriptDebugLogLevel = 0;
     m_bDontBroadcastLan = false;
-    m_usFPSLimit = 36;
+    m_fpsLimit = 36;
     m_uiVoiceSampleRate = 1;
     m_ucVoiceQuality = 4;
     m_bVoiceEnabled = false;
@@ -67,6 +81,9 @@ CMainConfig::CMainConfig(CConsole* pConsole) : CXMLConfig(NULL)
     m_iBackupInterval = 3;
     m_iBackupAmount = 5;
     m_bSyncMapElementData = true;
+    m_elementDataWhitelisted = false;
+    m_checkDuplicateSerials = true;
+    m_allowMultiCommandHandlers = 1;
 }
 
 bool CMainConfig::Load()
@@ -120,6 +137,24 @@ bool CMainConfig::Load()
         CLogger::ErrorPrintf("Server name must be between 1 and 96 characters\n");
         return false;
     }
+
+    // Grab rules
+    CXMLNode*   currentNode = nullptr;
+    std::size_t currentIndex = 0;
+    while (currentNode = m_pRootNode->FindSubNode("rule", currentIndex++))
+    {
+        CXMLAttribute* attribute = currentNode->GetAttributes().Find("name");
+        SString        ruleName = attribute ? attribute->GetValue() : SString{};
+
+        attribute = currentNode->GetAttributes().Find("value");
+        SString ruleValue = attribute ? attribute->GetValue() : SString{};
+
+        if (!ruleName.empty() && !ruleValue.empty())
+            m_RulesForASEMap[std::move(ruleName)] = std::move(ruleValue);
+    }
+
+    // Strip spaces from beginning and end of server name
+    m_strServerName = SString(m_strServerName).TrimStart(" ").TrimEnd(" ");
 
     // Grab the forced server ip(s)
     GetString(m_pRootNode, "serverip", m_strServerIP);
@@ -220,43 +255,37 @@ bool CMainConfig::Load()
     GetInteger(m_pRootNode, "verifyclientsettings", m_iEnableClientChecks);
 
     // Handle the <client_file> nodes
-    CXMLNode*    pNode = NULL;
-    unsigned int uiCurrentIndex = 0;
-    do
+    currentNode = nullptr;
+    currentIndex = 0;
+    while (currentNode = m_pRootNode->FindSubNode("client_file", currentIndex++))
     {
-        // Grab the current script node
-        pNode = m_pRootNode->FindSubNode("client_file", uiCurrentIndex++);
-        if (pNode)
+        // Grab its "name" attribute
+        CXMLAttribute* attribute = currentNode->GetAttributes().Find("name");
+        SString        name = attribute ? attribute->GetValue() : SString{};
+        name = name.Replace("\\", "/").ToLower();
+
+        // Grab its "verify" attribute
+        attribute = currentNode->GetAttributes().Find("verify");
+        SString verify = attribute ? attribute->GetValue() : SString{};
+        bool    shouldVerify = verify == "true" || verify == "yes" || verify == "1";
+
+        // Find bitnumber
+        bool found = false;
+        for (std::size_t i = 0; i < std::size(gtaDataFiles); i++)
         {
-            // Grab its "name" attribute
-            CXMLAttribute* pAttribute = pNode->GetAttributes().Find("name");
-            SString        strName = pAttribute ? pAttribute->GetValue() : "";
-            strName = strName.Replace("\\", "/").ToLower();
-
-            // Grab its "verify" attribute
-            pAttribute = pNode->GetAttributes().Find("verify");
-            SString strVerify = pAttribute ? pAttribute->GetValue() : "";
-            bool    bVerify = strVerify == "true" || strVerify == "yes" || strVerify == "1";
-
-            // Find bitnumber
-            bool bFound = false;
-            for (uint i = 0; i < NUMELMS(gtaDataFiles); i++)
+            if (name == gtaDataFiles[i].szRealFilename)
             {
-                if (strName == gtaDataFiles[i].szRealFilename)
-                {
-                    if (bVerify)
-                        m_iEnableClientChecks |= 1 << gtaDataFiles[i].iBitNumber;
-                    else
-                        m_iEnableClientChecks &= ~(1 << gtaDataFiles[i].iBitNumber);
-                    bFound = true;
-                    break;
-                }
+                if (shouldVerify)
+                    m_iEnableClientChecks |= 1 << gtaDataFiles[i].iBitNumber;
+                else
+                    m_iEnableClientChecks &= ~(1 << gtaDataFiles[i].iBitNumber);
+                found = true;
+                break;
             }
-
-            if (!bFound)
-                CLogger::ErrorPrintf("Unknown client_file '%s'\n", *strName);
         }
-    } while (pNode);
+        if (!found)
+            CLogger::ErrorPrintf("Unknown client_file '%s'\n", *name);
+    }
 
     // allow_gta3_img_mods
     SString strImgMods;
@@ -336,15 +365,11 @@ bool CMainConfig::Load()
     iResult = GetString(m_pRootNode, "password", m_strPassword, 1, 32);
 
     // Grab the server fps limit
-    int iFPSTemp = 0;
-    iResult = GetInteger(m_pRootNode, "fpslimit", iFPSTemp, 0, 100);
+    int readFps = 0;
+    iResult = GetInteger(m_pRootNode, "fpslimit", readFps, FPSLimits::FPS_UNLIMITED, FPSLimits::FPS_MAX);
     if (iResult == IS_SUCCESS)
     {
-        if (iFPSTemp == 0 || iFPSTemp >= 25)
-        {
-            m_usFPSLimit = (unsigned short)iFPSTemp;
-            SetInteger(m_pRootNode, "fpslimit", (int)m_usFPSLimit);
-        }
+        FPSLimits::IsValidAndSetValid(static_cast<std::uint16_t>(readFps), m_fpsLimit);
     }
 
     // Grab whether or not voice is enabled
@@ -362,7 +387,7 @@ bool CMainConfig::Load()
     // Grab the Quality for Voice
     iTemp = m_ucVoiceQuality;
     iResult = GetInteger(m_pRootNode, "voice_quality", iTemp, 0, 10);
-    m_ucVoiceQuality = Clamp(0, iTemp, 10);
+    m_ucVoiceQuality = static_cast<unsigned char>(Clamp(0, iTemp, 10));
 
     // Grab the bitrate for Voice [optional]
     iResult = GetInteger(m_pRootNode, "voice_bitrate", iTemp);
@@ -510,6 +535,11 @@ bool CMainConfig::Load()
         GetInteger(m_pRootNode, "lightsync_rate", g_TickRateSettings.iLightSync);
         g_TickRateSettings.iLightSync = Clamp(200, g_TickRateSettings.iLightSync, 4000);
     }
+
+    GetBoolean(m_pRootNode, "elementdata_whitelisted", m_elementDataWhitelisted);
+    GetBoolean(m_pRootNode, "check_duplicate_serials", m_checkDuplicateSerials);
+    GetInteger(m_pRootNode, "allow_multi_command_handlers", m_allowMultiCommandHandlers);
+    m_allowMultiCommandHandlers = Clamp(0, m_allowMultiCommandHandlers, 2);
 
     ApplyNetOptions();
 
@@ -739,16 +769,19 @@ bool CMainConfig::LoadExtended()
     CLogger::SetMinLogLevel(LOGLEVEL_LOW);
 
     // Register the commands
-    RegisterCommand("start", CConsoleCommands::StartResource, false, "Usage: start <resource-name>\nStart a loaded resource eg: start admin");
-    RegisterCommand("stop", CConsoleCommands::StopResource, false, "Usage: stop <resource-name>\nStop a resource eg: stop admin");
+    RegisterCommand("start", CConsoleCommands::StartResource, false, "Usage: start <resource1> <resource2> ...\nStart a loaded resource eg: start admin");
+    RegisterCommand("stop", CConsoleCommands::StopResource, false, "Usage: stop <resource1> <resource2> ...\nStop a resource eg: stop admin");
     RegisterCommand("stopall", CConsoleCommands::StopAllResources, false, "Stop all running resources");
-    RegisterCommand("restart", CConsoleCommands::RestartResource, false, "Usage: restart <resource-name>\nRestarts a running resource eg: restart admin");
+    RegisterCommand("restart", CConsoleCommands::RestartResource, false,
+                    "Usage: restart <resource1> <resource2> ...\nRestarts a running resource eg: restart admin");
     RegisterCommand("refresh", CConsoleCommands::RefreshResources, false, "Refresh resource list to find new resources");
     RegisterCommand("refreshall", CConsoleCommands::RefreshAllResources, false, "Refresh resources and restart any changed resources");
     RegisterCommand("list", CConsoleCommands::ListResources, false, "Shows a list of resources");
     RegisterCommand("info", CConsoleCommands::ResourceInfo, false, "Usage: info <resource-name>\nGet info for a resource eg: info admin");
-    RegisterCommand("upgrade", CConsoleCommands::UpgradeResources, false, "Usage: upgrade [ all | <resource-name> ]\nPerform a basic upgrade of all resources.");
-    RegisterCommand("check", CConsoleCommands::CheckResources, false, "Usage: check [ all | <resource-name> ]\nChecks which files would be changed with upgrade command. Does not modify anything.");
+    RegisterCommand("upgrade", CConsoleCommands::UpgradeResources, false,
+                    "Usage: upgrade [ all | <resource-name> ]\nPerform a basic upgrade of all resources.");
+    RegisterCommand("check", CConsoleCommands::CheckResources, false,
+                    "Usage: check [ all | <resource-name> ]\nChecks which files would be changed with upgrade command. Does not modify anything.");
 
     RegisterCommand("say", CConsoleCommands::Say, false, "Usage: say <text>\nShow a message to all players on the server eg: say hello");
     RegisterCommand("teamsay", CConsoleCommands::TeamSay, false, "Usage: teamsay <test>\nSend a message to all players on the same team");
@@ -760,38 +793,51 @@ bool CMainConfig::LoadExtended()
     RegisterCommand("logout", CConsoleCommands::LogOut, false, "Log out of the current account");
     RegisterCommand("chgmypass", CConsoleCommands::ChgMyPass, false, "Usage: chgmypass <oldpass> <newpass>\nChange your password eg: chgmypass oldpw newpw");
 
-    RegisterCommand("addaccount", CConsoleCommands::AddAccount, false, "Usage: addaccount <accountname> <password>\nAdd an account eg: addaccount accountname password");
+    RegisterCommand("addaccount", CConsoleCommands::AddAccount, false,
+                    "Usage: addaccount <accountname> <password>\nAdd an account eg: addaccount accountname password");
     RegisterCommand("delaccount", CConsoleCommands::DelAccount, false, "Usage: delaccount <accountname>\nDelete an account eg: delaccount accountname");
-    RegisterCommand("chgpass", CConsoleCommands::ChgPass, false, "Usage: chgpass <accountname> <password>\nChange an accounts password eg: chgpass account newpw");
+    RegisterCommand("chgpass", CConsoleCommands::ChgPass, false,
+                    "Usage: chgpass <accountname> <password>\nChange an accounts password eg: chgpass account newpw");
     RegisterCommand("shutdown", CConsoleCommands::Shutdown, false, "Usage: shutdown <reason>\nShutdown the server eg: shutdown put reason here");
 
-    RegisterCommand("aexec", CConsoleCommands::AExec, false, "Usage: aexec <nick> <command>\nForce a player to execute a command eg: aexec playername say hello");
+    RegisterCommand("aexec", CConsoleCommands::AExec, false,
+                    "Usage: aexec <nick> <command>\nForce a player to execute a command eg: aexec playername say hello");
 
-    RegisterCommand("whois", CConsoleCommands::WhoIs, false, "Usage: whois <nick>\nGet the IP of a player currently connected (use whowas for IP/serial/version)");
+    RegisterCommand("whois", CConsoleCommands::WhoIs, false,
+                    "Usage: whois <nick>\nGet the IP of a player currently connected (use whowas for IP/serial/version)");
 
-    RegisterCommand("debugscript", CConsoleCommands::DebugScript, false, "Usage: debugscript <0-3>\nRemove (This does not work 'Incorrect client type for this command')");
+    RegisterCommand("debugscript", CConsoleCommands::DebugScript, false,
+                    "Usage: debugscript <0-3>\nRemove (This does not work 'Incorrect client type for this command')");
 
     RegisterCommand("help", CConsoleCommands::Help, false, "");
 
     RegisterCommand("loadmodule", CConsoleCommands::LoadModule, false, "Usage: loadmodule <module-filename>\nLoad a module eg: loadmodule ml_sockets.dll");
-    RegisterCommand("unloadmodule", CConsoleCommands::UnloadModule, false, "Usage: unloadmodule <module-filename>\nUnload a module eg: unloadmodule ml_sockets.dll");
-    RegisterCommand("reloadmodule", CConsoleCommands::ReloadModule, false, "Usage: reloadmodule <module-filename>\nReload a module eg: reloadmodule ml_sockets.dll");
+    RegisterCommand("unloadmodule", CConsoleCommands::UnloadModule, false,
+                    "Usage: unloadmodule <module-filename>\nUnload a module eg: unloadmodule ml_sockets.dll");
+    RegisterCommand("reloadmodule", CConsoleCommands::ReloadModule, false,
+                    "Usage: reloadmodule <module-filename>\nReload a module eg: reloadmodule ml_sockets.dll");
 
     RegisterCommand("ver", CConsoleCommands::Ver, false, "Get the MTA version");
     RegisterCommand("sver", CConsoleCommands::Ver, false, "Get the server MTA version");
     RegisterCommand("ase", CConsoleCommands::Ase, false, "See the amount of master server list queries");
     RegisterCommand("openports", CConsoleCommands::OpenPortsTest, false, "Test if server ports are open");
 
-    RegisterCommand("debugdb", CConsoleCommands::SetDbLogLevel, false, "Usage: debugdb <0-2>\nSet logging level for database functions. [0-Off  1-Errors only  2-All]");
+    RegisterCommand("debugdb", CConsoleCommands::SetDbLogLevel, false,
+                    "Usage: debugdb <0-2>\nSet logging level for database functions. [0-Off  1-Errors only  2-All]");
 
     RegisterCommand("reloadbans", CConsoleCommands::ReloadBans, false, "Reloads all the bans from banlist.xml.");
 
-    RegisterCommand("aclrequest", CConsoleCommands::AclRequest, false, "Usage: aclrequest [ list | allow | deny ] <resource-name> [ <right> | all ]\nManage ACL requests from resources implementing <aclrequest> in their meta.xml");
-    RegisterCommand("authserial", CConsoleCommands::AuthorizeSerial, false, "Usage: authserial <account-name> [list|removelast|httppass]\nManage serial authentication for an account.");
+    RegisterCommand("aclrequest", CConsoleCommands::AclRequest, false,
+                    "Usage: aclrequest [ list | allow | deny ] <resource-name> [ <right> | all ]\nManage ACL requests from resources implementing <aclrequest> "
+                    "in their meta.xml");
+    RegisterCommand("authserial", CConsoleCommands::AuthorizeSerial, false,
+                    "Usage: authserial <account-name> [list|removelast|httppass]\nManage serial authentication for an account.");
     RegisterCommand("reloadacl", CConsoleCommands::ReloadAcl, false, "Perform a simple ACL reload");
     RegisterCommand("debugjoinflood", CConsoleCommands::DebugJoinFlood, false, "Shows debug information regarding the join flood mitigation feature.");
     RegisterCommand("debuguptime", CConsoleCommands::DebugUpTime, false, "Shows how many days the server has been up and running.");
-    RegisterCommand("sfakelag", CConsoleCommands::FakeLag, false, "Usage: sfakelag <packet loss> <extra ping> <ping variance> [<KBPS limit>]\nOnly available if enabled in the mtaserver.conf file.\nAdds artificial packet loss, ping, jitter and bandwidth limits to the server-client connections.");
+    RegisterCommand("sfakelag", CConsoleCommands::FakeLag, false,
+                    "Usage: sfakelag <packet loss> <extra ping> <ping variance> [<KBPS limit>]\nOnly available if enabled in the mtaserver.conf file.\nAdds "
+                    "artificial packet loss, ping, jitter and bandwidth limits to the server-client connections.");
     return true;
 }
 
@@ -820,45 +866,96 @@ bool CMainConfig::AddMissingSettings()
     if (!g_pGame->IsUsingMtaServerConf())
         return false;
 
-    // Load template
-    const char* szTemplateText =
-        #include MTA_SERVER_CONF_TEMPLATE
-        ;
-    SString strTemplateFilename = PathJoin(g_pServerInterface->GetServerModPath(), "resource-cache", "conf.template");
-    FileSave(strTemplateFilename, szTemplateText);
-    CXMLFile* pFileTemplate = g_pServerInterface->GetXML()->CreateXML(strTemplateFilename);
-    CXMLNode* pRootNodeTemplate = pFileTemplate && pFileTemplate->Parse() ? pFileTemplate->GetRootNode() : nullptr;
-    if (!pRootNodeTemplate)
+    const std::string templateFileName = PathJoin(g_pServerInterface->GetServerModPath(), SETTINGS_TEMPLATE_PATH);
+    if (!FileExists(templateFileName))
+        return false;
+
+    std::unique_ptr<CXMLFile> templateFile(g_pServerInterface->GetXML()->CreateXML(templateFileName.c_str()));
+    if (!templateFile || !templateFile->Parse())
     {
-        CLogger::ErrorPrintf("Can't parse '%s'\n", *strTemplateFilename);
+        CLogger::ErrorPrintf("Failed to parse template file: '%s'\n", templateFileName.c_str());
+        return false;
+    }
+
+    CXMLNode* templateRootNode = templateFile->GetRootNode();
+    if (!templateRootNode)
+    {
+        CLogger::ErrorPrintf("Template file '%s' has no root node\n", templateFileName.c_str());
         return false;
     }
 
     // Check that each item in the template also exists in the server config
-    bool      bChanged = false;
-    CXMLNode* pPrevNode = nullptr;
-    for (auto it = pRootNodeTemplate->ChildrenBegin(); it != pRootNodeTemplate->ChildrenEnd(); ++it)
-    {
-        CXMLNode* pNodeTemplate = *it;
-        SString   strNodeName = pNodeTemplate->GetTagName();
-        CXMLNode* pNode = m_pRootNode->FindSubNode(strNodeName);
-        if (!pNode)
-        {
-            CLogger::LogPrintf("Adding missing '%s' to mtaserver.conf\n", *strNodeName);
-            SString strNodeValue = pNodeTemplate->GetTagContent();
-            SString strNodeComment = pNodeTemplate->GetCommentText();
-            pNode = m_pRootNode->CreateSubNode(strNodeName, pPrevNode);
-            pNode->SetTagContent(strNodeValue);
-            pNode->SetCommentText(strNodeComment, true);
-            bChanged = true;
-        }
-        pPrevNode = pNode;
-    }
+    bool      configChanged = false;
+    CXMLNode* previousNode = nullptr;
 
-    // Clean up
-    g_pServerInterface->GetXML()->DeleteXML(pFileTemplate);
-    FileDelete(strTemplateFilename);
-    return bChanged;
+    for (auto it = templateRootNode->ChildrenBegin(); it != templateRootNode->ChildrenEnd(); ++it)
+    {
+        CXMLNode*          templateNode = *it;
+        const std::string& templateNodeName = templateNode->GetTagName();
+
+        // Skip certain optional nodes
+        if (templateNodeName == "resource" || templateNodeName == "module")
+            continue;
+
+        // Find node with exact same attributes
+        CXMLAttributes& templateAttributes = templateNode->GetAttributes();
+        CXMLNode*       foundNode = nullptr;
+        for (auto it2 = m_pRootNode->ChildrenBegin(); it2 != m_pRootNode->ChildrenEnd(); ++it2)
+        {
+            CXMLNode* tempNode = *it2;
+            if (tempNode->GetTagName() != templateNodeName)
+                continue;
+
+            CXMLAttributes& attributes = tempNode->GetAttributes();
+            bool            attributesMatch = true;
+
+            for (auto it3 = templateAttributes.ListBegin(); it3 != templateAttributes.ListEnd(); ++it3)
+            {
+                CXMLAttribute* templateAttribute = *it3;
+                const SString& attrName = templateAttribute->GetName();
+
+                // Don't check value attribute which is intended to be customized by the server
+                if (attrName == "value")
+                    continue;
+
+                const SString& attrValue = templateAttribute->GetValue();
+
+                CXMLAttribute* foundAttribute = attributes.Find(attrName);
+                if (!foundAttribute || foundAttribute->GetValue() != attrValue)
+                {
+                    attributesMatch = false;
+                    break;
+                }
+            }
+
+            if (attributesMatch)
+            {
+                foundNode = tempNode;
+                break;
+            }
+        }
+
+        if (!foundNode)
+        {
+            const std::string templateNodeValue = templateNode->GetTagContent();
+            const SString     templateNodeComment = templateNode->GetCommentText();
+
+            foundNode = m_pRootNode->CreateSubNode(templateNodeName.c_str(), previousNode);
+            foundNode->SetTagContent(templateNodeValue.c_str());
+            foundNode->SetCommentText(templateNodeComment.c_str(), true);
+
+            for (auto it3 = templateAttributes.ListBegin(); it3 != templateAttributes.ListEnd(); ++it3)
+            {
+                CXMLAttribute* templateAttribute = *it3;
+                foundNode->GetAttributes().Create(*templateAttribute);
+            }
+
+            CLogger::LogPrintf("Added missing '%s' setting to mtaserver.conf\n", templateNodeName.c_str());
+            configChanged = true;
+        }
+        previousNode = foundNode;
+    }
+    return configChanged;
 }
 
 bool CMainConfig::IsValidPassword(const char* szPassword)
@@ -900,19 +997,18 @@ bool CMainConfig::SetPassword(const char* szPassword, bool bSave)
     return true;
 }
 
-bool CMainConfig::SetFPSLimit(unsigned short usFPS, bool bSave)
+bool CMainConfig::SetFPSLimit(std::uint16_t newFps, bool save)
 {
-    if (usFPS == 0 || (usFPS >= 25 && usFPS <= 100))
+    if (!FPSLimits::IsValidAndSetValid(newFps, m_fpsLimit))
     {
-        m_usFPSLimit = usFPS;
-        if (bSave)
-        {
-            SetInteger(m_pRootNode, "fpslimit", usFPS);
-            Save();
-        }
-        return true;
+        return false;
     }
-    return false;
+    if (save)
+    {
+        SetInteger(m_pRootNode, "fpslimit", m_fpsLimit);
+        Save();
+    }
+    return true;
 }
 
 void CMainConfig::RegisterCommand(const char* szName, FCommandHandler* pFunction, bool bRestricted, const char* szConsoleHelpText)
@@ -1077,7 +1173,7 @@ bool CMainConfig::GetSettingTable(const SString& strName, const char** szAttribN
                 resultLine.PushString(pAttribute->GetValue());
             }
 
-            if (resultLine.Count() != 0)
+            if (resultLine.IsNotEmpty())
             {
                 outTable->PushNumber(uiLuaIndex++);
                 outTable->PushTable(&resultLine);
@@ -1085,7 +1181,7 @@ bool CMainConfig::GetSettingTable(const SString& strName, const char** szAttribN
         }
     } while (pNode);
 
-    return outTable->Count() != 0;
+    return outTable->IsNotEmpty();
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1242,7 +1338,7 @@ bool CMainConfig::SetSetting(const SString& strName, const SString& strValue, bo
     }
     else if (strName == "fpslimit")
     {
-        return CStaticFunctionDefinitions::SetFPSLimit(atoi(strValue), bSave);
+        return CStaticFunctionDefinitions::SetFPSLimit(static_cast<unsigned short>(atoi(strValue)), bSave);
     }
     else if (strName == "networkencryption")
     {
@@ -1413,6 +1509,7 @@ const std::vector<SIntSetting>& CMainConfig::GetIntSettingList()
         {true, true, 50, 1500, 4000, "lightweight_sync_interval", &g_TickRateSettings.iLightSync, &CMainConfig::OnTickRateChange},
         {true, true, 50, 500, 4000, "camera_sync_interval", &g_TickRateSettings.iCamSync, &CMainConfig::OnTickRateChange},
         {true, true, 50, 400, 4000, "ped_sync_interval", &g_TickRateSettings.iPedSync, &CMainConfig::OnTickRateChange},
+        {true, true, 50, 2000, 4000, "ped_far_sync_interval", &g_TickRateSettings.iPedFarSync, NULL},
         {true, true, 50, 400, 4000, "unoccupied_vehicle_sync_interval", &g_TickRateSettings.iUnoccupiedVehicle, &CMainConfig::OnTickRateChange},
         {true, true, 50, 100, 4000, "keysync_mouse_sync_interval", &g_TickRateSettings.iKeySyncRotation, &CMainConfig::OnTickRateChange},
         {true, true, 50, 100, 4000, "keysync_analog_sync_interval", &g_TickRateSettings.iKeySyncAnalogMove, &CMainConfig::OnTickRateChange},
@@ -1428,6 +1525,8 @@ const std::vector<SIntSetting>& CMainConfig::GetIntSettingList()
         {true, true, 10, 50, 1000, "update_cycle_messages_limit", &m_iUpdateCycleMessagesLimit, &CMainConfig::ApplyNetOptions},
         {true, true, 50, 100, 400, "ped_syncer_distance", &g_TickRateSettings.iPedSyncerDistance, &CMainConfig::OnTickRateChange},
         {true, true, 50, 130, 400, "unoccupied_vehicle_syncer_distance", &g_TickRateSettings.iUnoccupiedVehicleSyncerDistance, &CMainConfig::OnTickRateChange},
+        {true, true, 0, 30, 130, "vehicle_contact_sync_radius", &g_TickRateSettings.iVehicleContactSyncRadius, &CMainConfig::OnTickRateChange},
+        {true, true, 5, 100, 500, "player_teleport_alert", &g_TickRateSettings.playerTeleportAlert, &CMainConfig::OnTickRateChange},
         {false, false, 0, 1, 2, "compact_internal_databases", &m_iCompactInternalDatabases, NULL},
         {true, true, 0, 1, 2, "minclientversion_auto_update", &m_iMinClientVersionAutoUpdate, NULL},
         {true, true, 0, 0, 100, "server_logic_fps_limit", &m_iServerLogicFpsLimit, NULL},
@@ -1435,6 +1534,16 @@ const std::vector<SIntSetting>& CMainConfig::GetIntSettingList()
         {true, true, 0, 1, 1, "filter_duplicate_log_lines", &m_bFilterDuplicateLogLinesEnabled, NULL},
         {false, false, 0, 1, 1, "database_credentials_protection", &m_bDatabaseCredentialsProtectionEnabled, NULL},
         {false, false, 0, 0, 1, "fakelag", &m_bFakeLagCommandEnabled, NULL},
+        {true, true, 50, 1000, 5000, "player_triggered_event_interval", &m_iPlayerTriggeredEventIntervalMs, &CMainConfig::OnPlayerTriggeredEventIntervalChange},
+        {true, true, 1, 100, 1000, "max_player_triggered_events_per_interval", &m_iMaxPlayerTriggeredEventsPerInterval,
+         &CMainConfig::OnPlayerTriggeredEventIntervalChange},
+        {true, true, 0, 1, 1, "resource_client_file_checks", &m_checkResourceClientFiles, nullptr},
+        {true, true, 0, 1, 2, "allow_multi_command_handlers", &m_allowMultiCommandHandlers, &CMainConfig::OnAllowMultiCommandHandlersChange},
+        {true, true, 50, 100, 1000, "voice_packets_interval", &m_voicePacketsInterval, nullptr},
+        // Senders drain their full backlog in one flush on release, so leave
+        // room above the steady rate for post-stall catch-up bursts
+        {true, true, 1, 64, 200, "max_voice_packets_per_interval", &m_maxVoicePacketsPerInterval, nullptr},
+        {true, true, 128, 512, 2048, "max_voice_buffer_size", &m_maxVoiceBufferSize, nullptr},
     };
 
     static std::vector<SIntSetting> settingsList;
@@ -1477,4 +1586,20 @@ void CGame::ApplyAseSetting()
         if (!m_pLanBroadcast)
             m_pLanBroadcast = m_pASE->InitLan();
     }
+}
+
+void CMainConfig::OnPlayerTriggeredEventIntervalChange()
+{
+    g_pGame->ApplyPlayerTriggeredEventIntervalChange();
+}
+
+void CMainConfig::OnAllowMultiCommandHandlersChange()
+{
+    g_pGame->SendSyncSettings();
+}
+
+void CGame::ApplyPlayerTriggeredEventIntervalChange()
+{
+    m_iClientTriggeredEventsIntervalMs = m_pMainConfig->GetPlayerTriggeredEventInterval();
+    m_iMaxClientTriggeredEventsPerInterval = m_pMainConfig->GetMaxPlayerTriggeredEventsPerInterval();
 }

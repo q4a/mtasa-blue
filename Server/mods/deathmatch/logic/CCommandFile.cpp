@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/CCommandFile.cpp
  *  PURPOSE:     Command file parser class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CCommandFile.h"
+#include "CLogger.h"
+#include "CConsole.h"
 
 CCommandFile::CCommandFile(const char* szFilename, CConsole& Console, CClient& Client) : m_Console(Console), m_Client(Client)
 

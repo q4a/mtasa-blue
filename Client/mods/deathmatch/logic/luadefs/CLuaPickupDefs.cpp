@@ -5,7 +5,7 @@
  *  FILE:        mods/shared_logic/luadefs/CLuaPickupDefs.cpp
  *  PURPOSE:     Lua definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -16,10 +16,7 @@ void CLuaPickupDefs::LoadFunctions()
     constexpr static const std::pair<const char*, lua_CFunction> functions[]{
         {"createPickup", CreatePickup},
 
-        {"getPickupType", GetPickupType},
-        {"getPickupWeapon", GetPickupWeapon},
-        {"getPickupAmount", GetPickupAmount},
-        {"getPickupAmmo", GetPickupAmmo},
+        {"getPickupType", GetPickupType}, {"getPickupWeapon", GetPickupWeapon}, {"getPickupAmount", GetPickupAmount}, {"getPickupAmmo", GetPickupAmmo},
 
         {"setPickupType", SetPickupType},
     };

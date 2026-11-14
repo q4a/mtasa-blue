@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/CBlipManager.cpp
  *  PURPOSE:     Blip entity manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CBlipManager.h"
+#include "CBlip.h"
+#include "Utils.h"
 
 CBlipManager::CBlipManager()
 {

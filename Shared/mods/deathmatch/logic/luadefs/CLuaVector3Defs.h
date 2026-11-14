@@ -5,7 +5,7 @@
  *  FILE:        Shared/mods/deathmatch/logic/luadefs/CLuaVector3Defs.h
  *  PURPOSE:     Lua general class functions
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,10 +13,12 @@
 
 extern "C"
 {
-    #include "lua.h"
-    #include "lualib.h"
-    #include "lauxlib.h"
+#include "lua.h"
+#include "lualib.h"
+#include "lauxlib.h"
 }
+
+#include "luadefs/CLuaDefs.h"
 
 class CLuaVector3Defs : public CLuaDefs
 {
@@ -41,6 +43,8 @@ public:
     LUA_DECLARE(GetX);
     LUA_DECLARE(GetY);
     LUA_DECLARE(GetZ);
+
+    static std::variant<CVector, bool> IntersectsSegmentTriangle(CVector origin, CVector segmentDir, CVector triVert0, CVector triVert1, CVector triVert2);
 
     LUA_DECLARE(Add);
     LUA_DECLARE(Sub);

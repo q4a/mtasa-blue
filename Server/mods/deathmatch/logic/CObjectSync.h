@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CObjectSync.h
  *  PURPOSE:     Header for object sync class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,9 +13,9 @@
 
 #ifdef WITH_OBJECT_SYNC
 
-#include "CPlayerManager.h"
-#include "CObjectManager.h"
-#include "packets/CObjectSyncPacket.h"
+    #include "CPlayerManager.h"
+    #include "CObjectManager.h"
+    #include "packets/CObjectSyncPacket.h"
 
 class CObjectSync
 {
@@ -25,7 +25,10 @@ public:
     void DoPulse();
     bool ProcessPacket(CPacket& Packet);
 
-    void OverrideSyncer(CObject* pObject, CPlayer* pPlayer);
+    void OverrideSyncer(CObject* pObject, CPlayer* pPlayer, bool bPersist = false);
+
+    void SetSyncerAsPersistent(bool bPersist) { m_bSyncPersist = bPersist; };
+    bool IsSyncerPersistent() { return m_bSyncPersist; };
 
 private:
     void     Update();
@@ -42,6 +45,8 @@ private:
     CObjectManager* m_pObjectManager;
 
     CElapsedTime m_UpdateTimer;
+
+    bool m_bSyncPersist = false;
 };
 
 #endif

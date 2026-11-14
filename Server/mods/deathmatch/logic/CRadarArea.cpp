@@ -5,11 +5,18 @@
  *  FILE:        mods/deathmatch/logic/CRadarArea.cpp
  *  PURPOSE:     Radar area entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CRadarArea.h"
+#include "CRadarAreaManager.h"
+#include "CResource.h"
+#include "CLogger.h"
+#include "Utils.h"
+#include "packets/CElementRPCPacket.h"
+#include <net/rpc_enums.h>
 
 CRadarArea::CRadarArea(CRadarAreaManager* pRadarAreaManager, CElement* pParent) : CPerPlayerEntity(pParent)
 {
@@ -103,6 +110,23 @@ bool CRadarArea::ReadSpecialData(const int iLine)
         m_usDimension = static_cast<unsigned short>(iTemp);
 
     return true;
+}
+
+void CRadarArea::WriteSpecialData(CXMLNode* pNode)
+{
+    CElement::WriteSpecialData(pNode);
+
+    CXMLAttributes& attributes = pNode->GetAttributes();
+
+    attributes.Create("posX")->SetValue(m_vecPosition.fX);
+    attributes.Create("posY")->SetValue(m_vecPosition.fY);
+
+    attributes.Create("sizeX")->SetValue(m_vecSize.fX);
+    attributes.Create("sizeY")->SetValue(m_vecSize.fY);
+
+    attributes.Create("color")->SetValue(XMLColorFromInt(m_Color.R, m_Color.G, m_Color.B, m_Color.A).c_str());
+
+    attributes.Create("dimension")->SetValue(static_cast<int>(m_usDimension));
 }
 
 void CRadarArea::SetPosition(const CVector& vecPosition)

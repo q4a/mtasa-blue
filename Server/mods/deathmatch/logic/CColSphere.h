@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CColSphere.h
  *  PURPOSE:     Sphere-shaped collision entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -17,7 +17,7 @@ class CColSphere : public CColShape
 {
 public:
     CColSphere(CColManager* pManager, CElement* pParent, const CVector& vecPosition, float fRadius, bool bIsPartnered = false);
-    CElement*       Clone(bool* bAddEntity, CResource* pResource) override;
+    CElement* Clone(bool* bAddEntity, CResource* pResource) override;
 
     virtual CSphere GetWorldBoundingSphere();
 

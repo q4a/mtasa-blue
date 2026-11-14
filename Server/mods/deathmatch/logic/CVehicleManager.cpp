@@ -5,46 +5,49 @@
  *  FILE:        mods/deathmatch/logic/CVehicleManager.cpp
  *  PURPOSE:     Vehicle entity manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CVehicleManager.h"
+#include "Utils.h"
+#include "lua/LuaCommon.h"
 
-static const SFixedArray<unsigned char, 212> g_ucMaxPassengers = {{3, 1,   1,   1,   3,   3, 0,   1,  1, 3, 1, 1,   1, 3, 1, 1,            // 400->415
-                                                                   3, 1,   3,   1,   3,   3, 1,   1,  1, 0, 3, 3,   3, 1, 0, 8,            // 416->431
-                                                                   0, 1,   1,   255, 1,   8, 3,   1,  3, 0, 1, 1,   1, 3, 0, 1,            // 432->447
-                                                                   0, 1,   255, 1,   0,   0, 0,   1,  1, 1, 3, 3,   1, 1, 1,               // 448->462
-                                                                   1, 1,   1,   3,   3,   1, 1,   3,  1, 0, 0, 1,   1, 0, 1, 1,            // 463->478
-                                                                   3, 1,   0,   3,   1,   0, 0,   0,  3, 1, 1, 3,   1, 3, 0, 1,            // 479->494
-                                                                   1, 1,   3,   3,   1,   1, 1,   1,  1, 1, 1, 1,   3, 1, 0, 0,            // 495->510
-                                                                   1, 0,   0,   1,   1,   3, 1,   1,  0, 0, 1, 1,   1, 1, 1, 1,            // 511->526
-                                                                   1, 1,   3,   0,   0,   0, 1,   1,  1, 1, 1, 1,   0, 3, 1,               // 527->541
-                                                                   1, 1,   1,   1,   3,   3, 1,   1,  3, 3, 1, 0,   1, 1, 1, 1,            // 542->557
-                                                                   1, 1,   3,   3,   1,   1, 0,   1,  3, 3, 0, 255, 1, 0, 0,               // 558->572
-                                                                   1, 0,   1,   1,   1,   1, 3,   3,  1, 3, 0, 255, 3, 1, 1, 1,            // 573->588
-                                                                   1, 255, 255, 1,   1,   1, 0,   3,  3, 3, 1, 1,   1, 1, 1,               // 589->604
-                                                                   3, 1,   255, 255, 255, 3, 255, 255}};                                   // 605->611
+static const SFixedArray<unsigned char, 212> g_ucMaxPassengers = {{3, 1,   1,   1,   3,   3, 0,   1,  1, 3, 1, 1,   1, 3, 1, 1,  // 400->415
+                                                                   3, 1,   3,   1,   3,   3, 1,   1,  1, 0, 3, 3,   3, 1, 0, 8,  // 416->431
+                                                                   0, 1,   1,   255, 1,   8, 3,   1,  3, 0, 1, 1,   1, 3, 0, 1,  // 432->447
+                                                                   0, 1,   255, 1,   0,   0, 0,   1,  1, 1, 3, 3,   1, 1, 1,     // 448->462
+                                                                   1, 1,   1,   3,   3,   1, 1,   3,  1, 0, 0, 1,   1, 0, 1, 1,  // 463->478
+                                                                   3, 1,   0,   3,   3,   0, 0,   0,  3, 1, 1, 3,   1, 3, 0, 1,  // 479->494
+                                                                   1, 1,   3,   3,   1,   1, 1,   1,  1, 1, 1, 1,   3, 1, 0, 0,  // 495->510
+                                                                   1, 0,   0,   1,   1,   3, 1,   1,  0, 0, 1, 1,   1, 1, 1, 1,  // 511->526
+                                                                   1, 1,   3,   0,   0,   0, 1,   1,  1, 1, 1, 1,   0, 3, 1,     // 527->541
+                                                                   1, 1,   1,   1,   3,   3, 1,   1,  3, 3, 1, 0,   1, 1, 1, 1,  // 542->557
+                                                                   1, 1,   3,   3,   1,   1, 0,   1,  3, 3, 0, 255, 1, 0, 0,     // 558->572
+                                                                   1, 0,   1,   1,   1,   1, 3,   3,  1, 3, 0, 255, 3, 1, 1, 1,  // 573->588
+                                                                   1, 255, 255, 1,   1,   1, 0,   3,  3, 3, 1, 1,   1, 1, 1,     // 589->604
+                                                                   3, 1,   255, 255, 255, 3, 255, 255}};                         // 605->611
 
 // List over all vehicles with their special attributes
-#define VEHICLE_HAS_TURRENT             0x001UL //1
-#define VEHICLE_HAS_SIRENS              0x002UL //2
-#define VEHICLE_HAS_LANDING_GEARS       0x004UL //4
-#define VEHICLE_HAS_ADJUSTABLE_PROPERTY 0x008UL //8
-#define VEHICLE_HAS_SMOKE_TRAIL         0x010UL //16
-#define VEHICLE_HAS_TAXI_LIGHTS         0x020UL //32
-#define VEHICLE_HAS_SEARCH_LIGHT        0x040UL //64
+#define VEHICLE_HAS_TURRENT             0x001UL  // 1
+#define VEHICLE_HAS_SIRENS              0x002UL  // 2
+#define VEHICLE_HAS_LANDING_GEARS       0x004UL  // 4
+#define VEHICLE_HAS_ADJUSTABLE_PROPERTY 0x008UL  // 8
+#define VEHICLE_HAS_SMOKE_TRAIL         0x010UL  // 16
+#define VEHICLE_HAS_TAXI_LIGHTS         0x020UL  // 32
+#define VEHICLE_HAS_SEARCH_LIGHT        0x040UL  // 64
 
 // Generated by MTA10\utils\gentable\gentable_vehattr.cpp
 static const SFixedArray<unsigned long, 212> g_ulVehicleAttributes = {
-    {0, 0, 0, 0, 0, 0, 8, 3, 0, 0, 0, 0, 0,  0,  0, 0, 2, 0,  0, 0, 32, 0, 0,  2, 0,            // 400-424
-     0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,  32, 0, 0, 0, 0,  8, 0, 0,  0, 0,  0, 0,            // 425-449
-     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0,  0, 0,  0, 0,            // 450-474
-     0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0,  0,  0, 2, 0, 0,  0, 0, 0,  0, 64, 0, 0,            // 475-499
-     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 16, 0, 0, 0, 0,  0, 4, 12, 0, 0,  2, 8,            // 500-524
-     8, 0, 0, 2, 0, 8, 8, 0, 0, 0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 2, 0,  0, 0,  0, 0,            // 525-549
-     0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0,  0, 0,  0, 0,            // 550-574
-     0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0, 0, 0, 12, 0, 0, 0,  2, 2,  2, 2,            // 575-599
+    {0, 0, 0, 0, 0, 0, 8, 3, 0, 0, 0, 0, 0,  0,  0, 0, 2, 0,  0, 0, 32, 0, 0,  2, 0,  // 400-424
+     0, 0, 2, 0, 0, 0, 0, 3, 2, 0, 0, 0, 0,  32, 0, 0, 0, 0,  8, 0, 0,  0, 0,  0, 0,  // 425-449
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0,  0, 0,  0, 0,  // 450-474
+     0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0,  0,  0, 2, 0, 0,  0, 0, 0,  0, 64, 0, 0,  // 475-499
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 16, 0, 0, 0, 0,  0, 4, 12, 0, 0,  2, 8,  // 500-524
+     8, 0, 0, 2, 0, 8, 8, 0, 0, 0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 2, 0,  0, 0,  0, 0,  // 525-549
+     0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0,  0, 0,  0, 0,  // 550-574
+     0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0, 0, 0, 12, 0, 0, 0,  2, 2,  2, 2,  // 575-599
      0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
 
 static const SFixedArray<eVehicleType, 212> gs_vehicleTypes = {
@@ -494,6 +497,23 @@ void CVehicleManager::GetRandomVariation(unsigned short usModel, unsigned char& 
     }
 }
 
+bool CVehicleManager::IsVariationValidForModel(unsigned short usModel, unsigned char ucVariant, unsigned char ucVariant2)
+{
+    if (!IsValidModel(usModel) || g_ucVariants[usModel - 400] == 255)
+        return true;
+
+    if (usModel == 457 || usModel == 512)
+        return (ucVariant == 255 || ucVariant <= 2) && ucVariant2 >= 3 && ucVariant2 <= 5;
+
+    if (usModel == 535)
+        return ucVariant <= g_ucVariants[usModel - 400];
+
+    if (usModel == 522 || usModel == 581)
+        return (ucVariant == 255 || ucVariant <= 2) && ucVariant2 >= 3 && ucVariant2 <= 4;
+
+    return ucVariant == 255 || ucVariant <= g_ucVariants[usModel - 400];
+}
+
 bool CVehicleManager::HasTurret(unsigned int uiModel)
 {
     return (IsValidModel(uiModel) && (g_ulVehicleAttributes[uiModel - 400] & VEHICLE_HAS_TURRENT));
@@ -572,6 +592,7 @@ bool CVehicleManager::HasDoors(unsigned short usModel)
             case VT_MOWER:
             case VT_RCCAM:
             case VT_RCGOBLIN:
+            case VT_BLOODRA:
                 break;
             default:
                 bHasDoors = true;
@@ -591,8 +612,8 @@ void CVehicleManager::GetVehiclesOfType(unsigned int uiModel, lua_State* luaVM)
     assert(luaVM);
 
     // Add all the matching vehicles to the table
-    unsigned int              uiIndex = 0;
-    list<CVehicle*>::iterator iter = m_List.begin();
+    unsigned int                   uiIndex = 0;
+    std::list<CVehicle*>::iterator iter = m_List.begin();
     for (; iter != m_List.end(); ++iter)
     {
         if ((*iter)->GetModel() == uiModel)

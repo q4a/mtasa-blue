@@ -71,7 +71,7 @@ int CLuaFunctionDefs::AddEventHandler(lua_State* luaVM)
         }
 
         if (!StringToEnum(strPriority, eventPriority))
-            argStream.SetTypeError(GetEnumTypeName(eventPriority), 5);            // priority is argument #5
+            argStream.SetTypeError(GetEnumTypeName(eventPriority), 5);  // priority is argument #5
     }
 
     if (!argStream.HasErrors())
@@ -244,8 +244,8 @@ int CLuaFunctionDefs::TriggerServerEvent(lua_State* luaVM)
                     // Extra arguments begin at argument 3
                     if (pEntity)
                     {
-                        m_pScriptDebugging->LogError(luaVM, "clientside element '%s' at argument %u @ 'triggerServerEvent'",
-                                                     pEntity->GetTypeName().c_str(), i + 3);
+                        m_pScriptDebugging->LogError(luaVM, "clientside element '%s' at argument %u @ 'triggerServerEvent'", pEntity->GetTypeName().c_str(),
+                                                     i + 3);
                     }
                     else
                     {

@@ -5,7 +5,7 @@
  *  FILE:        xml/CXMLImpl.cpp
  *  PURPOSE:     XML handler class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,7 +13,7 @@
 #define ALLOC_STATS_MODULE_NAME "xml"
 #include <sys/stat.h>
 #ifndef MAX_PATH
-#define MAX_PATH 260
+    #define MAX_PATH 260
 #endif
 #include "SharedUtil.hpp"
 
@@ -43,25 +43,37 @@ void CXMLImpl::DeleteXML(CXMLFile* pFile)
 
 std::unique_ptr<SXMLString> CXMLImpl::ParseString(const char* strXmlContent)
 {
-    TiXmlDocument* xmlDoc = new TiXmlDocument();
+    tinyxml2::XMLDocument* xmlDoc = new tinyxml2::XMLDocument();
     if (xmlDoc)
     {
-        xmlDoc->Parse(strXmlContent, 0, TIXML_DEFAULT_ENCODING);
+        xmlDoc->Parse(strXmlContent);
         if (!xmlDoc->Error())
         {
-            TiXmlElement* xmlDocumentRoot = xmlDoc->RootElement();
-            CXMLNodeImpl* xmlBaseNode = new CXMLNodeImpl(nullptr, nullptr, *xmlDocumentRoot);
-            xmlBaseNode->BuildFromDocument();
-            return std::unique_ptr<SXMLString>(new SXMLStringImpl(xmlDoc, xmlBaseNode));
+            tinyxml2::XMLElement* xmlDocumentRoot = xmlDoc->RootElement();
+
+            if (xmlDocumentRoot)
+            {
+                CXMLNodeImpl* xmlBaseNode = new CXMLNodeImpl(nullptr, nullptr, *xmlDocumentRoot);
+
+                if (xmlBaseNode && xmlBaseNode->IsValid())
+                {
+                    xmlBaseNode->BuildFromDocument();
+                    return std::unique_ptr<SXMLString>(new SXMLStringImpl(xmlDoc, xmlBaseNode));
+                }
+            }
         }
     }
     return nullptr;
 }
 
-
 CXMLNode* CXMLImpl::CreateDummyNode()
 {
-    CXMLNode* xmlNode = new CXMLNodeImpl(nullptr, nullptr, *new TiXmlElement("dummy_storage"));
+    // Create a document to own the dummy element. CXMLNodeImpl will take
+    // ownership of the document and clean it up on destruction.
+    auto*         doc = new tinyxml2::XMLDocument();
+    auto*         elem = doc->NewElement("dummy_storage");
+    CXMLNodeImpl* xmlNode = new CXMLNodeImpl(nullptr, nullptr, *elem);
+    xmlNode->m_standaloneDocument.reset(doc);
     if (xmlNode->IsValid())
         return xmlNode;
     delete xmlNode;

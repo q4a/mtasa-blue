@@ -5,7 +5,7 @@
  *  FILE:        game_sa/CMonsterTruckSA.h
  *  PURPOSE:     Header file for monster truck vehicle entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -19,11 +19,10 @@ class CMonsterTruckSAInterface : public CAutomobileSAInterface
     // fill this
 };
 
-class CMonsterTruckSA : public CMonsterTruck, public CAutomobileSA
+class CMonsterTruckSA final : public virtual CMonsterTruck, public virtual CAutomobileSA
 {
-private:
-    //  CBoatSAInterface        * internalInterface;
 public:
-    CMonsterTruckSA(CMonsterTruckSAInterface* monstertruck);
-    CMonsterTruckSA(eVehicleTypes dwModelID, unsigned char ucVariation, unsigned char ucVariation2);
+    CMonsterTruckSA(CMonsterTruckSAInterface* pInterface);
+
+    CMonsterTruckSAInterface* GetMonsterTruckInterface() { return reinterpret_cast<CMonsterTruckSAInterface*>(GetInterface()); }
 };

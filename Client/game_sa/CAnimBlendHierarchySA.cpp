@@ -5,11 +5,14 @@
  *  FILE:        game_sa/CAnimBlendHierarchySA.cpp
  *  PURPOSE:     Animation blend hierarchy
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CAnimBlendHierarchySA.h"
+#include "CAnimManagerSA.h"
+#include "CAnimBlendSequenceSA.h"
 
 // Careful, GetIndex will not work for custom animations
 int CAnimBlendHierarchySAInterface::GetIndex()
@@ -32,56 +35,66 @@ void CAnimBlendHierarchySA::SetName(const char* szName)
 {
     DWORD dwThis = (DWORD)m_pInterface;
     DWORD dwFunc = FUNC_CAnimBlendHierarchy_SetName;
-    _asm
+    // clang-format off
+    __asm
     {
         push    szName
         mov     ecx, dwThis
         call    dwFunc
     }
+    // clang-format on
 }
 
 void CAnimBlendHierarchySA::RemoveAnimSequences()
 {
     DWORD dwThis = (DWORD)m_pInterface;
     DWORD dwFunc = FUNC_CAnimBlendHierarchy_RemoveAnimSequences;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThis
         call    dwFunc
     }
+    // clang-format on
 }
 
 void CAnimBlendHierarchySA::RemoveFromUncompressedCache()
 {
     DWORD dwThis = (DWORD)m_pInterface;
     DWORD dwFunc = FUNC_CAnimBlendHierarchy_RemoveFromUncompressedCache;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThis
         call    dwFunc
     }
+    // clang-format on
 }
 
 void CAnimBlendHierarchySA::RemoveQuaternionFlips()
 {
     DWORD dwThis = (DWORD)m_pInterface;
     DWORD dwFunc = FUNC_CAnimBlendHierarchy_RemoveQuaternionFlips;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThis
         call    dwFunc
     }
+    // clang-format on
 }
 
 void CAnimBlendHierarchySA::CalculateTotalTime()
 {
     DWORD dwThis = (DWORD)m_pInterface;
     DWORD dwFunc = FUNC_CAnimBlendHierarchy_CalculateTotalTime;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThis
         call    dwFunc
     }
+    // clang-format on
 }
 
 CAnimBlendSequenceSAInterface* CAnimBlendHierarchySA::GetSequence(DWORD dwIndex)

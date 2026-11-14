@@ -50,7 +50,7 @@ RpClump* CClientDFF::GetLoadedClump(ushort usModelId)
         m_pManager->GetModelRequestManager()->RequestBlocking(usModelId, "CClientDFF::LoadDFF");
 
         // Attempt loading it
-        if (!m_bIsRawData)            // We have file
+        if (!m_bIsRawData)  // We have file
         {
             if (g_pCore->GetNetwork()->CheckFile("dff", m_strDffFilename))
             {
@@ -58,7 +58,7 @@ RpClump* CClientDFF::GetLoadedClump(ushort usModelId)
                 info.pClump = g_pGame->GetRenderWare()->ReadDFF(m_strDffFilename, SString(), usModelId, CClientVehicleManager::IsValidModel(usModelId));
             }
         }
-        else            // We have raw data
+        else  // We have raw data
         {
             info.pClump = g_pGame->GetRenderWare()->ReadDFF(NULL, m_RawDataBuffer, usModelId, CClientVehicleManager::IsValidModel(usModelId));
 
@@ -97,6 +97,23 @@ void CClientDFF::UnloadDFF()
     }
 
     m_LoadedClumpInfoMap.clear();
+}
+
+bool CClientDFF::AddClothingModel(const std::string& modelName)
+{
+    if (modelName.empty())
+        return false;
+
+    if (m_RawDataBuffer.empty() && m_bIsRawData)
+        return false;
+
+    if (m_RawDataBuffer.empty())
+    {
+        if (!FileLoad(std::nothrow, m_strDffFilename, m_RawDataBuffer))
+            return false;
+    }
+
+    return g_pGame->GetRenderWare()->ClothesAddFile(m_RawDataBuffer.data(), m_RawDataBuffer.size(), modelName.c_str());
 }
 
 bool CClientDFF::ReplaceModel(unsigned short usModel, bool bAlphaTransparency)
@@ -139,6 +156,9 @@ bool CClientDFF::DoReplaceModel(unsigned short usModel, bool bAlphaTransparency)
     if (!CClientDFFManager::IsReplacableModel(usModel))
         return false;
 
+    if (CClientPlayerClothes::IsValidModel(usModel))
+        return ReplaceClothes(usModel);
+
     // Get clump loaded for this model id
     RpClump* pClump = GetLoadedClump(usModel);
 
@@ -163,6 +183,16 @@ bool CClientDFF::DoReplaceModel(unsigned short usModel, bool bAlphaTransparency)
         else if (CClientPlayerManager::IsValidModel(usModel))
         {
             return ReplacePedModel(pClump, usModel, bAlphaTransparency);
+        }
+        else if (CClientMarkerManager::IsMarkerModel(usModel))
+        {
+            bool wasReplaced = ReplaceObjectModel(pClump, usModel, bAlphaTransparency);
+
+            // 'Restream' 3D markers
+            if (wasReplaced)
+                g_pClientGame->ReinitMarkers();
+
+            return wasReplaced;
         }
         else if (CClientObjectManager::IsValidModel(usModel))
         {
@@ -219,6 +249,9 @@ void CClientDFF::RestoreModels()
         InternalRestoreModel(*iter);
     }
 
+    // Remove all clothes models
+    g_pGame->GetRenderWare()->ClothesRemoveFile(m_RawDataBuffer.data());
+
     // Clear the list
     m_Replaced.clear();
 }
@@ -228,6 +261,8 @@ void CClientDFF::InternalRestoreModel(unsigned short usModel)
     // Is this a vehicle ID?
     if (CClientVehicleManager::IsValidModel(usModel))
     {
+        m_pManager->GetVehicleManager()->OnModelReplaced(usModel);
+
         // Stream the vehicles of that model out so we have no
         // loaded when we do the restore. The streamer will
         // eventually stream them back in with async loading.
@@ -258,6 +293,12 @@ void CClientDFF::InternalRestoreModel(unsigned short usModel)
         m_pManager->GetObjectManager()->RestreamObjects(usModel);
         g_pGame->GetModelInfo(usModel)->RestreamIPL();
     }
+    // Is This a clothe ID?
+    else if (CClientPlayerClothes::IsValidModel(usModel))
+    {
+        g_pGame->GetRenderWare()->ClothesRemoveReplacement(m_RawDataBuffer.data());
+        return;
+    }
     else
         return;
 
@@ -272,6 +313,10 @@ void CClientDFF::InternalRestoreModel(unsigned short usModel)
     if (CClientObjectManager::IsValidModel(usModel) && CVehicleUpgrades::IsUpgrade(usModel))
         m_pManager->GetVehicleManager()->RestreamVehicleUpgrades(usModel);
 
+    // 'Restream' 3D markers
+    if (CClientMarkerManager::IsMarkerModel(usModel))
+        g_pClientGame->ReinitMarkers();
+
     // Force dff reload if this model id is used again
     SLoadedClumpInfo* pInfo = MapFind(m_LoadedClumpInfoMap, usModel);
     if (pInfo)
@@ -280,6 +325,22 @@ void CClientDFF::InternalRestoreModel(unsigned short usModel)
             g_pGame->GetRenderWare()->DestroyDFF(pInfo->pClump);
         MapRemove(m_LoadedClumpInfoMap, usModel);
     }
+}
+
+bool CClientDFF::ReplaceClothes(ushort usModel)
+{
+    if (m_RawDataBuffer.empty() && m_bIsRawData)
+        return false;
+
+    if (m_RawDataBuffer.empty())
+    {
+        if (!FileLoad(std::nothrow, m_strDffFilename, m_RawDataBuffer))
+            return false;
+    }
+
+    m_Replaced.push_back(usModel);
+    g_pGame->GetRenderWare()->ClothesAddReplacement(m_RawDataBuffer.data(), m_RawDataBuffer.size(), usModel - CLOTHES_MODEL_ID_FIRST);
+    return true;
 }
 
 bool CClientDFF::ReplaceObjectModel(RpClump* pClump, ushort usModel, bool bAlphaTransparency)
@@ -292,7 +353,9 @@ bool CClientDFF::ReplaceObjectModel(RpClump* pClump, ushort usModel, bool bAlpha
 
     // Grab the model info for that model and replace the model
     CModelInfo* pModelInfo = g_pGame->GetModelInfo(usModel);
-    pModelInfo->SetCustomModel(pClump);
+
+    if (!pModelInfo->SetCustomModel(pClump))
+        return false;
 
     pModelInfo->SetAlphaTransparencyEnabled(bAlphaTransparency);
 
@@ -313,7 +376,9 @@ bool CClientDFF::ReplaceWeaponModel(RpClump* pClump, ushort usModel, bool bAlpha
 
     // Grab the model info for that model and replace the model
     CModelInfo* pModelInfo = g_pGame->GetModelInfo(usModel);
-    pModelInfo->SetCustomModel(pClump);
+
+    if (!pModelInfo->SetCustomModel(pClump))
+        return false;
 
     pModelInfo->SetAlphaTransparencyEnabled(bAlphaTransparency);
 
@@ -333,7 +398,9 @@ bool CClientDFF::ReplacePedModel(RpClump* pClump, ushort usModel, bool bAlphaTra
 
     // Grab the model info for that model and replace the model
     CModelInfo* pModelInfo = g_pGame->GetModelInfo(usModel);
-    pModelInfo->SetCustomModel(pClump);
+
+    if (!pModelInfo->SetCustomModel(pClump))
+        return false;
 
     pModelInfo->SetAlphaTransparencyEnabled(bAlphaTransparency);
 
@@ -351,7 +418,9 @@ bool CClientDFF::ReplaceVehicleModel(RpClump* pClump, ushort usModel, bool bAlph
 
     // Grab the model info for that model and replace the model
     CModelInfo* pModelInfo = g_pGame->GetModelInfo(usModel);
-    pModelInfo->SetCustomModel(pClump);
+
+    if (!pModelInfo->SetCustomModel(pClump))
+        return false;
 
     pModelInfo->ResetVehicleWheelSizes();
 
@@ -359,6 +428,8 @@ bool CClientDFF::ReplaceVehicleModel(RpClump* pClump, ushort usModel, bool bAlph
 
     // Remember that we've replaced that vehicle model
     m_Replaced.push_back(usModel);
+
+    m_pManager->GetVehicleManager()->OnModelReplaced(usModel);
 
     // Stream out all the vehicle models with matching ID.
     // Streamer will stream them back in async after a frame

@@ -5,14 +5,13 @@
  *  FILE:        sdk/game/CGarages.h
  *  PURPOSE:     Garage manager interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-#include "CGarage.h"
-#include "Common.h"
+class CGarage;
 
 #define MAX_GARAGES 50
 

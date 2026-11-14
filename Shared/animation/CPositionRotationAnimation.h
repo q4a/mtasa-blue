@@ -12,6 +12,11 @@
 
 #pragma once
 
+#include "TInterpolation.h"
+#include "CVector.h"
+
+class NetBitStreamInterface;
+
 struct SPositionRotation
 {
     SPositionRotation() {}
@@ -60,5 +65,5 @@ public:
     static CPositionRotationAnimation* FromBitStream(NetBitStreamInterface& a_rBitStream);
 
 protected:
-    bool m_bDeltaRotationMode;            // defines if the rotation provided is a relative rotation
+    bool m_bDeltaRotationMode;  // defines if the rotation provided is a relative rotation
 };

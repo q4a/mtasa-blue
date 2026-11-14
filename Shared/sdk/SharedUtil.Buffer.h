@@ -5,7 +5,7 @@
  *  FILE:        SharedUtil.Buffer.h
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 #pragma once
@@ -15,7 +15,6 @@
 #include "SharedUtil.Misc.h"
 #include "SharedUtil.File.h"
 #include "SString.h"
-
 
 namespace SharedUtil
 {
@@ -36,9 +35,9 @@ namespace SharedUtil
         operator T*() { return buffer.empty() ? nullptr : reinterpret_cast<T*>(&buffer.at(0)); }
     };
 
-    // Assuming compiled on little endian machine
-    #define CBUFFER_LITTLE_ENDIAN
-    //#define CBUFFER_BIG_ENDIAN
+// Assuming compiled on little endian machine
+#define CBUFFER_LITTLE_ENDIAN
+    // #define CBUFFER_BIG_ENDIAN
 
     //////////////////////////////////////////////////////
     //
@@ -53,6 +52,7 @@ namespace SharedUtil
         CBuffer() {}
         CBuffer(const void* pData, uint uiSize) { AddBytes(pData, uiSize, 0); }
 
+        void ZeroClear() { std::fill(begin(), end(), 0); }
         void Clear() { clear(); }
 
         bool IsEmpty() const { return empty(); }
@@ -210,15 +210,15 @@ namespace SharedUtil
             Seek(Tell());
 
             if (!pBuffer->GetBytes(pData, iLength, Tell(), bToFromNetwork))
-                return false;            // Not enough bytes left to fill request
+                return false;  // Not enough bytes left to fill request
 
             // Adjust pos
             Seek(Tell() + iLength);
             return true;
         }
 
-        void Read(SString&);            // Not defined as it won't work
-        void Read(CBuffer&);            // Not defined as it won't work
+        void Read(SString&);  // Not defined as it won't work
+        void Read(CBuffer&);  // Not defined as it won't work
         bool ReadString(SString& result, bool bByteLength = false, bool bDoesLengthIncludeLengthOfLength = false)
         {
             result = "";
@@ -289,7 +289,7 @@ namespace SharedUtil
             return ReadBytes(&e, sizeof(e), m_bToFromNetwork);
         }
 
-#ifdef ANY_x64
+#if defined(ANY_x64) || defined(ANY_arm64)
         // Force all these types to use 4 bytes
         bool Read(unsigned long& e)
         {
@@ -343,8 +343,8 @@ namespace SharedUtil
             Seek(Tell() + iLength);
         }
 
-        void Write(const SString&);            // Not defined as it won't work
-        void Write(const CBuffer&);            // Not defined as it won't work
+        void Write(const SString&);  // Not defined as it won't work
+        void Write(const CBuffer&);  // Not defined as it won't work
         void WriteString(const SString& str, bool bByteLength = false, bool bDoesLengthIncludeLengthOfLength = false)
         {
             ushort usLength = (ushort)str.length();
@@ -385,7 +385,7 @@ namespace SharedUtil
             WriteBytes(&e, sizeof(e), m_bToFromNetwork);
         }
 
-#ifdef ANY_x64
+#if defined(ANY_x64) || defined(ANY_arm64)
         // Force all these types to use 4 bytes
         void Write(unsigned long e) { Write((uint)e); }
         void Write(long e) { Write((int)e); }
@@ -395,4 +395,4 @@ namespace SharedUtil
 #endif
     };
 
-}            // namespace SharedUtil
+}  // namespace SharedUtil

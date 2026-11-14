@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/packets/CVehicleResyncPacket.h
  *  PURPOSE:     Vehicle re-synchronization packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,7 +13,8 @@
 
 #include "CCommon.h"
 #include "CPacket.h"
-#include "CVehicle.h"
+
+class CVehicle;
 
 class CVehicleResyncPacket final : public CPacket
 {

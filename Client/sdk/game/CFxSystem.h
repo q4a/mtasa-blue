@@ -5,13 +5,15 @@
  *  FILE:        sdk/game/CFxSystem.h
  *  PURPOSE:     Game effects interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-#include "RenderWare.h"
+class CMatrix;
+class CVector;
+
 class CFxSystem
 {
 public:

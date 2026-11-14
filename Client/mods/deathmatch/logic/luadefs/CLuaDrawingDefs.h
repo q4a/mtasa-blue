@@ -5,7 +5,7 @@
  *  FILE:        mods/shared_logic/luadefs/CLuaDrawingDefs.cpp
  *  PURPOSE:     Lua drawing definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -41,9 +41,9 @@ public:
         const std::optional<std::variant<CVector2D, float>> optScaleXY, const std::optional<bool> optWordBreak, const std::optional<bool> optColorCoded);
 
     static inline CLuaMultiReturn<float, float> DxGetTextSize(std::string text, std::optional<float> optWidth,
-                                                         std::optional<std::variant<CVector2D, float>>          optScaleXY,
-                                                         std::optional<std::variant<CClientDxFont*, eFontType>> optFont, std::optional<bool> optWordBreak,
-                                                         std::optional<bool> optColorCoded)
+                                                              std::optional<std::variant<CVector2D, float>>          optScaleXY,
+                                                              std::optional<std::variant<CClientDxFont*, eFontType>> optFont, std::optional<bool> optWordBreak,
+                                                              std::optional<bool> optColorCoded)
     {
         const auto size = OOP_DxGetTextSize(std::move(optFont.value_or(FONT_DEFAULT)), std::move(text), std::move(optWidth), std::move(optScaleXY),
                                             std::move(optWordBreak), std::move(optColorCoded));
@@ -81,6 +81,9 @@ public:
 
     static bool DxDrawWiredSphere(lua_State* const luaVM, const CVector position, const float radius, const std::optional<SColor> color,
                                   const std::optional<float> lineWidth, const std::optional<unsigned int> iterations);
+
+    static bool DxDrawModel3D(std::uint32_t modelID, CVector position, CVector rotation, const std::optional<CVector> scale,
+                              const std::optional<float> lighting);
 
 private:
     static void AddDxMaterialClass(lua_State* luaVM);

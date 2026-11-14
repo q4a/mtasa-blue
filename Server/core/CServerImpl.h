@@ -5,7 +5,7 @@
  *  FILE:        core/CServerImpl.h
  *  PURPOSE:     Server class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -28,20 +28,20 @@ class CServerImpl;
 
 typedef CXML* (*InitXMLInterface)(const char* szSaveFlagDirectory);
 typedef CNetServer* (*InitNetServerInterface)();
+typedef void (*ReleaseNetServerInterface)();
 
 #ifdef WIN32
-typedef void(FClientFeedback)(const char* szText);
 constexpr SHORT SCREEN_BUFFER_SIZE = 256;
 #endif
 
 class CServerImpl : public CServerInterface
 {
 public:
-    #ifdef WIN32
+#ifdef WIN32
     CServerImpl(CThreadCommandQueue* pThreadCommandQueue);
-    #else
+#else
     CServerImpl();
-    #endif
+#endif
 
     ~CServerImpl();
 
@@ -67,6 +67,9 @@ public:
     bool HasConsole();
 #endif
 
+    void SetExitCode(int exitCode) { m_exitCode = exitCode; }
+    int  GetExitCode() const { return m_exitCode; }
+
 private:
     void MainLoop();
 
@@ -86,10 +89,6 @@ private:
     CModManagerImpl* m_pModManager;
     CXML*            m_pXML;
 
-#ifdef WIN32
-    FClientFeedback* m_fClientFeedback;
-#endif
-
     SString m_strServerPath;
     SString m_strServerModPath;
 
@@ -104,8 +103,10 @@ private:
     double m_dLastTimeMs;
     double m_dPrevOverrun;
 
-    std::vector<std::vector<SString>> m_vecCommandHistory = {{"", ""}};
-    uint                              m_uiSelectedCommandHistoryEntry = 0;
+    int m_exitCode;
+
+    std::vector<std::vector<std::wstring>> m_vecCommandHistory = {{L"", L""}};
+    uint                                   m_uiSelectedCommandHistoryEntry = 0;
 
 #ifdef WIN32
     HANDLE    m_hConsole;

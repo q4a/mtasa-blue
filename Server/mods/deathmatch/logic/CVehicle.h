@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CVehicle.h
  *  PURPOSE:     Vehicle entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -20,9 +20,9 @@ class CVehicle;
 #include "CVehicleUpgrades.h"
 #include "CHandlingEntry.h"
 
-#define MAX_VEHICLE_SEATS 9
+#define MAX_VEHICLE_SEATS      9
 #define DEFAULT_VEHICLE_HEALTH 1000
-#define MAX_VEHICLE_HEALTH 10000
+#define MAX_VEHICLE_HEALTH     10000
 
 enum eWheelStatus
 {
@@ -111,10 +111,53 @@ enum eVehicleType
     VEHICLE_TRAILER
 };
 
+enum class eCarNodes
+{
+    NONE = 0,
+    CHASSIS,
+    WHEEL_RF,
+    WHEEL_RM,
+    WHEEL_RB,
+    WHEEL_LF,
+    WHEEL_LM,
+    WHEEL_LB,
+    DOOR_RF,
+    DOOR_RR,
+    DOOR_LF,
+    DOOR_LR,
+    BUMP_FRONT,
+    BUMP_REAR,
+    WING_RF,
+    WING_LF,
+    BONNET,
+    BOOT,
+    WINDSCREEN,
+    EXHAUST,
+    MISC_A,
+    MISC_B,
+    MISC_C,
+    MISC_D,
+    MISC_E,
+
+    NUM_NODES
+};
+
+enum class eCarComponentCollisionTypes
+{
+    COL_NODE_BUMPER = 0,
+    COL_NODE_WHEEL,
+    COL_NODE_DOOR,
+    COL_NODE_BONNET,
+    COL_NODE_BOOT,
+    COL_NODE_PANEL,
+
+    COL_NODES_NUM
+};
+
 #define SIREN_TYPE_FIRST 1
-#define SIREN_TYPE_LAST 6
-#define SIREN_ID_MAX 7
-#define SIREN_COUNT_MAX 8
+#define SIREN_TYPE_LAST  6
+#define SIREN_ID_MAX     7
+#define SIREN_COUNT_MAX  8
 
 struct SSirenBeaconInfo
 {
@@ -134,6 +177,13 @@ struct SSirenInfo
     unsigned char                    m_ucSirenType;
     unsigned char                    m_ucSirenCount;
     SFixedArray<SSirenBeaconInfo, 8> m_tSirenInfo;
+};
+
+enum class VehicleBlowState : unsigned char
+{
+    INTACT,
+    AWAITING_EXPLOSION_SYNC,
+    BLOWN,
 };
 
 class CTrainTrack;
@@ -187,7 +237,7 @@ public:
     void           SetTurnSpeed(const CVector& vecTurnSpeed) { m_vecTurnSpeed = vecTurnSpeed; };
 
     float GetHealth() { return m_fHealth; };
-    void  SetHealth(float fHealth) { m_fHealth = fHealth; };
+    void  SetHealth(float fHealth);
     float GetLastSyncedHealth() { return m_fLastSyncedHealthHealth; };
     void  SetLastSyncedHealth(float fHealth) { m_fLastSyncedHealthHealth = fHealth; };
 
@@ -314,16 +364,18 @@ public:
     void           SetRespawnRotationDegrees(const CVector& vecRotation) { m_vecRespawnRotationDegrees = vecRotation; };
     float          GetRespawnHealth() { return m_fRespawnHealth; };
     void           SetRespawnHealth(float fHealth) { m_fRespawnHealth = fHealth; };
-    bool           GetRespawnEnabled() { return m_bRespawnEnabled; }
+    bool           GetRespawnEnabled() const noexcept { return m_bRespawnEnabled; }
     void           SetRespawnEnabled(bool bEnabled);
+    std::uint32_t  GetBlowRespawnInterval() const noexcept { return m_ulBlowRespawnInterval; }
     void           SetBlowRespawnInterval(unsigned long ulTime) { m_ulBlowRespawnInterval = ulTime; }
+    std::uint32_t  GetIdleRespawnInterval() const noexcept { return m_ulIdleRespawnInterval; }
     void           SetIdleRespawnInterval(unsigned long ulTime) { m_ulIdleRespawnInterval = ulTime; }
 
     void SpawnAt(const CVector& vecPosition, const CVector& vecRotation);
     void Respawn();
 
-    void                  GenerateHandlingData();
-    CHandlingEntry*       GetHandlingData() { return m_pHandlingEntry; };
+    void            GenerateHandlingData() noexcept;
+    CHandlingEntry* GetHandlingData() noexcept { return m_HandlingEntry.get(); };
 
     uint GetTimeSinceLastPush() { return (uint)(CTickCount::Now(true) - m_LastPushedTime).ToLongLong(); }
     void ResetLastPushTime() { m_LastPushedTime = CTickCount::Now(true); }
@@ -337,9 +389,17 @@ public:
 
     void ResetDoors();
     void ResetDoorsWheelsPanelsLights();
-    void SetIsBlown(bool bBlown);
-    bool GetIsBlown() const noexcept { return m_llBlowTime.ToLongLong() != 0; }
+
     bool IsBlowTimerFinished();
+    void ResetExplosionTimer();
+
+    bool             IsBlown() const noexcept { return m_blowState != VehicleBlowState::INTACT; }
+    void             SetBlowState(VehicleBlowState state);
+    VehicleBlowState GetBlowState() const noexcept { return m_blowState; }
+
+    bool IsOnFire() const noexcept override { return m_onFire; }
+    void SetOnFire(bool onFire) noexcept override { m_onFire = onFire; }
+
     void StopIdleTimer();
     void RestartIdleTimer();
     bool IsIdleTimerRunning();
@@ -350,6 +410,7 @@ public:
 
 protected:
     bool ReadSpecialData(const int iLine) override;
+    void WriteSpecialData(CXMLNode* pNode) override;
 
 private:
     class CVehicleManager* m_pVehicleManager;
@@ -368,6 +429,8 @@ private:
     float          m_fLastSyncedHealthHealth;
     CTickCount     m_llBlowTime;
     CTickCount     m_llIdleTime;
+
+    VehicleBlowState m_blowState = VehicleBlowState::INTACT;
 
     unsigned char m_ucMaxPassengersOverride;
 
@@ -426,18 +489,20 @@ private:
     unsigned short m_usAdjustableProperty;
     bool           m_bCollisionsEnabled;
 
-    CHandlingEntry* m_pHandlingEntry;
-    bool            m_bHandlingChanged;
+    std::unique_ptr<CHandlingEntry> m_HandlingEntry;
+    bool                            m_bHandlingChanged;
 
     unsigned char m_ucVariant;
     unsigned char m_ucVariant2;
+
+    bool m_onFire;
 
     CTickCount m_LastPushedTime;
     CVector    m_vecStationaryCheckPosition;
     bool       m_bNeedsDimensionResync;
     ushort     m_usLastUnoccupiedSyncDimension;
 
-public:            // 'Safe' variables (that have no need for accessors)
+public:  // 'Safe' variables (that have no need for accessors)
     bool                                   m_bDamageProof;
     uint                                   m_uiDamageInfoSendPhase;
     SFixedArray<unsigned char, MAX_DOORS>  m_ucDoorStates;

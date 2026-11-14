@@ -15,8 +15,8 @@
  *        Although this is exposed by the json_object_get_array() method,
  *        it is not recommended for direct use.
  */
-#ifndef _arraylist_h_
-#define _arraylist_h_
+#ifndef _json_c_arraylist_h_
+#define _json_c_arraylist_h_
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,9 +62,17 @@ extern void array_list_free(struct array_list *al);
 
 extern void *array_list_get_idx(struct array_list *al, size_t i);
 
+extern int array_list_insert_idx(struct array_list *al, size_t i, void *data);
+
 extern int array_list_put_idx(struct array_list *al, size_t i, void *data);
 
 extern int array_list_add(struct array_list *al, void *data);
+
+/**
+ * Set the value at index i.  Caller is responsible for freeing the previous value.
+ * To automatically free the existing value, use array_list_put_idx() instead.
+ */
+extern int array_list_set_idx(struct array_list *al, size_t i, void *data);
 
 extern size_t array_list_length(struct array_list *al);
 

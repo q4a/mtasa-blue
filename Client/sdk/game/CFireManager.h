@@ -5,23 +5,22 @@
  *  FILE:        sdk/game/CFireManager.h
  *  PURPOSE:     Fire entity manager interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-#include <CVector.h>
-#include "CFire.h"
-#include "CEntity.h"
+class CFire;
+class CVector;
 
 class CFireManager
 {
 public:
-    virtual VOID ExtinguishPoint(CVector& vecPosition, float fRadius) = 0;
+    virtual void ExtinguishPoint(CVector& vecPosition, float fRadius) = 0;
     // doesn't work, use below instead
     // virtual CFire                 * StartFire ( CEntity * entityTarget, CEntity * entityCreator, float fSize )=0;
     virtual CFire* StartFire(CVector& vecPosition, float fSize) = 0;
-    virtual VOID   ExtinguishAllFires() = 0;
+    virtual void   ExtinguishAllFires() = 0;
     virtual CFire* GetFire(DWORD ID) = 0;
 };

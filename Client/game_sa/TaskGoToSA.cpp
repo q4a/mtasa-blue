@@ -5,11 +5,12 @@
  *  FILE:        game_sa/TaskGoToSA.cpp
  *  PURPOSE:     Go-to game tasks
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "TaskGoToSA.h"
 
 // ##############################################################################
 // ## Name:    CTaskComplexWander
@@ -19,31 +20,32 @@
 
 int CTaskComplexWanderSA::GetWanderType()
 {
-    DEBUG_TRACE("int CTaskComplexWander::GetWanderType()");
-    CTaskSAInterface* pTaskInterface = this->GetInterface();
+    CTaskSAInterface* pTaskInterface = GetInterface();
     DWORD             dwFunc = ((TaskComplexWanderVTBL*)pTaskInterface->VTBL)->GetWanderType;
     int               iReturn = NO_WANDER_TYPE;
 
-    if (dwFunc && dwFunc != 0x82263A)            // some tasks have no wander type 0x82263A is purecal (assert?)
+    if (dwFunc && dwFunc != 0x82263A)  // some tasks have no wander type 0x82263A is purecal (assert?)
     {
-        _asm
+        // clang-format off
+        __asm
         {
             mov     ecx, pTaskInterface
             call    dwFunc
             mov     iReturn, eax
         }
+        // clang-format on
     }
     return iReturn;
 }
 
 CNodeAddress* CTaskComplexWanderSA::GetNextNode()
 {
-    return &((CTaskComplexWanderSAInterface*)this->GetInterface())->m_NextNode;
+    return &((CTaskComplexWanderSAInterface*)GetInterface())->m_NextNode;
 }
 
 CNodeAddress* CTaskComplexWanderSA::GetLastNode()
 {
-    return &((CTaskComplexWanderSAInterface*)this->GetInterface())->m_LastNode;
+    return &((CTaskComplexWanderSAInterface*)GetInterface())->m_LastNode;
 }
 
 // ##############################################################################
@@ -53,13 +55,13 @@ CNodeAddress* CTaskComplexWanderSA::GetLastNode()
 
 CTaskComplexWanderStandardSA::CTaskComplexWanderStandardSA(const int iMoveState, const unsigned char iDir, const bool bWanderSensibly)
 {
-    DEBUG_TRACE("CTaskComplexWanderStandardSA::CTaskComplexWanderStandardSA(const int iMoveState, const unsigned char iDir, const bool bWanderSensibly)");
-    this->CreateTaskInterface(sizeof(CTaskComplexWanderStandardSAInterface));
+    CreateTaskInterface(sizeof(CTaskComplexWanderStandardSAInterface));
     if (!IsValid())
         return;
     DWORD dwFunc = FUNC_CTaskComplexWanderStandard__Constructor;
-    DWORD dwThisInterface = (DWORD)this->GetInterface();
-    _asm
+    DWORD dwThisInterface = (DWORD)GetInterface();
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThisInterface
         push    bWanderSensibly
@@ -67,4 +69,5 @@ CTaskComplexWanderStandardSA::CTaskComplexWanderStandardSA(const int iMoveState,
         push    iMoveState
         call    dwFunc
     }
+    // clang-format on
 }

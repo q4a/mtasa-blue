@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/packets/CExplosionSyncPacket.h
  *  PURPOSE:     Explosion synchronization packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -46,4 +46,7 @@ public:
     ElementID     m_OriginID;
     CVector       m_vecPosition;
     unsigned char m_ucType;
+
+    bool m_isVehicleResponsible = false;
+    bool m_blowVehicleWithoutExplosion = false;
 };

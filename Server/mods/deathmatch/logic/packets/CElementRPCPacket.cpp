@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CElementRPCPacket.cpp
  *  PURPOSE:     Lua element RPC packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CElementRPCPacket.h"
+#include "CElement.h"
 
 bool CElementRPCPacket::Write(NetBitStreamInterface& BitStream) const
 {

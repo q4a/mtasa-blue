@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CAccessControlListGroup.h
  *  PURPOSE:     Access control list group definition class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -34,7 +34,7 @@ public:
         m_eObjectType = eObjectType;
     }
 
-    virtual ~CAccessControlListGroupObject(){};
+    virtual ~CAccessControlListGroupObject() {};
 
     static SString GenerateKey(const char* szName, EObjectType eObjectType) { return SString("%s_%d", szName, (unsigned int)eObjectType); }
 
@@ -65,10 +65,10 @@ public:
     class CAccessControlList* GetACL(const char* szACLName);
     void                      RemoveACL(class CAccessControlList* pACL);
 
-    list<class CAccessControlList*>::iterator            IterBeginACL() { return m_ACLs.begin(); };
-    list<class CAccessControlList*>::iterator            IterEndACL() { return m_ACLs.end(); };
-    list<class CAccessControlListGroupObject*>::iterator IterBeginObjects() { return m_Objects.begin(); };
-    list<class CAccessControlListGroupObject*>::iterator IterEndObjects() { return m_Objects.end(); };
+    std::list<class CAccessControlList*>::iterator            IterBeginACL() { return m_ACLs.begin(); };
+    std::list<class CAccessControlList*>::iterator            IterEndACL() { return m_ACLs.end(); };
+    std::list<class CAccessControlListGroupObject*>::iterator IterBeginObjects() { return m_Objects.begin(); };
+    std::list<class CAccessControlListGroupObject*>::iterator IterEndObjects() { return m_Objects.end(); };
 
     void WriteToXMLNode(CXMLNode* pNode);
     uint GetScriptID() const { return m_uiScriptID; }

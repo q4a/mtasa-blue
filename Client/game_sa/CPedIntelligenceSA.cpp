@@ -5,62 +5,33 @@
  *  FILE:        game_sa/CPedIntelligenceSA.cpp
  *  PURPOSE:     Ped entity AI logic
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPedIntelligenceSA.h"
+#include "CPedSA.h"
+#include "CTaskManagementSystemSA.h"
+#include "CTaskManagerSA.h"
+#include "TaskAttackSA.h"
 
 CPedIntelligenceSA::CPedIntelligenceSA(CPedIntelligenceSAInterface* pedIntelligenceSAInterface, CPed* ped)
 {
-    this->internalInterface = pedIntelligenceSAInterface;
     this->ped = ped;
+    internalInterface = pedIntelligenceSAInterface;
     CTaskManagerSAInterface* pTaskManagerInterface = (CTaskManagerSAInterface*)&(pedIntelligenceSAInterface->taskManager);
-    this->TaskManager = new CTaskManagerSA(pTaskManagerInterface, this->ped);
-    CVehicleScannerSAInterface* pVehicleScannerInterface = (CVehicleScannerSAInterface*)&(pedIntelligenceSAInterface->vehicleScanner);
-    this->VehicleScanner = new CVehicleScannerSA(pVehicleScannerInterface);
+    TaskManager = new CTaskManagerSA(pTaskManagerInterface, ped);
 }
 
 CPedIntelligenceSA::~CPedIntelligenceSA()
 {
-    delete this->TaskManager;
+    delete TaskManager;
 }
 
 CTaskManager* CPedIntelligenceSA::GetTaskManager()
 {
-    DEBUG_TRACE("CTaskManager * CPedSA::GetTaskManager( void )");
-    return this->TaskManager;
-}
-
-CVehicleScanner* CPedIntelligenceSA::GetVehicleScanner()
-{
-    return this->VehicleScanner;
-}
-
-bool CPedIntelligenceSA::IsRespondingToEvent()
-{
-    DWORD dwFunc = FUNC_IsRespondingToEvent;
-
-    return false;
-}
-
-int CPedIntelligenceSA::GetCurrentEventType()
-{
-    DWORD dwFunc = FUNC_GetCurrentEventType;
-    DWORD dwRet = 0;
-    DWORD dwThis = (DWORD)this->GetInterface();
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-        mov     dwRet, eax
-    }
-    return dwRet;
-}
-
-CEvent* CPedIntelligenceSA::GetCurrentEvent()
-{
-    return NULL;
+    return TaskManager;
 }
 
 bool CPedIntelligenceSA::TestForStealthKill(CPed* pPed, bool bUnk)
@@ -69,7 +40,8 @@ bool CPedIntelligenceSA::TestForStealthKill(CPed* pPed, bool bUnk)
     DWORD dwThis = (DWORD)internalInterface;
     DWORD dwPed = (DWORD)pPed->GetInterface();
     DWORD dwFunc = FUNC_CPedIntelligence_TestForStealthKill;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThis
         push    bUnk
@@ -77,26 +49,38 @@ bool CPedIntelligenceSA::TestForStealthKill(CPed* pPed, bool bUnk)
         call    dwFunc
         mov     bReturn, al
     }
+    // clang-format on
     return bReturn;
-}
-
-CTaskSimpleUseGunSAInterface* CPedIntelligenceSA::GetTaskUseGun()
-{
-    CTaskSimpleUseGunSAInterface* pTaskUseGun;
-    DWORD                         dwThis = (DWORD)internalInterface;
-    DWORD                         dwFunc = FUNC_CPedIntelligence_GetTaskUseGun;
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-        mov     pTaskUseGun, eax
-    }
-
-    return pTaskUseGun;
 }
 
 CTaskSAInterface* CPedIntelligenceSA::SetTaskDuckSecondary(unsigned short nLengthOfDuck)
 {
     auto SetTaskDuckSecondary = (CTaskSAInterface * (__thiscall*)(CPedIntelligenceSAInterface*, unsigned short))0x601230;
     return SetTaskDuckSecondary(internalInterface, nLengthOfDuck);
+}
+
+CTaskSimpleUseGun* CPedIntelligenceSA::GetTaskUseGun()
+{
+    CTaskManager* taskMgr = GetTaskManager();
+    if (!taskMgr)
+        return nullptr;
+
+    CTask* secondaryTask = taskMgr->GetTaskSecondary(TASK_SECONDARY_ATTACK);
+    if (secondaryTask && secondaryTask->GetTaskType() == TASK_SIMPLE_USE_GUN)
+        return dynamic_cast<CTaskSimpleUseGun*>(secondaryTask);
+
+    return nullptr;
+}
+
+CTaskSimpleFight* CPedIntelligenceSA::GetFightTask()
+{
+    CTaskManager* taskMgr = GetTaskManager();
+    if (!taskMgr)
+        return nullptr;
+
+    CTask* secondaryTask = taskMgr->GetTaskSecondary(TASK_SECONDARY_ATTACK);
+    if (secondaryTask && secondaryTask->GetTaskType() == TASK_SIMPLE_FIGHT)
+        return dynamic_cast<CTaskSimpleFight*>(secondaryTask);
+
+    return nullptr;
 }

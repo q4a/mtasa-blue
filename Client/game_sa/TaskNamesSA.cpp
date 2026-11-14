@@ -5,11 +5,12 @@
  *  FILE:        game_sa/TaskNamesSA.cpp
  *  PURPOSE:     Static task name definitions
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "TaskNamesSA.h"
 
 const char* const sNoTaskName = "[NO TASK TYPE]";
 

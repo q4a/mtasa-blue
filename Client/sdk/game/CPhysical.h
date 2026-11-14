@@ -5,7 +5,7 @@
  *  FILE:        sdk/game/CPhysical.h
  *  PURPOSE:     Physical entity interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -16,11 +16,11 @@
 class CPhysical : public virtual CEntity
 {
 public:
-    virtual ~CPhysical(){};
+    virtual ~CPhysical() {};
 
     virtual CVector* GetMoveSpeed(CVector* vecMoveSpeed) = 0;
     virtual CVector* GetTurnSpeed(CVector* vecTurnSpeed) = 0;
-    virtual void     SetMoveSpeed(CVector* vecMoveSpeed) = 0;
+    virtual void     SetMoveSpeed(const CVector& vecMoveSpeed) noexcept = 0;
     virtual void     SetTurnSpeed(CVector* vecTurnSpeed) = 0;
 
     virtual float GetMass() = 0;
@@ -55,28 +55,4 @@ public:
     virtual void  SetLighting(float fLighting) = 0;
 
     virtual void SetFrozen(bool bFrozen) = 0;
-
-    /*  virtual VOID        SetMass(FLOAT fMass)=0;
-        virtual FLOAT       GetMass()=0;
-        virtual VOID        SetTurnMass(FLOAT fTurnMass)=0;
-        virtual FLOAT       GetTurnMass()=0;
-        virtual VOID        SetMassMultiplier(FLOAT fMassMultiplier)=0;
-        virtual FLOAT       GetMassMultiplier()=0;
-        virtual VOID        SetAirResistance(FLOAT fAirResistance)=0;
-        virtual FLOAT       GetAirResistance()=0;
-        virtual VOID        SetElasticity(FLOAT fElasticity)=0;
-        virtual FLOAT       GetElasticity()=0;
-        virtual VOID        SetBuoyancyConstant(FLOAT fBuoyancyConstant)=0;
-        virtual FLOAT       GetBuoyancyConstant()=0;
-        virtual VOID        SetCenterOfMass(CVector * vecCenterOfMass)=0;
-        virtual CVector * GetCenterOfMass()=0;
-        virtual BOOL        GetExtraHeavy()=0;
-        virtual VOID        SetExtraHeavy(BOOL bExtraHeavy)=0;
-        virtual BOOL        GetDoGravity()=0;
-        virtual VOID        SetDoGravity(BOOL bDoGravity)=0;
-        virtual BOOL        GetInfiniteMass()=0;
-        virtual VOID        SetInfiniteMass(BOOL bInfiniteMass)=0;
-        virtual BOOL        GetPositionFrozen()=0;
-        virtual VOID        SetPositionFrozen(BOOL bPositionFrozen)=0;
-        virtual BYTE        GetLastMaterialToHaveBeenStandingOn()=0;*/
 };

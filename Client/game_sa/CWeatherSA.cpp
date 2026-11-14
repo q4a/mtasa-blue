@@ -5,110 +5,231 @@
  *  FILE:        game_sa/CWeatherSA.cpp
  *  PURPOSE:     Weather logic
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CWeatherSA.h"
 
-unsigned char* CWeatherSA::VAR_CurrentWeather;
-unsigned char* CWeatherSA::VAR_CurrentWeather_b;
-unsigned char* CWeatherSA::VAR_CurrentWeather_c;
-float*         CWeatherSA::VAR_AmountOfRain;
-
-unsigned long CWeatherSA::FUNC_IsRaining;
+static float WEATHER_FAKE_ACCUMULATOR;
 
 unsigned char CWeatherSA::Get()
 {
-    DEBUG_TRACE("unsigned char CWeatherSA::Get ( void )");
-    return (unsigned char)*VAR_CurrentWeather;
+    return *(unsigned char*)0xC81318;  // CWeather::ForcedWeatherType
 }
 
 void CWeatherSA::Set(unsigned char primary, unsigned char secondary)
 {
-    DEBUG_TRACE("void CWeatherSA::Set ( unsigned char primary, unsigned char secondary )");
-    *VAR_CurrentWeather_b = static_cast<unsigned char>(primary);
-    *VAR_CurrentWeather_c = static_cast<unsigned char>(secondary);
+    MemPutFast<unsigned char>(0xC81320, primary);    // CWeather::OldWeatherType
+    MemPutFast<unsigned char>(0xC8131C, secondary);  // CWeather::NewWeatherType
 }
 
-void CWeatherSA::SetPrimary(unsigned char weather)
+void CWeatherSA::ResyncInterpolationWithGameClock(unsigned char primary, unsigned char secondary)
 {
-    DEBUG_TRACE("void CWeatherSA::SetPrimary ( unsigned char weather )");
-    *VAR_CurrentWeather_b = static_cast<unsigned char>(weather);
-}
-
-void CWeatherSA::SetSecondary(unsigned char weather)
-{
-    DEBUG_TRACE("void CWeatherSA::SetSecondary ( unsigned char weather )");
-    *VAR_CurrentWeather_c = static_cast<unsigned char>(weather);
-}
-
-void CWeatherSA::ForceWeather(unsigned char weather)
-{
-    DEBUG_TRACE("void CWeatherSA::Forcunsigned char ( unsigned char weather )");
-    *VAR_CurrentWeather = static_cast<unsigned char>(weather);
-}
-
-void CWeatherSA::ForceWeatherNow(unsigned char weather)
-{
-    DEBUG_TRACE("void CWeatherSA::Forcunsigned charNow ( unsigned char weather )");
-
-    unsigned char ucWeather = static_cast<unsigned char>(weather);
-    *VAR_CurrentWeather = ucWeather;
-    *VAR_CurrentWeather_b = ucWeather;
-    *VAR_CurrentWeather_c = ucWeather;
+    // Set InterpolationValue to 0 so CWeather::Update's wrap branch never fires.
+    // The wrap condition is (engine_computed_interp < stored_InterpolationValue);
+    // since the engine's value is always >= 0, this is always false.
+    // CWeather::Update then computes its own InterpolationValue from the game clock
+    // and uses it consistently for all weather globals (Foggyness, Rain, etc.).
+    constexpr DWORD VAR_InterpolationValue = 0xC8130C;
+    MemPutFast<float>(VAR_InterpolationValue, 0.0f);
 }
 
 void CWeatherSA::Release()
 {
-    DEBUG_TRACE("void CWeatherSA::Release ( void )");
-    *VAR_CurrentWeather = 0xFF;
-}
-
-bool CWeatherSA::IsRaining()
-{
-    DEBUG_TRACE("bool CWeatherSA::IsRaining ( void )");
-    DWORD dwFunc = FUNC_IsRaining;
-    bool  bReturn = false;
-    _asm
-    {
-        call    dwFunc
-        mov     bReturn, al
-    }
-    return bReturn;
+    MemPutFast<unsigned char>(0xC81318, 0xFF);  // CWeather::ForcedWeatherType
 }
 
 float CWeatherSA::GetAmountOfRain()
 {
-    return *VAR_AmountOfRain;
+    return *(float*)0xC81324;  // CWeather::Rain
 }
 
 void CWeatherSA::SetAmountOfRain(float fAmount)
 {
-    // Nop the functions which don't like us take care of the rain
-    MemPut<BYTE>(0x72C686, 0xDD);
-    MemPut<BYTE>(0x72C687, 0xD8);
-
-    MemSet((void*)0x72C688, 0x90, 4);
-
-    MemPut<BYTE>(0x72BC92, 0xDD);
-    MemPut<BYTE>(0x72BC93, 0xD8);
-
-    MemSet((void*)0x72BC94, 0x90, 4);
+    // Patch all the places inside of CWeather::Update that would overwrite CWeather::Rain
+    MemPut<DWORD>((LPVOID)(0x72C686 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BC92 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
 
     MemSet((void*)0x72BC72, 0x90, 5);
 
     // Set the amount of rain
-    *VAR_AmountOfRain = fAmount;
+    MemPutFast<float>(0xC81324, fAmount);  // CWeather::Rain
 }
 
 void CWeatherSA::ResetAmountOfRain()
 {
-    BYTE originalMov[5] = {0xA3, 0x24, 0x13, 0xC8, 0x00};                    // 0x72BC72
-    BYTE originalFstp1[6] = {0xD9, 0x1D, 0x24, 0x13, 0xC8, 0x00};            // 0x72BC92
-    BYTE originalFstp2[6] = {0xD9, 0x1D, 0x24, 0x13, 0xC8, 0x00};            // 0x72C686
-
+    BYTE originalMov[5] = {0xA3, 0x24, 0x13, 0xC8, 0x00};  // 0x72BC72
     MemCpy((LPVOID)0x72BC72, &originalMov, 5);
-    MemCpy((LPVOID)0x72BC92, &originalFstp1, 6);
-    MemCpy((LPVOID)0x72C686, &originalFstp2, 6);
+
+    static constexpr DWORD originalAddr = 0x00C81324;
+    MemPut<DWORD>((LPVOID)(0x72C686 + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BC92 + 2), originalAddr);
+}
+
+float CWeatherSA::GetWetRoads() const
+{
+    return *(float*)0xC81308;
+}
+
+bool CWeatherSA::SetWetRoads(float fAmount)
+{
+    MemPut<DWORD>((LPVOID)(0x72BB9F + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BBB7 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BBD0 + 1), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BBD7 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+
+    MemPutFast<float>(0xC81308, fAmount);
+    return true;
+}
+
+bool CWeatherSA::ResetWetRoads()
+{
+    static constexpr DWORD originalAddr = 0x00C81308;
+    MemPut<DWORD>((LPVOID)(0x72BB9F + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BBB7 + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BBD0 + 1), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BBD7 + 2), originalAddr);
+    return true;
+}
+
+float CWeatherSA::GetFoggyness() const
+{
+    return *(float*)0xC81300;
+}
+
+bool CWeatherSA::SetFoggyness(float fAmount)
+{
+    MemPut<DWORD>((LPVOID)(0x72BDF5 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BDDD + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BE13 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+
+    MemPutFast<float>(0xC81300, fAmount);
+    return true;
+}
+
+bool CWeatherSA::ResetFoggyness()
+{
+    static constexpr DWORD originalAddr = 0x00C81300;
+    MemPut<DWORD>((LPVOID)(0x72BDF5 + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BDDD + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BE13 + 2), originalAddr);
+    return true;
+}
+
+float CWeatherSA::GetFog() const
+{
+    return *(float*)0xC812FC;
+}
+
+bool CWeatherSA::SetFog(float fAmount)
+{
+    MemPut<DWORD>((LPVOID)(0x72BE37 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BE1F + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BE4F + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+
+    MemPutFast<float>(0xC812FC, fAmount);
+    return true;
+}
+
+bool CWeatherSA::ResetFog()
+{
+    static constexpr DWORD originalAddr = 0x00C812FC;
+    MemPut<DWORD>((LPVOID)(0x72BE37 + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BE1F + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BE4F + 2), originalAddr);
+    return true;
+}
+
+float CWeatherSA::GetRainFog() const
+{
+    return *(float*)0xC81410;
+}
+
+bool CWeatherSA::SetRainFog(float fAmount)
+{
+    MemPut<DWORD>((LPVOID)(0x72ADD8 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72ADE4 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+
+    MemPutFast<float>(0xC81410, fAmount);
+    return true;
+}
+
+bool CWeatherSA::ResetRainFog()
+{
+    static constexpr DWORD originalAddr = 0x00C81410;
+    MemPut<DWORD>((LPVOID)(0x72ADD8 + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72ADE4 + 2), originalAddr);
+    return true;
+}
+
+float CWeatherSA::GetWaterFog() const
+{
+    return *(float*)0xC81338;
+}
+
+bool CWeatherSA::SetWaterFog(float fAmount)
+{
+    MemPut<DWORD>((LPVOID)(0x72C35C + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72C38E + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72C36F + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+
+    MemPutFast<float>(0xC81338, fAmount);
+    return true;
+}
+
+bool CWeatherSA::ResetWaterFog()
+{
+    static constexpr DWORD originalAddr = 0x00C81338;
+    MemPut<DWORD>((LPVOID)(0x72C35C + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72C38E + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72C36F + 2), originalAddr);
+    return true;
+}
+
+float CWeatherSA::GetSandstorm() const
+{
+    return *(float*)0xC812F4;
+}
+
+bool CWeatherSA::SetSandstorm(float fAmount)
+{
+    MemPut<DWORD>((LPVOID)(0x72A4B6 + 1), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BCEB + 1), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BD0B + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+
+    MemPutFast<float>(0xC812F4, fAmount);
+    return true;
+}
+
+bool CWeatherSA::ResetSandstorm()
+{
+    static constexpr DWORD originalAddr = 0x00C812F4;
+    MemPut<DWORD>((LPVOID)(0x72A4B6 + 1), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BCEB + 1), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BD0B + 2), originalAddr);
+    return true;
+}
+
+float CWeatherSA::GetRainbow() const
+{
+    return *(float*)0xC812E4;
+}
+
+bool CWeatherSA::SetRainbow(float fAmount)
+{
+    MemPut<DWORD>((LPVOID)(0x72BF51 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+    MemPut<DWORD>((LPVOID)(0x72BF59 + 2), (DWORD)&WEATHER_FAKE_ACCUMULATOR);
+
+    MemPutFast<float>(0xC812E4, fAmount);
+    return true;
+}
+
+bool CWeatherSA::ResetRainbow()
+{
+    static constexpr DWORD originalAddr = 0x00C812E4;
+    MemPut<DWORD>((LPVOID)(0x72BF51 + 2), originalAddr);
+    MemPut<DWORD>((LPVOID)(0x72BF59 + 2), originalAddr);
+    return true;
 }

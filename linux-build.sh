@@ -1,63 +1,88 @@
-#!/bin/bash
+#!/bin/bash -e
 
-# Find premake binary location
+# Set variable defaults
+: ${BUILD_CONFIG:=release}
+: ${PREMAKE_FILE:=premake5.lua}
+
 if [ "$(uname)" == "Darwin" ]; then
-    PREMAKE5=utils/premake5-macos
+    cores=$(sysctl -n hw.ncpu)
+    : ${NUM_CORES:=$cores}
+    : ${PREMAKE5:=utils/premake5-macos}
+    : ${BUILD_OS:=macosx}
+    : ${BUILD_ARCHITECTURE:=arm64}
+    : ${AR:=ar}
+    : ${CC:=clang}
+    : ${CXX:=clang++}
 else
-    PREMAKE5=utils/premake5
+    cores=$(grep -c ^processor /proc/cpuinfo)
+    : ${NUM_CORES:=$cores}
+    : ${PREMAKE5:=utils/premake5}
+    : ${BUILD_OS:=linux}
+    : ${BUILD_ARCHITECTURE:=x64}
+    : ${AR:=ar}
+    : ${CC:=gcc}
+    : ${CXX:=g++}
 fi
 
-ENV_CONFIG=$CONFIG
-DEFAULT=2
+# Read script arguments
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --os=*)     BUILD_OS="${1#*=}"              ;;
+        --arch=*)   BUILD_ARCHITECTURE="${1#*=}"    ;;
+        --config=*) BUILD_CONFIG="${1#*=}"          ;;
+        --cores=*)  NUM_CORES="${1#*=}"             ;;
+        --file=*)   PREMAKE_FILE="${1#*=}"          ;;
+        *)
+            echo "Error: Invalid argument: $1" >&2
+            exit 1
+    esac
+    shift
+done
 
-# Debug vs Release
-if [[ $2 = "release" ]] || [[ $2 = "debug" ]]; then
-    CONFIG=$2
-elif [[ $2 != "" ]]; then
-    printf "Unknown build type \"$2\" provided\n"
-    exit 1
-else
-    CONFIG=release
-    ((DEFAULT--))
-fi
+# Display script arguments
+echo "Build configuration:"
+echo "  BUILD_ARCHITECTURE = $BUILD_ARCHITECTURE"
+echo "  BUILD_CONFIG = $BUILD_CONFIG"
 
-# 32bit vs 64bit
-if [[ $1 = "32" ]] || [[ $1 = "x86" ]]; then
-    CONFIG=${CONFIG}_x86
-elif [[ $1 = "64" ]] || [[ $1 = "x64" ]]; then
-    CONFIG=${CONFIG}_x64
-elif [[ $1 != "" ]]; then
-    printf "Unknown architecture \"$1\" provided\n"
-    exit 1
-else
-    CONFIG=${CONFIG}_x64
-    ((DEFAULT--))
-fi
+# Verify script arguments
+case $BUILD_CONFIG in
+    debug|release) ;;
+    *)
+        echo "Error: Invalid build configuration" >&2
+        exit 1
+esac
 
-# Only apply $CONFIG from environment if no args provided
-if [[ $ENV_CONFIG != "" ]]; then
-    if [[ $DEFAULT != 0 ]]; then
-        printf "Ignoring provided \$CONFIG environment variable, "
-    else
-        CONFIG=$ENV_CONFIG
-    fi
-fi
+case $BUILD_ARCHITECTURE in
+    64|x64)
+        CONFIG=${BUILD_CONFIG}_x64
+    ;;
+    arm)
+        CONFIG=${BUILD_CONFIG}_${BUILD_ARCHITECTURE}
+    ;;
+    arm64)
+        CONFIG=${BUILD_CONFIG}_${BUILD_ARCHITECTURE}
+    ;;
+    *)
+        echo "Error: Invalid build architecture" >&2
+        exit 1
+esac
 
-printf "\$CONFIG=$CONFIG\n"
+echo "  OS = $BUILD_OS"
+echo "  CONFIG = $CONFIG"
+echo "  AR = $AR"
+echo "  CC = $CC"
+echo "  CXX = $CXX"
 
 # Clean old build files
 rm -Rf Build/
 rm -Rf Bin/
 
-# Generate makefiles
-$PREMAKE5 gmake
-
-# Number of cores
-if [ "$(uname)" == "Darwin" ]; then
-    NUM_CORES=$(sysctl -n hw.ncpu)
+# Generate Makefiles
+if [[ -n "$GCC_PREFIX" ]]; then
+    $PREMAKE5 --gccprefix="$GCC_PREFIX" --os="$BUILD_OS" --file=$PREMAKE_FILE gmake
 else
-    NUM_CORES=$(grep -c ^processor /proc/cpuinfo)
+    $PREMAKE5 --os="$BUILD_OS" --file=$PREMAKE_FILE gmake
 fi
 
 # Build!
-make -C Build/ -j$NUM_CORES config=$CONFIG all
+make -C Build/ -j ${NUM_CORES} AR=${AR} CC=${CC} CXX=${CXX} config=${CONFIG} all

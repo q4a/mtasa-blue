@@ -5,7 +5,7 @@
  *  FILE:        core/CGUI.h
  *  PURPOSE:     Header file for core graphical user interface class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -14,17 +14,16 @@ class CLocalGUI;
 #pragma once
 
 #ifndef WM_MOUSEWHEEL
-#define WM_MOUSEWHEEL 0x20A // Defined only when including Windows.h -> Not getting defined? (<=XP only?)
+    #define WM_MOUSEWHEEL 0x20A  // Defined only when including Windows.h -> Not getting defined? (<=XP only?)
 #endif
 
-#define DIRECT3D_VERSION         0x0900
+#define DIRECT3D_VERSION 0x0900
 #include "d3d9.h"
 #include "d3dx9.h"
 
 #include <gui/CGUI.h>
 
 #include "CConsole.h"
-#include "CFilePathTranslator.h"
 #include "CMainMenu.h"
 #include "CSetCursorPosHook.h"
 #include "CSingleton.h"
@@ -56,6 +55,10 @@ public:
     void Invalidate();
     void Restore();
 
+    // True while a fatal fault dialog (CC51 or CC54) is open; rebuilds wait and nested faults exit.
+    static bool IsFaultDialogOpen() noexcept;
+    static void SetFaultDialogOpen(bool bOpen) noexcept;
+
     void DrawMouseCursor();
     void SetCursorPos(int iX, int iY, bool bForce = false, bool overrideStored = true);
 
@@ -69,8 +72,10 @@ public:
     bool       IsMainMenuVisible();
 
     CChat* GetChat();
-    void   SetChatBoxVisible(bool bVisible);
+    float  GetChatBottomPosition() const noexcept;
+    void   SetChatBoxVisible(bool bVisible, bool bInputBlocked = true);
     bool   IsChatBoxVisible();
+    bool   IsChatBoxInputBlocked();
     void   SetChatBoxInputEnabled(bool bInputEnabled);
     bool   IsChatBoxInputEnabled();
     void   EchoChat(const char* szText, bool bColorCoded);
@@ -91,8 +96,19 @@ public:
     bool IsOptionalUpdateInfoRequired(const char* szHost) { return m_pVersionUpdater->IsOptionalUpdateInfoRequired(szHost); }
     void InitiateDataFilesFix() { m_pVersionUpdater->InitiateDataFilesFix(); }
 
+    void RequestLocaleChange(const SString& strLocale);
+
+    // Locale/skin changes destroy MainMenu (and its QuestionBox). Keep the restart
+    // requirement across that rebuild so resolution/etc. prompts are not lost.
+    void RequestRestartPrompt();
+
 private:
     void UpdateCursor();
+    void ApplyQueuedLocale();
+    void TryShowRestartPrompt();
+    void ClearRestartPrompt() { m_bPendingRestartPrompt = false; }
+
+    static void RestartPromptCallBack(void* pData, unsigned int uiButton);
 
     DWORD TranslateScanCodeToGUIKey(DWORD dwCharacter);
 
@@ -107,13 +123,17 @@ private:
 
     bool  m_bForceCursorVisible;
     bool  m_bChatboxVisible;
+    bool  m_bChatboxInputBlocked;
     bool  m_pDebugViewVisible;
     bool  m_bGUIHasInput;
     int   m_uiActiveCompositionSize;
     POINT m_StoredMousePosition;
 
-    int     m_LastSettingsRevision;            // the revision number the last time we saw the skin change
+    int     m_LastSettingsRevision;  // the revision number the last time we saw the skin change
     SString m_LastSkinName;
     SString m_LastLocaleName;
     uint    m_LocaleChangeCounter;
+    SString m_QueuedLocaleChange;
+    bool    m_bHasQueuedLocaleChange;
+    bool    m_bPendingRestartPrompt;
 };

@@ -3,6 +3,7 @@ project "GUI"
 	kind "SharedLib"
 	targetname "cgui"
 	targetdir(buildpath("mta"))
+	clangtidy "On"
 
 	filter "system:windows"
 		includedirs { "../../vendor/sparsehash/src/windows" }
@@ -39,8 +40,8 @@ project "GUI"
 		"*.h",
 		"*.cpp"
 	}
-	
-	filter "architecture:x64"
+
+	filter "architecture:not x86"
 		flags { "ExcludeFromBuild" }
 
 	filter "system:not windows"

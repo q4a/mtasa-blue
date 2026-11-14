@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/luadefs/CLuaObjectDefs.h
  *  PURPOSE:     Lua function definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -20,16 +20,23 @@ public:
 
     // Object create/destroy functions
     LUA_DECLARE(CreateObject);
+    static bool RespawnObject(CObject* const pObject) noexcept;
 
     // Object get functions
     LUA_DECLARE(GetObjectName);
     LUA_DECLARE(GetObjectRotation);
     LUA_DECLARE(GetObjectScale);
+    static bool IsObjectBreakable(CObject* const pObject);
+    static bool IsObjectMoving(CObject* const pObject);
+    static bool IsObjectRespawnable(CObject* const pObject) noexcept;
 
     // Object set functions
     LUA_DECLARE(SetObjectName);
     LUA_DECLARE(SetObjectRotation);
     LUA_DECLARE(SetObjectScale);
+    static bool SetObjectBreakable(CObject* const pObject, const bool bBreakable);
     LUA_DECLARE(MoveObject);
     LUA_DECLARE(StopObject);
+    static bool BreakObject(CObject* const pObject);
+    static bool ToggleObjectRespawn(CObject* const pObject, const bool bRespawn) noexcept;
 };

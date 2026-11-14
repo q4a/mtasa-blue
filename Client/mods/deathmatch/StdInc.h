@@ -4,6 +4,7 @@
 #define MTA_CLIENT
 #define SHARED_UTIL_WITH_FAST_HASH_MAP
 #include "SharedUtil.h"
+#include <CrashTelemetry.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -28,7 +29,6 @@
 // SDK includes
 #include <core/CLocalizationInterface.h>
 #include <core/CTrayIconInterface.h>
-#include <core/CDiscordManagerInterface.h>
 #include <core/CCoreInterface.h>
 #include <core/CExceptionInformation.h>
 #include <xml/CXML.h>
@@ -47,17 +47,17 @@
 #include <ijsify.h>
 #include <Common.h>
 #include "net/Packets.h"
-#include "net/rpc_enums.h"
 #include "Enums.h"
 #include "net/SyncStructures.h"
 #include "CIdArray.h"
-#include "pcrecpp.h"
+#include <pcrecpp_compat.h>
 
 // Shared logic includes
 #include <Utils.h>
 #include <CClientCommon.h>
 #include <CClientManager.h>
 #include <CClient3DMarker.h>
+#include <CClientBuilding.h>
 #include <CClientCheckpoint.h>
 #include <CClientColShape.h>
 #include <CClientColCircle.h>
@@ -81,6 +81,7 @@
 #include <CClientStreamSectorRow.h>
 #include <CClientTask.h>
 #include <CClientTXD.h>
+#include <CClientIMG.h>
 #include <CClientIFP.h>
 #include <CClientWater.h>
 #include <CClientWeapon.h>
@@ -105,6 +106,7 @@
 #include <CScriptFile.h>
 #include <CWeaponNames.h>
 #include <CVehicleNames.h>
+#include <CModelRenderer.h>
 #include <lua/CLuaCFunctions.h>
 #include <lua/CLuaArguments.h>
 #include <lua/CLuaMain.h>
@@ -115,12 +117,14 @@
 #include <luadefs/CLuaAudioDefs.h>
 #include <luadefs/CLuaBitDefs.h>
 #include <luadefs/CLuaBlipDefs.h>
+#include <luadefs/CLuaBodyClothesDefs.h>
 #include <luadefs/CLuaBrowserDefs.h>
 #include <luadefs/CLuaClassDefs.h>
 #include <luadefs/CLuaCameraDefs.h>
 #include <luadefs/CLuaColShapeDefs.h>
 #include <luadefs/CLuaCompatibilityDefs.h>
 #include <luadefs/CLuaDrawingDefs.h>
+#include <luadefs/CLuaDiscordDefs.h>
 #include <luadefs/CLuaEffectDefs.h>
 #include <luadefs/CLuaElementDefs.h>
 #include <luadefs/CLuaEngineDefs.h>
@@ -143,6 +147,7 @@
 #include <luadefs/CLuaWaterDefs.h>
 #include <luadefs/CLuaWeaponDefs.h>
 #include <luadefs/CLuaWorldDefs.h>
+#include <luadefs/CLuaBuildingDefs.h>
 #include <CRemoteCalls.h>
 
 // Shared includes
@@ -151,6 +156,7 @@
 #include "CLatentTransferManager.h"
 #include "CDebugHookManager.h"
 #include "lua/CLuaShared.h"
+#include "CStringName.h"
 
 // Deathmatch includes
 #include "ClientCommands.h"

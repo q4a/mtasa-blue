@@ -5,13 +5,15 @@
  *  FILE:        mods/shared_logic/luadefs/CLuaVehicleDefs.h
  *  PURPOSE:     Lua vehicle definitions class header
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 #include "CLuaDefs.h"
 #include <lua/CLuaMultiReturn.h>
+
+#include "enums/VehicleAudioSettingProperty.h"
 
 class CLuaVehicleDefs : public CLuaDefs
 {
@@ -35,6 +37,7 @@ public:
     LUA_DECLARE(GetVehicleSirensOn);
     LUA_DECLARE_OOP(GetVehicleTurnVelocity);
     LUA_DECLARE(GetVehicleTurretPosition);
+    static std::variant<CLuaMultiReturn<float, float>, CVector2D> OOP_GetVehicleTurretPosition(lua_State* luaVM, CClientVehicle* vehicle);
     LUA_DECLARE(IsVehicleLocked);
     LUA_DECLARE(GetVehicleUpgradeOnSlot);
     LUA_DECLARE(GetVehicleUpgrades);
@@ -59,6 +62,7 @@ public:
     LUA_DECLARE(GetVehicleNameFromModel);
     LUA_DECLARE(GetVehicleAdjustableProperty);
     LUA_DECLARE(GetHelicopterRotorSpeed);
+    static std::variant<bool, float> GetVehicleRotorSpeed(CClientVehicle* pVehicle);
     LUA_DECLARE(GetVehicleEngineState);
     LUA_DECLARE(IsTrainDerailed);
     LUA_DECLARE(IsTrainDerailable);
@@ -82,7 +86,7 @@ public:
     LUA_DECLARE(IsVehicleWindowOpen);
 
     LUA_DECLARE(FixVehicle);
-    LUA_DECLARE(BlowVehicle);
+    static bool BlowVehicle(CClientEntity* entity, std::optional<bool> withExplosion);
     LUA_DECLARE(SetVehicleRotation);
     LUA_DECLARE(SetVehicleTurnVelocity);
     LUA_DECLARE(SetVehicleColor);
@@ -117,6 +121,8 @@ public:
     LUA_DECLARE(SetVehicleFrozen);
     LUA_DECLARE(SetVehicleAdjustableProperty);
     LUA_DECLARE(SetHelicopterRotorSpeed);
+    static bool SetVehicleRotorSpeed(CClientVehicle* pVehicle, float fSpeed);
+    static bool SetVehicleWheelsRotation(CClientVehicle* pVehicle, float fRotation) noexcept;
     LUA_DECLARE(SetTrainDerailed);
     LUA_DECLARE(SetTrainDerailable);
     LUA_DECLARE(SetTrainDirection);
@@ -141,13 +147,17 @@ public:
     LUA_DECLARE(SetVehicleModelDummyPosition);
     LUA_DECLARE_OOP(GetVehicleModelDummyPosition)
 
-    static std::variant<bool, CLuaMultiReturn<float, float, float>> GetVehicleModelDummyDefaultPosition(unsigned short vehicleModel, eVehicleDummies dummy);
-    static std::variant<bool, CVector>                         OOP_GetVehicleModelDummyDefaultPosition(unsigned short vehicleModel, eVehicleDummies dummy);
+    static std::variant<bool, CLuaMultiReturn<float, float, float>> GetVehicleModelDummyDefaultPosition(unsigned short       vehicleModel,
+                                                                                                        VehicleDummies::Enum dummy);
+    static std::variant<bool, CVector> OOP_GetVehicleModelDummyDefaultPosition(unsigned short vehicleModel, VehicleDummies::Enum dummy);
 
-    static bool                                                SetVehicleDummyPosition(CClientVehicle* vehicle, eVehicleDummies dummy, CVector position);
-    static std::variant<bool, CLuaMultiReturn<float, float, float>> GetVehicleDummyPosition(CClientVehicle* vehicle, eVehicleDummies dummy);
-    static std::variant<bool, CVector>                         OOP_GetVehicleDummyPosition(CClientVehicle* vehicle, eVehicleDummies dummy);
-    static bool                                                ResetVehicleDummyPositions(CClientVehicle* vehicle);
+    static bool SetVehicleDummyPosition(CClientVehicle* vehicle, VehicleDummies::Enum dummy, CVector position);
+    static std::variant<bool, CLuaMultiReturn<float, float, float>> GetVehicleDummyPosition(CClientVehicle* vehicle, VehicleDummies::Enum dummy);
+    static std::variant<bool, CVector>                              OOP_GetVehicleDummyPosition(CClientVehicle* vehicle, VehicleDummies::Enum dummy);
+    static bool                                                     ResetVehicleDummyPositions(CClientVehicle* vehicle);
+
+    static std::variant<bool, std::array<std::array<float, 3>, 4>> GetVehicleEntryPoints(CClientVehicle* vehicle);
+    static std::variant<bool, std::array<CVector, 4>>              OOP_GetVehicleEntryPoints(CClientVehicle* vehicle);
 
     LUA_DECLARE(SetVehicleModelExhaustFumesPosition);
     LUA_DECLARE_OOP(GetVehicleModelExhaustFumesPosition);
@@ -155,10 +165,24 @@ public:
     static bool  SetVehicleVariant(CClientVehicle* pVehicle, std::optional<unsigned char> optVariant1, std::optional<unsigned char> optVariant2);
     static float GetVehicleWheelScale(CClientVehicle* const pVehicle);
     static bool  SetVehicleWheelScale(CClientVehicle* const pVehicle, const float fWheelScale);
-    static std::variant<float, std::unordered_map<std::string, float>> GetVehicleModelWheelSize(const unsigned short                             usModel,
-                                                                                                const std::optional<eResizableVehicleWheelGroup> eWheelGroup);
-    static bool SetVehicleModelWheelSize(const unsigned short usModel, const eResizableVehicleWheelGroup eWheelGroup, const float fWheelSize);
+    static std::variant<float, std::unordered_map<std::string, float>> GetVehicleModelWheelSize(
+        const unsigned short usModel, const std::optional<ResizableVehicleWheelGroup::Enum> eWheelGroup);
+    static bool SetVehicleModelWheelSize(const unsigned short usModel, const ResizableVehicleWheelGroup::Enum eWheelGroup, const float fWheelSize);
     static int  GetVehicleWheelFrictionState(CClientVehicle* pVehicle, unsigned char wheel);
+
+    static bool SetVehicleRotorState(CClientVehicle* const vehicle, bool state, std::optional<bool> stopRotor) noexcept;
+    static bool GetVehicleRotorState(CClientVehicle* const vehicle) noexcept;
+
+    static bool AddVehicleSirens(CClientVehicle* vehicle, std::uint8_t sirenType, std::uint8_t sirenCount, std::optional<bool> enable360,
+                                 std::optional<bool> enableLOSCheck, std::optional<bool> enableRandomiser, std::optional<bool> enableSilent) noexcept;
+    static bool RemoveVehicleSirens(CClientVehicle* vehicle) noexcept;
+
+    static bool SetVehicleModelAudioSetting(const uint32_t uiModel, const VehicleAudioSettingProperty::Enum eProperty, float varValue);
+    static bool ResetVehicleModelAudioSettings(const uint32_t uiModel);
+    static bool SetVehicleAudioSetting(CClientVehicle* pVehicle, const VehicleAudioSettingProperty::Enum eProperty, float varValue);
+    static bool ResetVehicleAudioSettings(CClientVehicle* pVehicle);
+    static std::unordered_map<std::string, float> GetVehicleModelAudioSettings(uint32_t uiModel);
+    static std::unordered_map<std::string, float> GetVehicleAudioSettings(CClientVehicle* pVehicle);
 
     // Components
     LUA_DECLARE(SetVehicleComponentPosition);
@@ -173,4 +197,10 @@ public:
     LUA_DECLARE(SetVehicleComponentVisible);
     LUA_DECLARE(GetVehicleComponentVisible);
     LUA_DECLARE(GetVehicleComponents);
+
+    static bool SpawnVehicleFlyingComponent(CClientVehicle* const vehicle, std::uint8_t nodeIndex, std::optional<std::uint8_t> componentCollisionType,
+                                            std::optional<std::uint32_t> removalTime);
+
+    static bool SetSmokeTrailEnabled(CClientVehicle* vehicle, bool state);
+    static bool IsSmokeTrailEnabled(CClientVehicle* vehicle) noexcept;
 };

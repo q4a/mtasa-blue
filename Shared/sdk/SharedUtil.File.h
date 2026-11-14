@@ -5,7 +5,7 @@
  *  FILE:        SharedUtil.File.h
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 #pragma once
@@ -15,14 +15,20 @@
 #include "SString.h"
 #include "WString.h"
 
+#if defined(_WIN32) && defined(MTA_CLIENT)
+// Workaround to prevent pulling in the fat windows.h header
+// Callers that need WIN32_FILE_ATTRIBUTE_DATA as a value type must include <windows.h> after all.
+struct _WIN32_FILE_ATTRIBUTE_DATA;
+typedef struct _WIN32_FILE_ATTRIBUTE_DATA WIN32_FILE_ATTRIBUTE_DATA;
+#endif
 
 namespace SharedUtil
 {
     //
     // Returns true if the file/directory exists
     //
-    bool FileExists(const SString& strFilename);
-    bool DirectoryExists(const SString& strPath);
+    bool FileExists(const std::string& strFilename) noexcept;
+    bool DirectoryExists(const std::string& strPath) noexcept;
 
     //
     // Load from a file
@@ -30,6 +36,11 @@ namespace SharedUtil
     bool FileLoad(const SString& strFilename, std::vector<char>& buffer, int iMaxSize = INT_MAX, int iOffset = 0);
     bool FileLoad(const SString& strFilename, SString& strBuffer, int iMaxSize = INT_MAX, int iOffset = 0);
     bool FileLoad(std::nothrow_t, const SString& filePath, SString& outBuffer, size_t maxSize = INT_MAX, size_t offset = 0) noexcept;
+
+#if defined(_WIN32) && defined(MTA_CLIENT)
+    bool GetFileAttributesExWithTimeout(const wchar_t* path, WIN32_FILE_ATTRIBUTE_DATA& attr, unsigned long timeoutMs) noexcept;
+    bool FileLoadWithTimeout(const SString& filePath, SString& outBuffer, unsigned long timeoutMs) noexcept;
+#endif
 
     //
     // Save to a file
@@ -71,6 +82,7 @@ namespace SharedUtil
     bool                 FileCopy(const SString& strSrc, const SString& strDest, bool bForce = true);
     std::vector<SString> FindFiles(const SString& strMatch, bool bFiles, bool bDirectories, bool bSortByDate = false);
     SString              MakeUniquePath(const SString& strPathFilename);
+    SString              MakeGenericPath(const SString& uniqueFilePath);
     SString              ConformPathForSorting(const SString& strPathFilename);
     bool                 IsAbsolutePath(const SString& strPath);
 
@@ -102,13 +114,20 @@ namespace SharedUtil
     WString FromUTF8(const SString& strPath);
     SString ToUTF8(const WString& strPath);
 
+    std::vector<std::string> ListDir(const char* szPath) noexcept;
+
     namespace File
     {
         FILE* Fopen(const char* szFilename, const char* szMode);
-        int   Mkdir(const char* szPath, int iMode = 0775);
-        int   Chdir(const char* szPath);
-        int   Rmdir(const char* szPath);
-        int   Delete(const char* szFilename);
-        int   Rename(const char* szOldFilename, const char* szNewFilename);
-    }            // namespace File
-}            // namespace SharedUtil
+        FILE* FopenExclusive(const char* szFilename, const char* szMode);
+#if defined(_WIN32) && defined(MTA_CLIENT)
+        FILE* TryFopen(const char* szFilename, const char* szMode);
+        FILE* TryFopenExclusive(const char* szFilename, const char* szMode);
+#endif
+        int Mkdir(const char* szPath, int iMode = 0775);
+        int Chdir(const char* szPath);
+        int Rmdir(const char* szPath);
+        int Delete(const char* szFilename);
+        int Rename(const char* szOldFilename, const char* szNewFilename);
+    }  // namespace File
+}  // namespace SharedUtil

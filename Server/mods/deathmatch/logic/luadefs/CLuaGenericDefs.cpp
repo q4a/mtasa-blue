@@ -10,6 +10,14 @@
 
 #include "StdInc.h"
 #include "CLuaGenericDefs.h"
+#include "CStaticFunctionDefinitions.h"
+#include "CScriptArgReader.h"
+#include "CMasterServerAnnouncer.h"
+
+static auto GetServerIpFromMasterServer() -> std::string
+{
+    return g_pGame->GetMasterServerAnnouncer()->GetRemoteAddress();
+}
 
 void CLuaGenericDefs::LoadFunctions()
 {
@@ -22,6 +30,7 @@ void CLuaGenericDefs::LoadFunctions()
         {"outputConsole", ArgumentParserWarn<false, OutputConsole>},
         {"outputDebugString", ArgumentParserWarn<false, OutputScriptDebugLog>},
         {"outputServerLog", ArgumentParserWarn<false, OutputServerLog>},
+        {"getServerIpFromMasterServer", ArgumentParser<GetServerIpFromMasterServer>},
         {"getServerName", ArgumentParserWarn<nullptr, GetServerName>},
         {"getServerHttpPort", ArgumentParserWarn<nullptr, GetServerHttpPort>},
         {"getServerPassword", ArgumentParserWarn<nullptr, GetServerPassword>},
@@ -64,8 +73,8 @@ std::variant<bool, std::string, CLuaArguments> CLuaGenericDefs::GetServerConfigS
 
 bool CLuaGenericDefs::SetServerPassword(std::optional<std::string> rawPassword)
 {
-if (!CStaticFunctionDefinitions::SetServerPassword(rawPassword.value_or(""), true))
-    throw std::invalid_argument("password must be shorter than 32 chars and just contain visible characters");
+    if (!CStaticFunctionDefinitions::SetServerPassword(rawPassword.value_or(""), true))
+        throw std::invalid_argument("password must be shorter than 32 chars and just contain visible characters");
     return true;
 }
 
@@ -91,7 +100,8 @@ std::string_view CLuaGenericDefs::GetServerName()
 
 bool CLuaGenericDefs::OutputServerLog(std::string_view message)
 {
-    CLogger::LogPrintf(LOGLEVEL_MEDIUM, "%.*s\n", message.length(), message.data());
+    CLogger::LogPrintf(LOGLEVEL_MEDIUM, "%.*s", message.length(), message.data());
+    CLogger::LogPrintNoStamp("\n");
     return true;
 }
 

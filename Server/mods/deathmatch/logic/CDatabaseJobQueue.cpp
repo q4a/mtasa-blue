@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CDatabaseJobQueue.cpp
  *  PURPOSE:     Threaded job queue
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,6 +13,11 @@
 #include "CDatabaseType.h"
 #include "CDatabaseJobQueue.h"
 #include "SharedUtil.Thread.h"
+#include "CDatabaseManager.h"
+#include "CPerfStatModule.h"
+#include "CLogger.h"
+#include "CGame.h"
+#include "CScriptDebugging.h"
 
 typedef CFastList<CDbJobData*> CJobQueueType;
 
@@ -61,7 +66,7 @@ protected:
     // Main thread variables
     CThreadHandle*                  m_pServiceThreadHandle;
     std::map<SDbJobId, CDbJobData*> m_ActiveJobHandles;
-    std::set<CDbJobData*>           m_FinishedList;            // Result has been used, will be deleted next pulse
+    std::set<CDbJobData*>           m_FinishedList;  // Result has been used, will be deleted next pulse
     uint                            m_uiJobCountWarnThresh;
     uint                            m_uiJobCount10sMin;
     CElapsedTime                    m_JobCountElpasedTime;
@@ -430,7 +435,7 @@ bool CDatabaseJobQueueImpl::FreeCommand(CDbJobData* pJobData)
     }
 
     if (pJobData->result.bIgnoreResult)
-        return false;            // Already ignoring query handle
+        return false;  // Already ignoring query handle
 
     // if in command or result queue, then put in ignore result list
     bool bFound;

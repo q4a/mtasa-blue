@@ -5,12 +5,15 @@
  *  FILE:        mods/deathmatch/logic/packets/CLightsyncPacket.cpp
  *  PURPOSE:     Lightweight synchronization packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CLightsyncPacket.h"
 #include "net/SyncStructures.h"
+#include "CTickRateSettings.h"
+#include "CPlayer.h"
 
 bool CLightsyncPacket::Read(NetBitStreamInterface& BitStream)
 {
@@ -42,7 +45,8 @@ bool CLightsyncPacket::Write(NetBitStreamInterface& BitStream) const
         BitStream.Write(pPlayer->GetID());
         BitStream.Write((unsigned char)pPlayer->GetSyncTimeContext());
 
-        unsigned short usLatency = pPlayer->GetPing();
+        const unsigned int   uiPing = pPlayer->GetPing();
+        const unsigned short usLatency = uiPing <= 0xFFFF ? static_cast<unsigned short>(uiPing) : 0xFFFF;
         BitStream.WriteCompressed(usLatency);
 
         BitStream.WriteBit(data.health.bSync);

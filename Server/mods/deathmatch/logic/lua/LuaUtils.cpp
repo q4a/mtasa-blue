@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/lua/LuaUtils.cpp
  *  PURPOSE:     Lua Utility functions
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "LuaUtils.h"
+#include "LuaCommon.h"
 
 SString GetDebugMessage(lua_State* luaVM)
 {

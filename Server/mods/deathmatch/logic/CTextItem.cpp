@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/CTextItem.cpp
  *  PURPOSE:     Text display item class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CTextItem.h"
+#include "CIdArray.h"
 
 static unsigned long ulUniqueId = 0;
 

@@ -5,17 +5,20 @@
  *  FILE:        core/CDynamicLibrary.cpp
  *  PURPOSE:     Dynamic library handling class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
 #include "CDynamicLibrary.h"
 #include "MTAPlatform.h"
+#include "version.h"
 
 #ifdef WIN32
-#include <stdio.h>
+    #include <stdio.h>
 #endif
+
+void Print(const char* szFormat, ...);
 
 CDynamicLibrary::CDynamicLibrary()
 {
@@ -53,8 +56,8 @@ bool CDynamicLibrary::Load(const char* szFilename)
 
 #endif
 
-    // Load the new library
-    #ifdef WIN32
+// Load the new library
+#ifdef WIN32
     m_hModule = LoadLibraryEx(szFilename, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
 
     // Failed?
@@ -73,7 +76,7 @@ bool CDynamicLibrary::Load(const char* szFilename)
         // Free the error message buffer
         LocalFree(lpMsgBuf);
     }
-    #else
+#else
     m_hModule = dlopen(szFilename, RTLD_NOW);
 
     // Output error if needed
@@ -85,7 +88,7 @@ bool CDynamicLibrary::Load(const char* szFilename)
         else
             Print("Loading %s failed\n", szFilename);
     }
-    #endif
+#endif
 
     // Check for version mismatch
     if (!CheckMtaVersion(ExtractFilename(szFilename)))
@@ -102,11 +105,11 @@ void CDynamicLibrary::Unload()
     // Got a module?
     if (m_hModule != 0)
     {
-        #ifdef WIN32
+#ifdef WIN32
         FreeLibrary(m_hModule);
-        #else
+#else
         dlclose(m_hModule);
-        #endif
+#endif
 
         // Zero out our library as it's no longer valid
         m_hModule = 0;
@@ -123,20 +126,20 @@ FuncPtr_t CDynamicLibrary::GetProcedureAddress(const char* szProcName)
     // Got a module?
     if (m_hModule != 0)
     {
-        #ifdef WIN32
-        return (FuncPtr_t)GetProcAddress(m_hModule, szProcName);
-        #else
+#ifdef WIN32
+        return GetProcAddress(m_hModule, szProcName);
+#else
         char* szError = NULL;
         dlerror();
 
-        FuncPtr_t pFunc = (FuncPtr_t)dlsym(m_hModule, szProcName);
+        auto pFunc = reinterpret_cast<FuncPtr_t>(dlsym(m_hModule, szProcName));
         if ((szError = dlerror()) != NULL)
         {
             return NULL;
         }
 
         return pFunc;
-        #endif
+#endif
     }
 
     return NULL;
@@ -145,8 +148,8 @@ FuncPtr_t CDynamicLibrary::GetProcedureAddress(const char* szProcName)
 bool CDynamicLibrary::CheckMtaVersion(const char* szLibName)
 {
 #if MTASA_VERSION_TYPE >= VERSION_TYPE_UNSTABLE
-// define MTASA_SKIP_VERSION_CHECKS in "Shared/build_overrides.h" to skip version checks
-#ifndef MTASA_SKIP_VERSION_CHECKS
+    // define MTASA_SKIP_VERSION_CHECKS in "Shared/build_overrides.h" to skip version checks
+    #ifndef MTASA_SKIP_VERSION_CHECKS
 
     if (m_hModule == 0)
         return false;
@@ -176,7 +179,7 @@ bool CDynamicLibrary::CheckMtaVersion(const char* szLibName)
         return false;
     }
 
-#endif
+    #endif
 #endif
     return true;
 }

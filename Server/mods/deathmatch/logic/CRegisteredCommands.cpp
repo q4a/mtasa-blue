@@ -5,11 +5,22 @@
  *  FILE:        mods/deathmatch/logic/CRegisteredCommands.cpp
  *  PURPOSE:     Registered (lua) command manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CRegisteredCommands.h"
+#include "lua/LuaCommon.h"
+#include "lua/CLuaArguments.h"
+#include "lua/CLuaMain.h"
+#include "CAccessControlListManager.h"
+#include "CClient.h"
+#include "CConsoleClient.h"
+#include "CPlayer.h"
+#include "CGame.h"
+#include "CScriptDebugging.h"
+#include "CMainConfig.h"
 
 CRegisteredCommands::CRegisteredCommands(CAccessControlListManager* pACLManager)
 {
@@ -26,6 +37,27 @@ bool CRegisteredCommands::AddCommand(CLuaMain* pLuaMain, const char* szKey, cons
 {
     assert(pLuaMain);
     assert(szKey);
+
+    if (CommandExists(szKey, nullptr))
+    {
+        auto policy = static_cast<MultiCommandHandlerPolicy>(g_pGame->GetConfig()->GetAllowMultiCommandHandlers());
+
+        switch (policy)
+        {
+            case MultiCommandHandlerPolicy::BLOCK:
+                g_pGame->GetScriptDebugging()->LogError(
+                    pLuaMain->GetVM(), "addCommandHandler: Duplicate command registration blocked for '%s' (multiple handlers disabled)", szKey);
+                return false;
+
+            case MultiCommandHandlerPolicy::WARN:
+                g_pGame->GetScriptDebugging()->LogWarning(pLuaMain->GetVM(), "Attempt to register duplicate command '%s'", szKey);
+                break;
+
+            case MultiCommandHandlerPolicy::ALLOW:
+            default:
+                break;
+        }
+    }
 
     // Check if we already have this key and handler
     SCommand* pCommand = GetCommand(szKey, pLuaMain);
@@ -53,9 +85,9 @@ bool CRegisteredCommands::RemoveCommand(CLuaMain* pLuaMain, const char* szKey, c
     assert(szKey);
 
     // Call the handler for every virtual machine that matches the given key
-    int                       iCompareResult;
-    bool                      bFound = false;
-    list<SCommand*>::iterator iter = m_Commands.begin();
+    int                            iCompareResult;
+    bool                           bFound = false;
+    std::list<SCommand*>::iterator iter = m_Commands.begin();
 
     while (iter != m_Commands.end())
     {
@@ -97,7 +129,7 @@ bool CRegisteredCommands::RemoveCommand(CLuaMain* pLuaMain, const char* szKey, c
 void CRegisteredCommands::ClearCommands()
 {
     // Delete all the commands
-    list<SCommand*>::const_iterator iter = m_Commands.begin();
+    std::list<SCommand*>::const_iterator iter = m_Commands.begin();
 
     for (; iter != m_Commands.end(); iter++)
         delete *iter;
@@ -111,7 +143,7 @@ void CRegisteredCommands::CleanUpForVM(CLuaMain* pLuaMain)
     assert(pLuaMain);
 
     // Delete every command that matches
-    list<SCommand*>::iterator iter = m_Commands.begin();
+    std::list<SCommand*>::iterator iter = m_Commands.begin();
 
     while (iter != m_Commands.end())
     {
@@ -131,7 +163,7 @@ bool CRegisteredCommands::CommandExists(const char* szKey, CLuaMain* pLuaMain)
 {
     assert(szKey);
 
-    return GetCommand(szKey, pLuaMain) != NULL;
+    return GetCommand(szKey, pLuaMain) != nullptr;
 }
 
 bool CRegisteredCommands::ProcessCommand(const char* szKey, const char* szArguments, CClient* pClient)
@@ -139,9 +171,9 @@ bool CRegisteredCommands::ProcessCommand(const char* szKey, const char* szArgume
     assert(szKey);
 
     // Call the handler for every virtual machine that matches the given key
-    bool                            bHandled = false;
-    int                             iCompareResult;
-    list<SCommand*>::const_iterator iter = m_Commands.begin();
+    bool                                 bHandled = false;
+    int                                  iCompareResult;
+    std::list<SCommand*>::const_iterator iter = m_Commands.begin();
 
     m_bIteratingList = true;
 
@@ -158,7 +190,7 @@ bool CRegisteredCommands::ProcessCommand(const char* szKey, const char* szArgume
             if (m_pACLManager->CanObjectUseRight(
                     pClient->GetAccount()->GetName().c_str(), CAccessControlListGroupObject::OBJECT_TYPE_USER, (*iter)->strKey,
                     CAccessControlListRight::RIGHT_TYPE_COMMAND,
-                    !(*iter)->bRestricted))            // If this command is restricted, the default access should be false unless granted specially
+                    !(*iter)->bRestricted))  // If this command is restricted, the default access should be false unless granted specially
             {
                 // Call it
                 CallCommandHandler((*iter)->pLuaMain, (*iter)->iLuaFunction, (*iter)->strKey, szArguments, pClient);
@@ -179,8 +211,8 @@ CRegisteredCommands::SCommand* CRegisteredCommands::GetCommand(const char* szKey
     assert(szKey);
 
     // Try to find an entry with a matching name in our list
-    int                             iCompareResult;
-    list<SCommand*>::const_iterator iter = m_Commands.begin();
+    int                                  iCompareResult;
+    std::list<SCommand*>::const_iterator iter = m_Commands.begin();
 
     for (; iter != m_Commands.end(); iter++)
     {
@@ -195,7 +227,7 @@ CRegisteredCommands::SCommand* CRegisteredCommands::GetCommand(const char* szKey
     }
 
     // Doesn't exist
-    return NULL;
+    return nullptr;
 }
 
 void CRegisteredCommands::CallCommandHandler(CLuaMain* pLuaMain, const CLuaFunctionRef& iLuaFunction, const char* szKey, const char* szArguments,
@@ -245,7 +277,7 @@ void CRegisteredCommands::CallCommandHandler(CLuaMain* pLuaMain, const CLuaFunct
         while (arg)
         {
             Arguments.PushString(arg);
-            arg = strtok(NULL, " ");
+            arg = strtok(nullptr, " ");
         }
 
         delete[] szTempArguments;

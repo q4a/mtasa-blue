@@ -5,11 +5,9 @@
  *  FILE:        mods/deathmatch/logic/packets/CVehicleSpawnPacket.h
  *  PURPOSE:     Vehicle spawn packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
-
-class CVehicleSpawnPacket;
 
 #pragma once
 

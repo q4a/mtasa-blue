@@ -27,6 +27,7 @@ public:
     LUA_DECLARE(GetElementByID);
     LUA_DECLARE(GetElementByIndex);
     LUA_DECLARE(GetElementData);
+    static CLuaArguments GetAllElementData(CClientEntity* pElement);
     LUA_DECLARE(HasElementData);
     LUA_DECLARE(GetElementParent);
     LUA_DECLARE_OOP(GetElementMatrix);
@@ -40,8 +41,8 @@ public:
     LUA_DECLARE(IsElementWithinColShape);
     LUA_DECLARE(IsElementWithinMarker);
     LUA_DECLARE(GetElementsWithinColShape);
-    static CClientEntityResult GetElementsWithinRange(CVector pos, float radius, std::optional<std::string> type,
-        std::optional<unsigned short> interior, std::optional<unsigned short> dimension);
+    static CClientEntityResult GetElementsWithinRange(CVector pos, float radius, std::optional<std::string> type, std::optional<unsigned short> interior,
+                                                      std::optional<unsigned short> dimension);
     LUA_DECLARE(GetElementDimension);
     LUA_DECLARE(GetElementZoneName);
     LUA_DECLARE_OOP(GetElementBoundingBox);
@@ -53,7 +54,8 @@ public:
     LUA_DECLARE(IsElementLocal);
     LUA_DECLARE(GetElementAttachedOffsets);
     LUA_DECLARE(GetElementAlpha);
-    LUA_DECLARE(IsElementOnScreen);
+    static std::variant<bool, float> GetElementLighting(CClientEntity* entity);
+    static bool                      IsElementOnScreen(CClientEntity* entity);
     LUA_DECLARE(GetElementHealth);
     LUA_DECLARE(IsElementStreamedIn);
     LUA_DECLARE(IsElementStreamable);
@@ -69,6 +71,7 @@ public:
     LUA_DECLARE(IsElementLowLod);
     LUA_DECLARE(IsElementCallPropagationEnabled);
     LUA_DECLARE(IsElementWaitingForGroundToLoad);
+    static bool IsElementOnFire(CClientEntity* entity) noexcept;
 
     // Element set funcs
     LUA_DECLARE(CreateElement);
@@ -95,6 +98,8 @@ public:
     LUA_DECLARE(SetElementCollidableWith);
     LUA_DECLARE(SetElementDoubleSided);
     LUA_DECLARE(SetElementFrozen);
-    LUA_DECLARE(SetLowLodElement);
+    static bool SetLowLodElement(lua_State* luaVM, CClientEntity* pEntity, std::optional<CClientEntity*> pLowLodEntity);
     LUA_DECLARE(SetElementCallPropagationEnabled);
+    static bool SetElementLighting(CClientEntity* entity, float lighting);
+    static bool SetElementOnFire(CClientEntity* entity, bool onFire) noexcept;
 };

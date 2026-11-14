@@ -5,7 +5,7 @@
  *  FILE:        sdk/gui/CGUIMemo.h
  *  PURPOSE:     Multi-line edit box widget interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -17,7 +17,7 @@
 class CGUIMemo : public CGUIElement
 {
 public:
-    virtual ~CGUIMemo(){};
+    virtual ~CGUIMemo() {};
 
     virtual void SetReadOnly(bool bReadOnly) = 0;
     virtual bool IsReadOnly() = 0;
@@ -39,4 +39,7 @@ public:
     virtual void EnsureCaratIsVisible() = 0;
 
     virtual void SetTextChangedHandler(const GUI_CALLBACK& Callback) = 0;
+
+    virtual unsigned int GetUTF8CharacterCount(const char* szText) = 0;
+    virtual float        GetVerticalOffsetForCharacterIndex(unsigned int uiIndex) = 0;
 };

@@ -5,13 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CResourceStopPacket.h
  *  PURPOSE:     Resource stop packet handler class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-#include "../packets/CPacket.h"
+#include "CPacket.h"
 
 class CResourceStopPacket final : public CPacket
 {

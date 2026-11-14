@@ -2,6 +2,7 @@ project "unrar"
 	language "C++"
 	kind "StaticLib"
 	targetname "unrar"
+	warnings "Off"
 
 	defines { "RARDLL" }
 
@@ -34,7 +35,6 @@ project "unrar"
 		"find.cpp",
 		"getbits.cpp",
 		"global.cpp",
-		"isnt.cpp",
 		"list.cpp",
 		"match.cpp",
 		"options.cpp",
@@ -67,3 +67,9 @@ project "unrar"
 		"threadpool.cpp",
 		"ui.cpp"
 	}
+
+	filter "system:windows"
+		files { "isnt.cpp" }
+		disablewarnings {
+			"4996", -- use of symbol with __declspec(deprecated)
+		}

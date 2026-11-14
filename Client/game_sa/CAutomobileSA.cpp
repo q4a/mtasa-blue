@@ -1,597 +1,103 @@
 /*****************************************************************************
  *
- *  PROJECT:     Multi Theft Auto v1.0
+ *  PROJECT:     Multi Theft Auto
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        game_sa/CAutomobileSA.cpp
  *  PURPOSE:     Automobile vehicle entity
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CAutomobileSA.h"
+#include "CGameSA.h"
 
-/**
- * \todo Spawn automobiles with engine off
- */
-CAutomobileSA::CAutomobileSA(eVehicleTypes dwModelID, unsigned char ucVariation, unsigned char ucVariation2) : CVehicleSA(dwModelID, ucVariation, ucVariation2)
+extern CGameSA* pGame;
+
+CAutomobileSA::CAutomobileSA(CAutomobileSAInterface* pInterface)
 {
-    DEBUG_TRACE("CAutomobileSA::CAutomobileSA( eVehicleTypes dwModelID ):CVehicleSA( dwModelID )");
-    /*  if(this->internalInterface)
+    SetInterface(pInterface);
+    Init();
+}
+
+// Returns true when any wheel is partially compressed (not fully relaxed)
+bool CAutomobileSA::IsAnyWheelTouchingGround() const
+{
+    CAutomobileSAInterface* autoInterface = GetAutomobileInterface();
+    if (!autoInterface)
+        return false;
+
+    return autoInterface->m_wheelRatios[0] < 1.0f || autoInterface->m_wheelRatios[1] < 1.0f || autoInterface->m_wheelRatios[2] < 1.0f ||
+           autoInterface->m_wheelRatios[3] < 1.0f;
+}
+
+void CAutomobileSAInterface::SetPanelDamage(std::uint8_t panelId, bool breakGlass, bool spawnFlyingComponent)
+{
+    int nodeId = CDamageManagerSA::GetCarNodeIndexFromPanel(panelId);
+    if (nodeId < 0)
+        return;
+
+    eCarNodes node = static_cast<eCarNodes>(nodeId);
+
+    RwFrame* frame = m_aCarNodes[nodeId];
+    if (!frame)
+        return;
+
+    CVehicleModelInfoSAInterface* vehicleInfo = nullptr;
+    if (auto* mi = pGame->GetModelInfo(m_nModelIndex))
+        vehicleInfo = static_cast<CVehicleModelInfoSAInterface*>(mi->GetInterface());
+
+    if (!vehicleInfo || !vehicleInfo->IsComponentDamageable(nodeId))
+        return;
+
+    switch (m_damageManager.GetPanelStatus(panelId))
+    {
+        case DT_PANEL_DAMAGED:
         {
-            // create the actual vehicle
-            DWORD dwFunc = FUNC_CAutomobileContructor;
-            DWORD dwThis = (DWORD)this->internalInterface;
-            _asm
+            if ((pHandlingData->uiModelFlags & 0x10000000) != 0)  // check bouncePanels flag
+                return;
+
+            if (node != eCarNodes::WINDSCREEN && node != eCarNodes::WING_LF && node != eCarNodes::WING_RF)
             {
-                mov     ecx, dwThis
-                push    MISSION_VEHICLE
-                push    dwModelID
-                call    dwFunc
+                // Get free bouncing panel
+                for (auto& panel : m_panels)
+                {
+                    if (panel.m_nFrameId == (std::uint16_t)0xFFFF)
+                    {
+                        if (nodeId < 0 || nodeId > 0x7FFF)
+                            return;
+
+                        panel.SetPanel(static_cast<std::int16_t>(nodeId), static_cast<std::int16_t>(1), GetRandomNumberInRange(-0.2f, -0.5f));
+                        break;
+                    }
+                }
             }
 
-            this->SetEntityStatus(STATUS_ABANDONED); // so it actually shows up in the world
+            SetComponentVisibility(frame, 2);  // ATOMIC_IS_DAM_STATE
+            break;
+        }
+        case DT_PANEL_OPENED:
+        {
+            if (panelId == WINDSCREEN_PANEL)
+                m_VehicleAudioEntity.AddAudioEvent(91, 0.0f);
 
-            pGame->GetWorld()->Add((CEntitySA *)this);
-    */
-    // create our mirror classes
-    for (int i = 0; i < MAX_DOORS; i++)
-        this->door[i] = new CDoorSA(&((CAutomobileSAInterface*)this->GetInterface())->m_doors[i]);
-    /*}
-     */
-}
+            SetComponentVisibility(frame, 2);  // ATOMIC_IS_DAM_STATE
+            break;
+        }
+        case DT_PANEL_OPENED_DAMAGED:
+        {
+            if (panelId == WINDSCREEN_PANEL)
+            {
+                if (breakGlass)
+                    ((void(__cdecl*)(CAutomobileSAInterface*, bool))0x71C2B0)(this, false);  // Call CGlass::CarWindscreenShatters
+            }
 
-CAutomobileSA::CAutomobileSA(CAutomobileSAInterface* automobile)
-{
-    DEBUG_TRACE("CAutomobileSA::CAutomobileSA( CAutomobileSAInterface * automobile )");
-    // just so it can be passed on to CVehicle
-}
+            if (spawnFlyingComponent && (panelId != WINDSCREEN_PANEL || (panelId == WINDSCREEN_PANEL && !breakGlass)))
+                SpawnFlyingComponent(node, eCarComponentCollisionTypes::COL_NODE_PANEL);
 
-CAutomobileSA::~CAutomobileSA()
-{
-    for (int i = 0; i < MAX_DOORS; i++)
-    {
-        if (this->door[i])
-            delete this->door[i];
+            SetComponentVisibility(frame, 0);  // ATOMIC_IS_NOT_PRESENT
+            break;
+        }
     }
-}
-
-bool CAutomobileSA::BurstTyre(DWORD dwTyreID)
-{
-    DEBUG_TRACE("bool CAutomobileSA::BurstTyre ( DWORD dwTyreID )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_BurstTyre;
-    bool  bReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    dwTyreID
-        call    dwFunc;
-        mov     bReturn, al
-    }
-
-    return bReturn;
-}
-
-bool CAutomobileSA::BreakTowLink()
-{
-    DEBUG_TRACE("bool CAutomobileSA::BreakTowLink ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_BreakTowLink;
-    bool  bReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-        mov     bReturn, al
-    }
-
-    return bReturn;
-}
-
-void CAutomobileSA::BlowUpCar(CEntity* pEntity)
-{
-    DEBUG_TRACE("void CAutomobileSA::BlowUpCar ( CEntity* pEntity )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_BlowUpCar;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    pEntity
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::BlowUpCarsInPath()
-{
-    DEBUG_TRACE("void CAutomobileSA::BlowUpCarsInPath ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_BlowUpCarsInPath;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::CloseAllDoors()
-{
-    DEBUG_TRACE("void CAutomobileSA::CloseAllDoors ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_CloseAllDoors;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::CloseBoot()
-{
-    DEBUG_TRACE("void CAutomobileSA::CloseBoot ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_CloseBoot;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-    }
-}
-
-float CAutomobileSA::FindWheelWidth(bool bUnknown)
-{
-    DEBUG_TRACE("float CAutomobileSA::FindWheelWidth ( bool bUnknown )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwUnknown = (DWORD)bUnknown;
-    DWORD dwFunc = FUNC_CAutomobile_FindWheelWidth;
-    float fReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    dwUnknown
-        call    dwFunc
-        fstp    fReturn;
-    }
-
-    return fReturn;
-}
-
-/*
-void CAutomobileSA::Fix ( void )
-{
-    DEBUG_TRACE("void CAutomobileSA::Fix ( void )");
-    DWORD dwThis = (DWORD) GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_Fix;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-    }
-}*/
-
-void CAutomobileSA::FixDoor(int iCarNodeIndex, eDoorsSA Door)
-{
-    DEBUG_TRACE("void CAutomobileSA::FixDoor ( int iCarNodeIndex, eDoorsSA Door )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_FixDoor;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    Door
-        push    iCarNodeIndex
-        call    dwFunc
-    }
-}
-
-int CAutomobileSA::FixPanel(int iCarNodeIndex, ePanelsSA Panel)
-{
-    DEBUG_TRACE("int CAutomobileSA::FixPanel ( int iCarNodeIndex, ePanelsSA Panel )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_FixPanel;
-    int   iReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    Panel
-        push    iCarNodeIndex
-        call    dwFunc
-        mov     iReturn, eax
-    }
-
-    return iReturn;
-}
-
-bool CAutomobileSA::GetAllWheelsOffGround()
-{
-    DEBUG_TRACE("bool CAutomobileSA::GetAllWheelsOffGround ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_GetAllWheelsOffGround;
-    bool  bReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-        mov     bReturn, al
-    }
-
-    return bReturn;
-}
-
-float CAutomobileSA::GetCarPitch()
-{
-    DEBUG_TRACE("float CAutomobileSA::GetCarPitch ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_GetCarPitch;
-    float fReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-        fstp    fReturn
-    }
-
-    return fReturn;
-}
-
-float CAutomobileSA::GetCarRoll()
-{
-    DEBUG_TRACE("float CAutomobileSA::GetCarRoll ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_GetCarRoll;
-    float fReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-        fstp    fReturn
-    }
-
-    return fReturn;
-}
-
-void CAutomobileSA::GetComponentWorldPosition(int iComponentID, CVector* pVector)
-{
-    DEBUG_TRACE("void CAutomobileSA::GetComponentWorldPosition ( int iComponentID, CVector* pVector)");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_GetComponentWorldPosition;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    pVector
-        push    iComponentID
-        call    dwFunc
-    }
-}
-
-/*float CAutomobileSA::GetHeightAboveRoad ( void )
-{
-
-}*/
-
-DWORD CAutomobileSA::GetNumContactWheels()
-{
-    DEBUG_TRACE("DWORD CAutomobileSA::GetNumContactWheels ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_GetNumContactWheels;
-    DWORD dwReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-        mov     dwReturn, eax
-    }
-
-    return dwReturn;
-}
-
-float CAutomobileSA::GetRearHeightAboveRoad()
-{
-    DEBUG_TRACE("float CAutomobileSA::GetRearHeightAboveRoad ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_GetRearHeightAboveRoad;
-    float fReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-        fstp    fReturn
-    }
-
-    return fReturn;
-}
-
-bool CAutomobileSA::IsComponentPresent(int iComponentID)
-{
-    DEBUG_TRACE("bool CAutomobileSA::IsComponentPresent ( int iComponentID )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_IsComponentPresent;
-    bool  bReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    iComponentID
-        call    dwFunc
-        mov     bReturn, al
-    }
-
-    return bReturn;
-}
-
-bool CAutomobileSA::IsDoorClosed(eDoorsSA Door)
-{
-    DEBUG_TRACE("bool CAutomobileSA::IsDoorClosed ( eDoorsSA Door )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_IsDoorClosed;
-    bool  bReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    Door
-        call    dwFunc
-        mov     bReturn, al
-    }
-
-    return bReturn;
-}
-
-bool CAutomobileSA::IsDoorFullyOpen(eDoorsSA Door)
-{
-    DEBUG_TRACE("bool CAutomobileSA::IsDoorFullyOpen ( eDoorsSA Door )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_IsDoorFullyOpen;
-    bool  bReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    Door
-        call    dwFunc
-        mov     bReturn, al
-    }
-
-    return bReturn;
-}
-
-bool CAutomobileSA::IsDoorMissing(eDoorsSA Door)
-{
-    DEBUG_TRACE("bool CAutomobileSA::IsDoorMissing ( eDoorsSA Door )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_IsDoorMissing;
-    bool  bReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    Door
-        call    dwFunc
-        mov     bReturn, al
-    }
-
-    return bReturn;
-}
-
-bool CAutomobileSA::IsDoorReady(eDoorsSA Door)
-{
-    DEBUG_TRACE("bool CAutomobileSA::IsDoorReady ( eDoorsSA Door )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_IsDoorReady;
-    bool  bReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    Door
-        call    dwFunc
-        mov     bReturn, al
-    }
-
-    return bReturn;
-}
-
-bool CAutomobileSA::IsInAir()
-{
-    DEBUG_TRACE("bool CAutomobileSA::IsInAir ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_IsInAir;
-    bool  bReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-        mov     bReturn, al
-    }
-
-    return bReturn;
-}
-
-bool CAutomobileSA::IsOpenTopCar()
-{
-    DEBUG_TRACE("bool CAutomobileSA::IsOpenTopCar ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_IsOpenTopCar;
-    bool  bReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-        mov     bReturn, al
-    }
-
-    return bReturn;
-}
-
-void CAutomobileSA::PlayCarHorn()
-{
-    DEBUG_TRACE("void CAutomobileSA::PlayCarHorn ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_PlayCarHorn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::PopBoot()
-{
-    DEBUG_TRACE("void CAutomobileSA::PopBoot ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_PopBoot;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::PopBootUsingPhysics()
-{
-    DEBUG_TRACE("void CAutomobileSA::PopBootUsingPhysics ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_PopBootUsingPhysics;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::PopDoor(int iCarNodeIndex, eDoorsSA Door, bool bUnknown)
-{
-    DEBUG_TRACE("void CAutomobileSA::PopDoor ( int iCarNodeIndex, eDoorsSA Door, bool bUnknown )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwUnknown = (DWORD)bUnknown;
-    DWORD dwFunc = FUNC_CAutomobile_PopDoor;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    dwUnknown
-        push    Door
-        push    iCarNodeIndex
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::PopPanel(int iCarNodeIndex, ePanelsSA Panel, bool bFallOffFast)
-{
-    DEBUG_TRACE("void CAutomobileSA::PopPanel ( int iCarNodeIndex, ePanelsSA Panel, bool bFallOffFast )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFallOffFast = (DWORD)bFallOffFast;
-    DWORD dwFunc = FUNC_CAutomobile_PopPanel;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    dwFallOffFast
-        push    Panel
-        push    iCarNodeIndex
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::ResetSuspension()
-{
-    DEBUG_TRACE("void CAutomobileSA::ResetSuspension ( void )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwFunc = FUNC_CAutomobile_ResetSuspension;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::SetRandomDamage(bool bUnknown)
-{
-    DEBUG_TRACE("void CAutomobileSA::SetRandomDamage ( bool bUnknown )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwUnknown = (DWORD)bUnknown;
-    DWORD dwFunc = FUNC_CAutomobile_SetRandomDamage;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    dwUnknown
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::SetTaxiLight(bool bState)
-{
-    DEBUG_TRACE("void CAutomobileSA::SetTaxiLight ( bool bState )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwState = (DWORD)bState;
-    DWORD dwFunc = FUNC_CAutomobile_SetTaxiLight;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    dwState
-        call    dwFunc
-    }
-}
-
-void CAutomobileSA::SetTotalDamage(bool bUnknown)
-{
-    DEBUG_TRACE("void CAutomobileSA::SetTotalDamage (bool bUnknown )");
-    DWORD dwThis = (DWORD)GetInterface();
-    DWORD dwUnknown = (DWORD)bUnknown;
-    DWORD dwFunc = FUNC_CAutomobile_SetTotalDamage;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    dwUnknown
-        call    dwFunc
-    }
-}
-
-CPhysical* CAutomobileSA::SpawnFlyingComponent(int iCarNodeIndex, int iUnknown)
-{
-    DEBUG_TRACE("CPhysical* CAutomobileSA::SpawnFlyingComponent ( int iCarNodeIndex, int iUnknown )");
-    DWORD      dwThis = (DWORD)GetInterface();
-    DWORD      dwFunc = FUNC_CAutomobile_SpawnFlyingComponent;
-    CPhysical* pReturn;
-
-    _asm
-    {
-        mov     ecx, dwThis
-        push    iUnknown
-        push    iCarNodeIndex
-        call    dwFunc
-        mov     pReturn, eax
-    }
-
-    return pReturn;
-}
-
-CDoor* CAutomobileSA::GetDoor(eDoors doorID)
-{
-    DEBUG_TRACE("CDoor * CAutomobileSA::GetDoor(eDoors doorID)");
-    return this->door[doorID];
 }

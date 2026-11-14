@@ -5,7 +5,7 @@
  *  FILE:        multiplayer_sa/CRemoteDataSA.h
  *  PURPOSE:     Remote data storage class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -19,7 +19,6 @@
 
 // These includes have to be fixed!
 #include "../game_sa/CPadSA.h"
-#include "../game_sa/common.h"
 
 class CRemoteDataStorageSA : public CRemoteDataStorage
 {

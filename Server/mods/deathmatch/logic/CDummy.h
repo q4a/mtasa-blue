@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CDummy.h
  *  PURPOSE:     Dummy entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -26,6 +26,7 @@ public:
 
 protected:
     bool ReadSpecialData(const int iLine) override;
+    void WriteSpecialData(CXMLNode* pNode) override;
 
 private:
     class CGroups* m_pGroups;

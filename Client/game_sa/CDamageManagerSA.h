@@ -5,43 +5,42 @@
  *  FILE:        game_sa/CDamageManagerSA.h
  *  PURPOSE:     Header file for vehicle damage manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #include <game/CDamageManager.h>
-#include "Common.h"
 
-#define FUNC_GetEngineStatus        0x6c22c0
-#define FUNC_SetEngineStatus        0x6c22a0
-#define FUNC_GetDoorStatus          0x6c2230
-#define FUNC_SetDoorStatus          0x6c21c0
-#define FUNC_GetTireStatus          0x6c21b0
-#define FUNC_SetTireStatus          0x6c21a0
 #define FUNC_GetPanelStatus         0x6c2180
 #define FUNC_SetPanelStatus         0x6c2150
 #define FUNC_SetLightStatus         0x6c2100
 #define FUNC_GetLightStatus         0x6c2130
 #define FUNC_SetAeroplaneCompStatus 0x6C22D0
 #define FUNC_GetAeroplaneCompStatus 0x6C2300
-
-// 006c25d0      public: void __thiscall CDamageManager::FuckCarCompletely(bool)
 #define FUNC_FuckCarCompletely      0x6c25d0
 
-#define MAX_DOORS                   6   // also in CAutomobile
-#define MAX_WHEELS                  4
+#define MAX_DOORS  6  // also in CAutomobile
+#define MAX_WHEELS 4
 
-class CDamageManagerSAInterface            // 28 bytes due to the way its packed (24 containing actual data)
+class CDamageManagerSAInterface  // 28 bytes due to the way its packed (24 containing actual data)
 {
 public:
-    FLOAT fWheelDamageEffect;
-    BYTE  bEngineStatus;            // old - wont be used
+    std::uint8_t GetPanelStatus(std::uint8_t panelId)
+    {
+        if (panelId >= MAX_PANELS)
+            return 0;
+
+        return ((std::uint8_t(__thiscall*)(CDamageManagerSAInterface*, std::uint8_t))FUNC_GetPanelStatus)(this, panelId);
+    }
+
+    float fWheelDamageEffect;
+    BYTE  bEngineStatus;  // old - wont be used
     BYTE  Wheel[MAX_WHEELS];
     BYTE  Door[MAX_DOORS];
-    DWORD Lights;            // 2 bits per light
-    DWORD Panels;            // 4 bits per panel
+    DWORD Lights;  // 2 bits per light
+    DWORD Panels;  // 4 bits per panel
 };
 static_assert(sizeof(CDamageManagerSAInterface) == 0x18, "Invalid size for CDamageManagerSAInterface");
 
@@ -53,23 +52,25 @@ private:
 
 public:
     BYTE          GetEngineStatus();
-    VOID          SetEngineStatus(BYTE bEngineState);
+    void          SetEngineStatus(BYTE bEngineState);
     BYTE          GetDoorStatus(eDoors bDoor);
-    VOID          SetDoorStatus(eDoors bDoor, BYTE bDoorStatus, bool spawnFlyingComponent);
+    void          SetDoorStatus(eDoors bDoor, BYTE bDoorStatus, bool spawnFlyingComponent);
     BYTE          GetWheelStatus(eWheelPosition bWheel);
-    VOID          SetWheelStatus(eWheelPosition bWheel, BYTE bTireStatus);
-    BYTE          GetPanelStatus(BYTE bPanel);
+    void          SetWheelStatus(eWheelPosition bWheel, BYTE bTireStatus);
+    BYTE          GetPanelStatus(BYTE bPanel) const;
     unsigned long GetPanelStatus();
-    VOID          SetPanelStatus(BYTE bPanel, BYTE bPanelStatus);
-    void          SetPanelStatus(unsigned long ulStatus);
+    void          SetPanelStatus(BYTE bPanel, BYTE bPanelStatus, bool spawnFlyingComponent = true, bool breakGlass = false);
+    void          SetPanelStatus(unsigned long ulStatus, bool spawnFlyingComponent = true, bool breakGlass = false);
     BYTE          GetLightStatus(BYTE bLight);
     unsigned char GetLightStatus();
-    VOID          SetLightStatus(BYTE bLight, BYTE bLightStatus);
+    void          SetLightStatus(BYTE bLight, BYTE bLightStatus);
     void          SetLightStatus(unsigned char ucStatus);
     BYTE          GetAeroplaneCompStatus(BYTE CompID);
-    VOID          SetAeroplaneCompStatus(BYTE CompID, BYTE Status);
+    void          SetAeroplaneCompStatus(BYTE CompID, BYTE Status);
 
-    VOID FuckCarCompletely(BOOL bKeepWheels);
+    void FuckCarCompletely(bool bKeepWheels);
+
+    static int GetCarNodeIndexFromPanel(std::uint8_t panelId) noexcept;
 
     CDamageManagerSA(class CEntitySAInterface* intEntityInterface, CDamageManagerSAInterface* intInterface)
     {

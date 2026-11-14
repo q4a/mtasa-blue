@@ -5,11 +5,14 @@
  *  FILE:        sdk/game/CCam.h
  *  PURPOSE:     Camera entity interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
+
+class CEntity;
+class CVector;
 
 class CCam
 {

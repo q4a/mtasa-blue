@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CAccountManager.h
  *  PURPOSE:     User account manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -14,12 +14,17 @@ class CAccountManager;
 #pragma once
 
 #include "CAccount.h"
+#include "CConnectHistory.h"
+
+class CDbJobData;
+class CDatabaseManager;
+
 typedef uint SDbConnectionId;
 
-#define GUEST_ACCOUNT_NAME          "guest"
-#define HTTP_GUEST_ACCOUNT_NAME     "http_guest"
-#define CONSOLE_ACCOUNT_NAME        "Console"
-#define CONSOLE_NICK_NAME           "Console"
+#define GUEST_ACCOUNT_NAME      "guest"
+#define HTTP_GUEST_ACCOUNT_NAME "http_guest"
+#define CONSOLE_ACCOUNT_NAME    "Console"
+#define CONSOLE_NICK_NAME       "Console"
 
 //
 // CFastList with additional name->account mapping
@@ -168,7 +173,8 @@ protected:
 public:
     void        RemoveAll();
     static void StaticDbCallback(CDbJobData* pJobData, void* pContext);
-    void        DbCallback(CDbJobData* pJobData);
+    static void StaticAccountSaveDbCallback(CDbJobData* pJobData, void* pContext);
+    bool        DbCallback(CDbJobData* pJobData);
     static bool IsValidAccountName(const SString& strName);
     static bool IsValidPassword(const SString& strPassword);
     static bool IsValidNewAccountName(const SString& strName);

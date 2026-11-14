@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CSingularFileDownload.h
  *  PURPOSE:     Header for singular file download
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,9 +13,9 @@
 
 #ifndef _WINDOWS_
 
-#define WIN32_LEAN_AND_MEAN     // Exclude all uncommon functions from windows.h to reduce build time by 100ms
+    #define WIN32_LEAN_AND_MEAN  // Exclude all uncommon functions from windows.h to reduce build time by 100ms
 
-#include <windows.h>
+    #include <windows.h>
 #endif
 
 #include <bochs_internal/bochs_crc32.h>
@@ -24,7 +24,8 @@
 class CSingularFileDownload
 {
 public:
-    CSingularFileDownload(CResource* pResource, const char* szName, const char* szNameShort, SString strHTTPURL, CResource* pRequestResource, CChecksum serverChecksum);
+    CSingularFileDownload(CResource* pResource, const char* szName, const char* szNameShort, SString strHTTPURL, CResource* pRequestResource,
+                          CChecksum serverChecksum);
     ~CSingularFileDownload();
 
     static void DownloadFinishedCallBack(const SHttpDownloadResult& result);

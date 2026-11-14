@@ -5,11 +5,19 @@
  *  FILE:        mods/deathmatch/logic/CVehicle.cpp
  *  PURPOSE:     Vehicle entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CVehicle.h"
+#include "CVehicleManager.h"
+#include "CHandlingManager.h"
+#include "CElementRefManager.h"
+#include "CGame.h"
+#include "packets/CVehicleInOutPacket.h"
+#include "CBandwidthSettings.h"
+#include "Utils.h"
 
 extern CGame* g_pGame;
 
@@ -46,7 +54,7 @@ CVehicle::CVehicle(CVehicleManager* pVehicleManager, CElement* pParent, unsigned
     m_pTowedByVehicle = NULL;
     m_ucPaintjob = 3;
     m_ucMaxPassengersOverride = VEHICLE_PASSENGERS_UNDEFINED;
-    m_pHandlingEntry = NULL;
+    m_HandlingEntry = nullptr;
 
     m_fRespawnHealth = DEFAULT_VEHICLE_HEALTH;
     m_bRespawnEnabled = false;
@@ -78,6 +86,7 @@ CVehicle::CVehicle(CVehicleManager* pVehicleManager, CElement* pParent, unsigned
     m_bHandlingChanged = false;
     m_ucVariant = ucVariant;
     m_ucVariant2 = ucVariant2;
+    m_onFire = false;
 
     // Initialize the occupied Players
     for (int i = 0; i < MAX_VEHICLE_SEATS; i++)
@@ -123,16 +132,20 @@ CVehicle::~CVehicle()
             if (pPed->GetVehicleAction() == CPed::VEHICLEACTION_EXITING)
             {
                 // Does it have an occupant and is the occupant the requesting ped?
-                unsigned char ucOccupiedSeat = pPed->GetOccupiedVehicleSeat();
-                if (pPed == GetOccupant(ucOccupiedSeat))
+                const uint uiOccupiedSeat = pPed->GetOccupiedVehicleSeat();
+                if (uiOccupiedSeat > 0xFF)
+                    continue;
+
+                unsigned char occupiedSeat = static_cast<unsigned char>(uiOccupiedSeat);
+                if (pPed == GetOccupant(occupiedSeat))
                 {
                     // Mark the ped/vehicle as empty
-                    SetOccupant(NULL, ucOccupiedSeat);
+                    SetOccupant(NULL, occupiedSeat);
                     pPed->SetOccupiedVehicle(NULL, 0);
                     pPed->SetVehicleAction(CPed::VEHICLEACTION_NONE);
 
                     // Tell everyone he has exited the vehicle
-                    CVehicleInOutPacket Reply(pPed->GetID(), GetID(), ucOccupiedSeat, CGame::VEHICLE_NOTIFY_OUT_RETURN);
+                    CVehicleInOutPacket Reply(pPed->GetID(), GetID(), static_cast<unsigned char>(occupiedSeat), CGame::VEHICLE_NOTIFY_OUT_RETURN);
                     g_pGame->GetPlayerManager()->BroadcastOnlyJoined(Reply);
                 }
             }
@@ -159,11 +172,10 @@ CVehicle::~CVehicle()
         }
     }
     delete m_pUpgrades;
-    delete m_pHandlingEntry;
 
     CElementRefManager::RemoveElementRefs(ELEMENT_REF_DEBUG(this, "CVehicle"), &m_pTowedVehicle, &m_pTowedByVehicle, &m_pSyncer, &m_pJackingPed, NULL);
 
-    // Notify the vehicle manager that we are not to be respawned anymore if neccessary
+    // Notify the vehicle manager that we are not to be respawned anymore if necessary
     if (m_bRespawnEnabled)
         m_pVehicleManager->GetRespawnEnabledVehicles().remove(this);
 
@@ -180,6 +192,7 @@ CElement* CVehicle::Clone(bool* bAddEntity, CResource* pResource)
         CVector vecRotationDegrees;
         GetRotationDegrees(vecRotationDegrees);
         pTemp->SetRotationDegrees(vecRotationDegrees);
+        pTemp->SetBlowState(m_blowState);
         pTemp->SetHealth(GetHealth());
         pTemp->SetColor(GetColor());
         pTemp->SetUpgrades(GetUpgrades());
@@ -303,7 +316,7 @@ bool CVehicle::ReadSpecialData(const int iLine)
         uchar ucValues[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
         char* sz1 = strtok(szTemp, ", ");
         if (sz1)
-            ucValues[0] = atoi(sz1);
+            ucValues[0] = static_cast<uchar>(atoi(sz1));
 
         int i;
         for (i = 1; i < 12; i++)
@@ -311,7 +324,7 @@ bool CVehicle::ReadSpecialData(const int iLine)
             char* szn = strtok(NULL, ", ");
             if (!szn)
                 break;
-            ucValues[i] = atoi(szn);
+            ucValues[i] = static_cast<uchar>(atoi(szn));
         }
 
         if (i == 3 || i == 6 || i == 9 || i == 12)
@@ -422,6 +435,100 @@ bool CVehicle::ReadSpecialData(const int iLine)
     return true;
 }
 
+void CVehicle::WriteSpecialData(CXMLNode* pNode)
+{
+    CElement::WriteSpecialData(pNode);
+
+    CXMLAttributes& attributes = pNode->GetAttributes();
+
+    attributes.Create("model")->SetValue(static_cast<int>(m_usModel));
+
+    attributes.Create("posX")->SetValue(m_vecPosition.fX);
+    attributes.Create("posY")->SetValue(m_vecPosition.fY);
+    attributes.Create("posZ")->SetValue(m_vecPosition.fZ);
+
+    attributes.Create("rotX")->SetValue(m_vecRotationDegrees.fX);
+    attributes.Create("rotY")->SetValue(m_vecRotationDegrees.fY);
+    attributes.Create("rotZ")->SetValue(m_vecRotationDegrees.fZ);
+
+    attributes.Create("variant1")->SetValue(static_cast<int>(GetVariant()));
+    attributes.Create("variant2")->SetValue(static_cast<int>(GetVariant2()));
+
+    attributes.Create("turretX")->SetValue(ConvertRadiansToDegrees(GetTurretPositionX()));
+    attributes.Create("turretY")->SetValue(ConvertRadiansToDegrees(GetTurretPositionY()));
+
+    attributes.Create("health")->SetValue(GetHealth());
+    attributes.Create("sirens")->SetValue(IsSirenActive());
+    attributes.Create("landingGearDown")->SetValue(IsLandingGearDown());
+    attributes.Create("locked")->SetValue(IsLocked());
+    attributes.Create("specialState")->SetValue(static_cast<int>(GetAdjustableProperty()));
+
+    SString strColor;
+    for (uint i = 0; i < 4; i++)
+    {
+        SColor color = GetColor().GetRGBColor(i);
+        if (i > 0)
+            strColor += ",";
+        strColor += SString("%d,%d,%d", color.R, color.G, color.B);
+    }
+    attributes.Create("color")->SetValue(strColor.c_str());
+
+    SColor headLightColor = GetHeadLightColor();
+    attributes.Create("headLightColor")->SetValue(XMLColorFromInt(headLightColor.R, headLightColor.G, headLightColor.B, headLightColor.A).c_str());
+
+    attributes.Create("paintjob")->SetValue(static_cast<int>(GetPaintjob()));
+
+    if (CVehicleUpgrades* pUpgrades = GetUpgrades())
+    {
+        SString strUpgrades;
+        for (unsigned char ucSlot = 0; ucSlot < VEHICLE_UPGRADE_SLOTS; ucSlot++)
+        {
+            unsigned short usUpgrade = pUpgrades->GetSlotState(ucSlot);
+            if (!usUpgrade)
+                continue;
+
+            if (!strUpgrades.empty())
+                strUpgrades += ",";
+            strUpgrades += SString("%d", usUpgrade);
+        }
+
+        if (!strUpgrades.empty())
+            attributes.Create("upgrades")->SetValue(strUpgrades.c_str());
+    }
+
+    const char* szPlate = GetRegPlate();
+    if (szPlate && szPlate[0])
+        attributes.Create("plate")->SetValue(szPlate);
+
+    attributes.Create("interior")->SetValue(static_cast<int>(m_ucInterior));
+    attributes.Create("dimension")->SetValue(static_cast<int>(m_usDimension));
+
+    attributes.Create("collisions")->SetValue(GetCollisionEnabled());
+    attributes.Create("alpha")->SetValue(static_cast<int>(GetAlpha()));
+    attributes.Create("frozen")->SetValue(IsFrozen());
+
+    attributes.Create("taxiLightOn")->SetValue(IsTaxiLightOn());
+    attributes.Create("engineOn")->SetValue(IsEngineOn());
+    attributes.Create("damageProof")->SetValue(IsDamageProof());
+    attributes.Create("explodableFuelTank")->SetValue(IsFuelTankExplodable());
+
+    if (GetOverrideLights() != 0)
+        attributes.Create("lightsOn")->SetValue(GetOverrideLights() == 2);
+
+    attributes.Create("toggleRespawn")->SetValue(GetRespawnEnabled());
+    attributes.Create("respawnDelay")->SetValue(static_cast<int>(GetIdleRespawnInterval()));
+
+    const CVector& vecRespawnPosition = GetRespawnPosition();
+    attributes.Create("respawnPosX")->SetValue(vecRespawnPosition.fX);
+    attributes.Create("respawnPosY")->SetValue(vecRespawnPosition.fY);
+    attributes.Create("respawnPosZ")->SetValue(vecRespawnPosition.fZ);
+
+    const CVector& vecRespawnRotation = GetRespawnRotationDegrees();
+    attributes.Create("respawnRotX")->SetValue(vecRespawnRotation.fX);
+    attributes.Create("respawnRotY")->SetValue(vecRespawnRotation.fY);
+    attributes.Create("respawnRotZ")->SetValue(vecRespawnRotation.fZ);
+}
+
 void CVehicle::GetMatrix(CMatrix& matrix)
 {
     CVector vecRotation;
@@ -499,7 +606,10 @@ void CVehicle::SetModel(unsigned short usModel)
         m_eVehicleType = CVehicleManager::GetVehicleType(m_usModel);
         RandomizeColor();
         ResetDoors();
-        CVehicleManager::GetRandomVariation(m_usModel, m_ucVariant, m_ucVariant2);
+
+        // Keep the variation the script has set, unless the new model cannot use it
+        if (!CVehicleManager::IsVariationValidForModel(m_usModel, m_ucVariant, m_ucVariant2))
+            CVehicleManager::GetRandomVariation(m_usModel, m_ucVariant, m_ucVariant2);
 
         // Generate new handling data to fit the vehicle
         GenerateHandlingData();
@@ -515,6 +625,14 @@ void CVehicle::SetVariants(unsigned char ucVariant, unsigned char ucVariant2)
 {
     m_ucVariant = ucVariant;
     m_ucVariant2 = ucVariant2;
+}
+
+void CVehicle::SetHealth(float fHealth)
+{
+    if (fHealth < 0.0f || IsBlown())
+        fHealth = 0.0f;
+
+    m_fHealth = fHealth;
 }
 
 CVehicleColor& CVehicle::RandomizeColor()
@@ -601,6 +719,9 @@ bool CVehicle::SetOccupant(CPed* pPed, unsigned int uiSeat)
     static bool bAlreadySetting = false;
     if (!bAlreadySetting)
     {
+        if (uiSeat >= MAX_VEHICLE_SEATS)
+            return false;
+
         // Set the Player
         if (m_pOccupants[uiSeat] != pPed)
         {
@@ -740,8 +861,8 @@ bool CVehicle::SetTowedByVehicle(CVehicle* pVehicle)
 
 void CVehicle::SpawnAt(const CVector& vecPosition, const CVector& vecRotation)
 {
+    SetBlowState(VehicleBlowState::INTACT);
     SetHealth(GetRespawnHealth());
-    SetIsBlown(false);
     StopIdleTimer();
     ResetDoorsWheelsPanelsLights();
     SetLandingGearDown(true);
@@ -784,7 +905,7 @@ void CVehicle::GenerateRegPlate()
             }
 
             // Put it in the plate
-            m_szRegPlate[i] = iChar;
+            m_szRegPlate[i] = static_cast<char>(iChar);
         }
     }
 
@@ -818,6 +939,7 @@ void CVehicle::GetInitialDoorStates(SFixedArray<unsigned char, MAX_DOORS>& ucOut
         case VT_RCTIGER:
         case VT_TRACTOR:
         case VT_VORTEX:
+        case VT_BLOODRA:
             memset(&ucOutDoorStates[0], DT_DOOR_MISSING, MAX_DOORS);
 
             // Keep the bonet and boot intact
@@ -828,29 +950,38 @@ void CVehicle::GetInitialDoorStates(SFixedArray<unsigned char, MAX_DOORS>& ucOut
     }
 }
 
-void CVehicle::GenerateHandlingData()
+void CVehicle::GenerateHandlingData() noexcept
 {
+    const auto* handlingManager = g_pGame->GetHandlingManager();
+
     // Make a new CHandlingEntry
-    if (m_pHandlingEntry == NULL)
-        m_pHandlingEntry = g_pGame->GetHandlingManager()->CreateHandlingData();
+    if (!m_HandlingEntry)
+        m_HandlingEntry = handlingManager->CreateHandlingData();
+
     // Apply the model handling info
-    m_pHandlingEntry->ApplyHandlingData(g_pGame->GetHandlingManager()->GetModelHandlingData(static_cast<eVehicleTypes>(m_usModel)));
+    m_HandlingEntry->ApplyHandlingData(handlingManager->GetModelHandlingData(m_usModel));
 
     m_bHandlingChanged = false;
 }
 
 void CVehicle::SetVehicleSirenPosition(unsigned char ucSirenID, CVector vecPos)
 {
+    if (ucSirenID >= SIREN_COUNT_MAX)
+        return;
     m_tSirenBeaconInfo.m_tSirenInfo[ucSirenID].m_vecSirenPositions = vecPos;
 }
 
 void CVehicle::SetVehicleSirenMinimumAlpha(unsigned char ucSirenID, DWORD dwPercentage)
 {
+    if (ucSirenID >= SIREN_COUNT_MAX)
+        return;
     m_tSirenBeaconInfo.m_tSirenInfo[ucSirenID].m_dwMinSirenAlpha = dwPercentage;
 }
 
 void CVehicle::SetVehicleSirenColour(unsigned char ucSirenID, SColor tVehicleSirenColour)
 {
+    if (ucSirenID >= SIREN_COUNT_MAX)
+        return;
     m_tSirenBeaconInfo.m_tSirenInfo[ucSirenID].m_RGBBeaconColour = tVehicleSirenColour;
 }
 
@@ -863,7 +994,7 @@ void CVehicle::SetVehicleFlags(bool bEnable360, bool bEnableRandomiser, bool bEn
 }
 void CVehicle::RemoveVehicleSirens()
 {
-    for (int i = 0; i <= 7; i++)
+    for (int i = 0; i < SIREN_COUNT_MAX; i++)
     {
         m_tSirenBeaconInfo.m_tSirenInfo[i] = SSirenBeaconInfo();
         SetVehicleSirenPosition(i, CVector(0, 0, 0));
@@ -889,18 +1020,23 @@ void CVehicle::ResetDoorsWheelsPanelsLights()
     memset(&m_ucLightStates[0], 0, sizeof(m_ucLightStates));
 }
 
-// For blow respawn timer
-void CVehicle::SetIsBlown(bool bBlown)
+bool CVehicle::IsBlowTimerFinished()
 {
-    if (!bBlown)
-        m_llBlowTime = CTickCount(0LL);
-    else
+    return (m_blowState == VehicleBlowState::BLOWN) && CTickCount::Now() > m_llBlowTime + CTickCount((long long)m_ulBlowRespawnInterval);
+}
+
+void CVehicle::ResetExplosionTimer()
+{
+    if (m_blowState == VehicleBlowState::BLOWN)
         m_llBlowTime = CTickCount::Now();
 }
 
-bool CVehicle::IsBlowTimerFinished()
+void CVehicle::SetBlowState(VehicleBlowState state)
 {
-    return GetIsBlown() && CTickCount::Now() > m_llBlowTime + CTickCount((long long)m_ulBlowRespawnInterval);
+    m_blowState = state;
+
+    if (state == VehicleBlowState::BLOWN)
+        m_llBlowTime = CTickCount::Now();
 }
 
 void CVehicle::StopIdleTimer()

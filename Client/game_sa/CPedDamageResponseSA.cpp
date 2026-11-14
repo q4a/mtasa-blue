@@ -5,11 +5,14 @@
  *  FILE:        game_sa/CPedDamageResponseCalculatorSA.cpp
  *  PURPOSE:     ped damage response calculator
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPedDamageResponseSA.h"
+#include "CPedDamageResponseCalculatorSA.h"
+#include "CPedSA.h"
 
 void CPedDamageResponseSA::Calculate(CEntity* pEntity, float fDamage, eWeaponType weaponType, ePedPieceTypes bodyPart, bool b_1, bool bSpeak)
 {

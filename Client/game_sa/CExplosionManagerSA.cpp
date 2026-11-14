@@ -5,15 +5,17 @@
  *  FILE:        game_sa/CExplosionManagerSA.cpp
  *  PURPOSE:     Explosion manager
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CExplosionManagerSA.h"
+#include "CExplosionSA.h"
+#include "CEntitySA.h"
 
 CExplosionManagerSA::CExplosionManagerSA()
 {
-    DEBUG_TRACE("CExplosionManagerSA::CExplosionManagerSA()");
     for (int i = 0; i < MAX_EXPLOSIONS; i++)
         Explosions[i] = new CExplosionSA((CExplosionSAInterface*)(ARRAY_Explosions + i * sizeof(CExplosionSAInterface)));
 }
@@ -32,14 +34,14 @@ CExplosionManagerSA::~CExplosionManagerSA()
 CExplosion* CExplosionManagerSA::AddExplosion(CEntity* pExplodingEntity, CEntity* pOwner, eExplosionType explosionType, CVector& vecPosition,
                                               unsigned int uiActivationDelay, bool bMakeSound, float fCamShake, bool bNoDamage)
 {
-    DEBUG_TRACE("CExplosion * CExplosionManagerSA::AddExplosion ( eExplosionType explosiontype, CVector * vecPosition, CEntity * creator = NULL)");
     DWORD       dwExplodingEntityInterface = (pExplodingEntity) ? (DWORD)pExplodingEntity->GetInterface() : 0;
     DWORD       dwOwnerInterface = (pOwner) ? (DWORD)pOwner->GetInterface() : 0;
     float       fX = vecPosition.fX, fY = vecPosition.fY, fZ = vecPosition.fZ;
     CExplosion* explosion = CExplosionManagerSA::FindFreeExplosion();
     bool        bReturn;
     DWORD       dwFunc = FUNC_CExplosion_AddExplosion;
-    _asm
+    // clang-format off
+    __asm
     {
         push    bNoDamage
         push    fCamShake
@@ -67,38 +69,14 @@ returnhere:
         add     esp, 0x28
         mov     bReturn, al
     }
+    // clang-format on
     if (bReturn) return explosion;
 
     return NULL;
 }
 
-/**
- * \todo Need to simulate this manually (loop and IsNear...)
- */
-VOID CExplosionManagerSA::RemoveAllExplosionsInArea(CVector* vecPosition, FLOAT fRadius)
+void CExplosionManagerSA::RemoveAllExplosions()
 {
-    DEBUG_TRACE("VOID CExplosionManagerSA::RemoveAllExplosionsInArea ( CVector * vecPosition, FLOAT fRadius )");
-
-    /*  DWORD dwFunction = FUNC_RemoveAllExplosionsInArea;
-        CVector * vecPos = (CVector *)vecPosition;
-        FLOAT fX = vecPos->fX;
-        FLOAT fY = vecPos->fY;
-        FLOAT fZ = vecPos->fZ;
-
-        _asm
-        {
-            push    fRadius
-            push    fZ
-            push    fY
-            push    fX
-            call    dwFunction
-            add     esp, 0x10
-        }*/
-}
-
-VOID CExplosionManagerSA::RemoveAllExplosions()
-{
-    DEBUG_TRACE("VOID CExplosionManagerSA::RemoveAllExplosions (  )");
     for (int i = 0; i < MAX_EXPLOSIONS; i++)
         if (Explosions[i]->IsActive())
             Explosions[i]->Remove();
@@ -106,13 +84,11 @@ VOID CExplosionManagerSA::RemoveAllExplosions()
 
 CExplosion* CExplosionManagerSA::GetExplosion(DWORD ID)
 {
-    DEBUG_TRACE("CExplosion * CExplosionManagerSA::GetExplosion ( DWORD ID )");
     return Explosions[ID];
 }
 
 CExplosion* CExplosionManagerSA::FindFreeExplosion()
 {
-    DEBUG_TRACE("CExplosion * CExplosionManagerSA::FindFreeExplosion (  )");
     for (int i = 0; i < MAX_EXPLOSIONS; i++)
         if (!Explosions[i]->IsActive())
             return Explosions[i];

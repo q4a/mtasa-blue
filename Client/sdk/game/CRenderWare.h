@@ -5,19 +5,28 @@
  *  FILE:        sdk/game/CRenderWare.h
  *  PURPOSE:     RenderWare engine interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-#include "RenderWare.h"
-#include <list>
+#include <vector>
 
-class CD3DDUMMY;
 class CClientEntityBase;
-class CShaderItem;
+class CD3DDUMMY;
+class CMatrix;
 class CPixels;
+class CShaderItem;
+class SString;
+class CColModel;
+struct RpAtomicContainer;
+struct RwFrame;
+struct RwMatrix;
+struct RwTexDictionary;
+struct RwTexture;
+struct RpClump;
+
 typedef CShaderItem CSHADERDUMMY;
 
 // A list of custom textures to add to a model's txd
@@ -30,8 +39,8 @@ struct SReplacementTextures
         bool                    bTexturesAreCopies;
     };
 
-    std::vector<RwTexture*> textures;              // List of textures we want to inject into TXD's
-    std::vector<SPerTxd>    perTxdList;            // TXD's which have been modified
+    std::vector<RwTexture*> textures;    // List of textures we want to inject into TXD's
+    std::vector<SPerTxd>    perTxdList;  // TXD's which have been modified
     std::vector<ushort>     usedInTxdIds;
     std::vector<ushort>     usedInModelIds;
 };
@@ -58,7 +67,7 @@ enum EEntityTypeMask
 
 typedef void (*PFN_WATCH_CALLBACK)(CSHADERDUMMY* pContext, CD3DDUMMY* pD3DDataNew, CD3DDUMMY* pD3DDataOld);
 
-#define MAX_ATOMICS_PER_CLUMP   128
+#define MAX_ATOMICS_PER_CLUMP 128
 
 class CRenderWare
 {
@@ -67,9 +76,12 @@ public:
                                                       bool bFilteringEnabled) = 0;
     virtual bool             ModelInfoTXDAddTextures(SReplacementTextures* pReplacementTextures, ushort usModelId) = 0;
     virtual void             ModelInfoTXDRemoveTextures(SReplacementTextures* pReplacementTextures) = 0;
-    virtual void             ClothesAddReplacementTxd(char* pFileData, ushort usFileId) = 0;
-    virtual void             ClothesRemoveReplacementTxd(char* pFileData) = 0;
+    virtual void             ClothesAddReplacement(char* pFileData, size_t fileSize, ushort usFileId) = 0;
+    virtual void             ClothesRemoveReplacement(char* pFileData) = 0;
     virtual bool             HasClothesReplacementChanged() = 0;
+    virtual bool             ClothesAddFile(const char* fileData, std::size_t fileSize, const char* fileName) = 0;
+    virtual bool             ClothesRemoveFile(char* fileData) = 0;
+    virtual bool             HasClothesFile(const char* fileName) const noexcept = 0;
     virtual RwTexDictionary* ReadTXD(const SString& strFilename, const SString& buffer) = 0;
     virtual RpClump*         ReadDFF(const SString& strFilename, const SString& buffer, unsigned short usModelID, bool bLoadEmbeddedCollisions) = 0;
     virtual CColModel*       ReadCOL(const SString& buffer) = 0;
@@ -78,19 +90,20 @@ public:
     virtual void             DestroyTexture(RwTexture* pTex) = 0;
     virtual void             ReplaceCollisions(CColModel* pColModel, unsigned short usModelID) = 0;
     virtual unsigned int     LoadAtomics(RpClump* pClump, RpAtomicContainer* pAtomics) = 0;
-    virtual void             ReplaceAllAtomicsInModel(RpClump* pSrc, unsigned short usModelID) = 0;
+    virtual bool             ReplaceAllAtomicsInModel(RpClump* pSrc, unsigned short usModelID) = 0;
     virtual void             ReplaceAllAtomicsInClump(RpClump* pDst, RpAtomicContainer* pAtomics, unsigned int uiAtomics) = 0;
     virtual void             ReplaceWheels(RpClump* pClump, RpAtomicContainer* pAtomics, unsigned int uiAtomics, const char* szWheel) = 0;
     virtual void             RepositionAtomic(RpClump* pDst, RpClump* pSrc, const char* szName) = 0;
     virtual void             AddAllAtomics(RpClump* pDst, RpClump* pSrc) = 0;
-    virtual void             ReplaceVehicleModel(RpClump* pNew, unsigned short usModelID) = 0;
-    virtual void             ReplaceWeaponModel(RpClump* pNew, unsigned short usModelID) = 0;
-    virtual void             ReplacePedModel(RpClump* pNew, unsigned short usModelID) = 0;
+    virtual bool             ReplaceVehicleModel(RpClump* pNew, unsigned short usModelID) = 0;
+    virtual bool             ReplaceWeaponModel(RpClump* pNew, unsigned short usModelID) = 0;
+    virtual bool             ReplacePedModel(RpClump* pNew, unsigned short usModelID) = 0;
     virtual bool             ReplacePartModels(RpClump* pClump, RpAtomicContainer* pAtomics, unsigned int uiAtomics, const char* szName) = 0;
     virtual void             PulseWorldTextureWatch() = 0;
     virtual void             GetModelTextureNames(std::vector<SString>& outNameList, ushort usModelID) = 0;
-    virtual bool             GetModelTextures(std::vector<std::tuple<std::string, CPixels>>& outTextureList, ushort usModelID, std::vector<SString> vTextureNames) = 0;
-    virtual const char*      GetTextureName(CD3DDUMMY* pD3DData) = 0;
+    virtual bool GetModelTextures(std::vector<std::tuple<std::string, CPixels>>& outTextureList, ushort usModelID, std::vector<SString> vTextureNames) = 0;
+    virtual const char* GetTextureName(CD3DDUMMY* pD3DData) = 0;
+    virtual ushort      GetTXDIDForModelID(ushort usModelID) = 0;
 
     virtual void               SetRenderingClientEntity(CClientEntityBase* pClientEntity, ushort usModelId, int iTypeMask) = 0;
     virtual SShaderItemLayers* GetAppliedShaderForD3DData(CD3DDUMMY* pD3DData) = 0;

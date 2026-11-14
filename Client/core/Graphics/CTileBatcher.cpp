@@ -11,7 +11,8 @@
 
 #include <StdInc.h>
 #include "CTileBatcher.h"
-#define DEG2RAD(deg) ( (deg) * (6.2832f/360.f) )
+#include "DXHook/CProxyDirect3DDevice9.h"
+#define DEG2RAD(deg) ((deg) * (6.2832f / 360.f))
 
 ////////////////////////////////////////////////////////////////
 //
@@ -190,9 +191,23 @@ void CTileBatcher::Flush()
         if (CTextureItem* pTextureItem = DynamicCast<CTextureItem>(m_pCurrentMaterial))
         {
             // Draw using texture
-            m_pDevice->SetTexture(0, pTextureItem->m_pD3DTexture);
-            m_pDevice->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, NumVertices, PrimitiveCount, pIndexData, D3DFMT_INDEX16, pVertexStreamZeroData,
-                                              VertexStreamZeroStride);
+            bool bDrawTexture = true;
+            if (CRenderTargetItem* pRenderTarget = DynamicCast<CRenderTargetItem>(pTextureItem))
+            {
+                if (!pRenderTarget->TryEnsureValid())
+                    bDrawTexture = false;
+            }
+            else if (CScreenSourceItem* pScreenSource = DynamicCast<CScreenSourceItem>(pTextureItem))
+            {
+                if (!pScreenSource->TryEnsureValid())
+                    bDrawTexture = false;
+            }
+            if (bDrawTexture && pTextureItem->m_pD3DTexture)
+            {
+                m_pDevice->SetTexture(0, pTextureItem->m_pD3DTexture);
+                m_pDevice->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, NumVertices, PrimitiveCount, pIndexData, D3DFMT_INDEX16, pVertexStreamZeroData,
+                                                  VertexStreamZeroStride);
+            }
         }
         else if (CShaderInstance* pShaderInstance = DynamicCast<CShaderInstance>(m_pCurrentMaterial))
         {
@@ -207,7 +222,7 @@ void CTileBatcher::Flush()
             pShaderInstance->m_pEffectWrap->ApplyMappedHandles();
 
             // Do shader passes
-            DWORD dwFlags = D3DXFX_DONOTSAVESHADERSTATE;            // D3DXFX_DONOTSAVE(SHADER|SAMPLER)STATE
+            DWORD dwFlags = D3DXFX_DONOTSAVESHADERSTATE;  // D3DXFX_DONOTSAVE(SHADER|SAMPLER)STATE
             uint  uiNumPasses = 0;
             pShaderInstance->m_pEffectWrap->Begin(&uiNumPasses, dwFlags, false);
 
@@ -278,9 +293,9 @@ void CTileBatcher::AddTile(float fX1, float fY1, float fX2, float fY2, float fU1
     if (m_bUseCustomMatrices)
         Flush();
 
-    m_bUseCustomMatrices = false;
     uint uiTessellationX = 1;
     uint uiTessellationY = 1;
+    bool bUseCustomMatrices{false};
 
     // Get settings from shader
     if (CShaderInstance* pShaderInstance = DynamicCast<CShaderInstance>(pMaterial))
@@ -289,7 +304,7 @@ void CTileBatcher::AddTile(float fX1, float fY1, float fX2, float fY2, float fU1
         if (pShaderInstance && pShaderInstance->m_bHasModifiedTransform)
         {
             MakeCustomMatrices(pShaderInstance->m_Transform, fX1, fY1, fX2, fY2, m_MatCustomWorld, m_MatCustomProjection);
-            m_bUseCustomMatrices = true;
+            bUseCustomMatrices = true;
         }
 
         // Get tessellation setting
@@ -321,13 +336,14 @@ void CTileBatcher::AddTile(float fX1, float fY1, float fX2, float fY2, float fU1
 
     // Check if we need to flush what has been done so far
     if (pMaterial != m_pCurrentMaterial || fRotation != m_fCurrentRotation || fRotCenX != m_fCurrentRotCenX || fRotCenY != m_fCurrentRotCenY ||
-        uiNumVertices + m_Vertices.size() > 65535 || m_bUseCustomMatrices)
+        uiNumVertices + m_Vertices.size() > 65535 || bUseCustomMatrices != m_bUseCustomMatrices)
     {
         Flush();
         SetCurrentMaterial(pMaterial);
         m_fCurrentRotation = fRotation;
         m_fCurrentRotCenX = fRotCenX;
         m_fCurrentRotCenY = fRotCenY;
+        m_bUseCustomMatrices = bUseCustomMatrices;
     }
 
     uint uiBaseIndex = m_Vertices.size();

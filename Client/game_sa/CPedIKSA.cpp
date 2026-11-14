@@ -5,11 +5,12 @@
  *  FILE:        game_sa/CPedIKSA.cpp
  *  PURPOSE:     Ped entity inverse kinematics for animations
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPedIKSA.h"
 
 RwV3d& CPedIKSAInterface::XaxisIK = *(RwV3d*)0x8D232C;
 RwV3d& CPedIKSAInterface::YaxisIK = *(RwV3d*)0x8D2338;

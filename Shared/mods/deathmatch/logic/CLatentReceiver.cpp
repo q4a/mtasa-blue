@@ -4,11 +4,13 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CLatentTransferManager.h"
+
 using namespace LatentTransfer;
 
 ///////////////////////////////////////////////////////////////
@@ -62,6 +64,15 @@ void CLatentReceiver::OnReceiveError(const SString& strMessage)
 ///////////////////////////////////////////////////////////////
 void CLatentReceiver::OnReceive(NetBitStreamInterface* pBitStream)
 {
+    struct SScopedGuardInsideMark
+    {
+        explicit SScopedGuardInsideMark(CLatentReceiver* pReceiver) noexcept : m_pReceiver(pReceiver) { pReceiver->m_bInside = true; }
+        ~SScopedGuardInsideMark() noexcept { m_pReceiver->m_bInside = false; }
+
+    private:
+        CLatentReceiver* m_pReceiver;
+    } const ScopedInsideMark(this);
+
     //
     // Read header
     //
@@ -86,8 +97,7 @@ void CLatentReceiver::OnReceive(NetBitStreamInterface* pBitStream)
             pBitStream->Read(usCategory);
             pBitStream->Read(uiFinalSize);
             pBitStream->Read(uiRate);
-            if (pBitStream->Version() >= 0x31)
-                pBitStream->Read(usResourceNetId);
+            pBitStream->Read(usResourceNetId);
         }
         else if (ucSpecialFlag == FLAG_TAIL)
         {
@@ -118,6 +128,13 @@ void CLatentReceiver::OnReceive(NetBitStreamInterface* pBitStream)
         if (uiFinalSize > 100 * 1024 * 1024)
             return OnReceiveError("uiFinalSize too large");
 
+        // uiFinalSize includes the 5-byte CATEGORY_PACKET wrapper and the
+        // serialized event envelope. Keep 10 MiB available for argument data
+        // while allowing a small amount of protocol overhead.
+        constexpr uint LATENT_PACKET_MAX_SIZE = 10 * 1024 * 1024 + 64 * 1024;
+        if (usCategory == CATEGORY_PACKET && uiFinalSize > LATENT_PACKET_MAX_SIZE)
+            return OnReceiveError("CATEGORY_PACKET payload too large");
+
         activeRx.usId = usId;
         activeRx.bReceiveStarted = true;
         activeRx.usCategory = usCategory;
@@ -140,8 +157,10 @@ void CLatentReceiver::OnReceive(NetBitStreamInterface* pBitStream)
     //
     // Read body
     //
-    if (activeRx.uiWritePosition + usSizeSent > activeRx.buffer.GetSize())
-        return OnReceiveError("Buffer would overflow");
+    if (activeRx.uiWritePosition > activeRx.buffer.GetSize() || usSizeSent > activeRx.buffer.GetSize() - activeRx.uiWritePosition)
+    {
+        return OnReceiveError(SString("Buffer would overflow (size:%u pos:%u chunk:%u)", activeRx.buffer.GetSize(), activeRx.uiWritePosition, usSizeSent));
+    }
 
     if (bIsTail && activeRx.uiWritePosition + usSizeSent != activeRx.buffer.GetSize())
         return OnReceiveError("Buffer size wrong");

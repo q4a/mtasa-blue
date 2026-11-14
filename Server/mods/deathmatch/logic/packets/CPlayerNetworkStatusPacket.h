@@ -4,10 +4,13 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        mods/deathmatch/logic/packets/CPlayerNetworkStatusPacket.h
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
+
 #pragma once
+
+#include "CPacket.h"
 
 class CPlayerNetworkStatusPacket final : public CPacket
 {

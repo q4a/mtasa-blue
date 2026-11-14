@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/luadefs/CLuaWorldDefs.cpp
  *  PURPOSE:     Lua game world function definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CLuaWorldDefs.h"
+#include "CStaticFunctionDefinitions.h"
+#include "CScriptArgReader.h"
 
 void CLuaWorldDefs::LoadFunctions()
 {
@@ -70,6 +73,7 @@ void CLuaWorldDefs::LoadFunctions()
         {"setOcclusionsEnabled", setOcclusionsEnabled},
         {"setMoonSize", setMoonSize},
         {"setJetpackWeaponEnabled", setJetpackWeaponEnabled},
+        {"setWorldSpecialPropertyEnabled", ArgumentParserWarn<false, setWorldSpecialPropertyEnabled>},
 
         // Reset
         {"resetSkyGradient", resetSkyGradient},
@@ -84,12 +88,13 @@ void CLuaWorldDefs::LoadFunctions()
         {"restoreWorldModel", RestoreWorldModel},
         {"restoreAllWorldModels", RestoreAllWorldModels},
         {"resetMoonSize", resetMoonSize},
-        
+        {"resetWorldProperties", ArgumentParser<ResetWorldProperties>},
+
         // Check
         {"isGarageOpen", isGarageOpen},
-        {"isGlitchEnabled", isGlitchEnabled},        
-        {"areTrafficLightsLocked", areTrafficLightsLocked}        
-    };
+        {"isGlitchEnabled", isGlitchEnabled},
+        {"isWorldSpecialPropertyEnabled", ArgumentParserWarn<false, isWorldSpecialPropertyEnabled>},
+        {"areTrafficLightsLocked", areTrafficLightsLocked}};
 
     // Add functions
     for (const auto& [name, func] : functions)
@@ -115,11 +120,11 @@ int CLuaWorldDefs::getTime(lua_State* luaVM)
 
 int CLuaWorldDefs::getWeather(lua_State* luaVM)
 {
-    unsigned char ucWeather, ucWeatherBlendingTo;
+    unsigned char ucWeather;
+    unsigned char ucWeatherBlendingTo;
     if (CStaticFunctionDefinitions::GetWeather(ucWeather, ucWeatherBlendingTo))
     {
         lua_pushnumber(luaVM, static_cast<lua_Number>(ucWeather));
-
         if (ucWeatherBlendingTo != 0xFF)
             lua_pushnumber(luaVM, static_cast<lua_Number>(ucWeatherBlendingTo));
         else
@@ -198,14 +203,11 @@ int CLuaWorldDefs::getWaveHeight(lua_State* luaVM)
 
 int CLuaWorldDefs::getFPSLimit(lua_State* luaVM)
 {
-    unsigned short usLimit;
-    if (CStaticFunctionDefinitions::GetFPSLimit(usLimit))
-    {
-        lua_pushnumber(luaVM, usLimit);
-        return 1;
-    }
+    // int getFPSLimit ()
+    std::uint16_t fpsLimit;
+    CStaticFunctionDefinitions::GetFPSLimit(fpsLimit);
 
-    lua_pushboolean(luaVM, false);
+    lua_pushnumber(luaVM, fpsLimit);
     return 1;
 }
 
@@ -233,7 +235,7 @@ int CLuaWorldDefs::isGarageOpen(lua_State* luaVM)
     if (!argStream.HasErrors())
     {
         bool bIsOpen;
-        if (CStaticFunctionDefinitions::IsGarageOpen(iGarageID, bIsOpen))
+        if (CStaticFunctionDefinitions::IsGarageOpen(static_cast<unsigned char>(iGarageID), bIsOpen))
         {
             lua_pushboolean(luaVM, bIsOpen);
             return 1;
@@ -315,7 +317,7 @@ int CLuaWorldDefs::setTrafficLightState(lua_State* luaVM)
 
         if (!argStream.HasErrors())
         {
-            if (CStaticFunctionDefinitions::SetTrafficLightState(iState))
+            if (CStaticFunctionDefinitions::SetTrafficLightState(static_cast<unsigned char>(iState)))
             {
                 lua_pushboolean(luaVM, true);
                 return 1;
@@ -426,7 +428,7 @@ int CLuaWorldDefs::setWeather(lua_State* luaVM)
 
     if (!argStream.HasErrors())
     {
-        if (CStaticFunctionDefinitions::SetWeather(iWeather))
+        if (CStaticFunctionDefinitions::SetWeather(static_cast<unsigned char>(iWeather)))
         {
             lua_pushboolean(luaVM, true);
             return 1;
@@ -450,7 +452,7 @@ int CLuaWorldDefs::setWeatherBlended(lua_State* luaVM)
 
     if (!argStream.HasErrors())
     {
-        if (CStaticFunctionDefinitions::SetWeatherBlended(iWeather))
+        if (CStaticFunctionDefinitions::SetWeatherBlended(static_cast<unsigned char>(iWeather)))
         {
             lua_pushboolean(luaVM, true);
             return 1;
@@ -1126,15 +1128,15 @@ int CLuaWorldDefs::RestoreAllWorldModels(lua_State* luaVM)
 
 int CLuaWorldDefs::setFPSLimit(lua_State* luaVM)
 {
-    //  bool setFPSLimit ( int fpsLimit )
-    unsigned short usLimit;
+    // bool setFPSLimit ( int fpsLimit )
+    std::uint16_t fps;
 
     CScriptArgReader argStream(luaVM);
-    argStream.ReadNumber(usLimit);
+    argStream.ReadNumber(fps);
 
     if (!argStream.HasErrors())
     {
-        if (CStaticFunctionDefinitions::SetFPSLimit(usLimit, false))
+        if (CStaticFunctionDefinitions::SetFPSLimit(fps, false))
         {
             lua_pushboolean(luaVM, true);
             return 1;
@@ -1264,6 +1266,16 @@ int CLuaWorldDefs::setJetpackWeaponEnabled(lua_State* luaVM)
 
     lua_pushboolean(luaVM, false);
     return 1;
+}
+
+bool CLuaWorldDefs::isWorldSpecialPropertyEnabled(WorldSpecialProperty property)
+{
+    return CStaticFunctionDefinitions::IsWorldSpecialPropertyEnabled(property);
+}
+
+bool CLuaWorldDefs::setWorldSpecialPropertyEnabled(WorldSpecialProperty property, bool isEnabled)
+{
+    return CStaticFunctionDefinitions::SetWorldSpecialPropertyEnabled(property, isEnabled);
 }
 
 int CLuaWorldDefs::getJetpackWeaponEnabled(lua_State* luaVM)
@@ -1434,4 +1446,13 @@ int CLuaWorldDefs::getOcclusionsEnabled(lua_State* luaVM)
     }
     lua_pushboolean(luaVM, false);
     return 1;
+}
+
+void CLuaWorldDefs::ResetWorldProperties(std::optional<bool> resetSpecialWorldProperties, std::optional<bool> resetWorldProperties,
+                                         std::optional<bool> resetWeatherProperties, std::optional<bool> resetLODs, std::optional<bool> resetSounds,
+                                         std::optional<bool> resetGlitches, std::optional<bool> resetJetpackWeapons) noexcept
+{
+    g_pGame->ResetWorldProperties(ResetWorldPropsInfo{resetSpecialWorldProperties.value_or(true), resetWorldProperties.value_or(true),
+                                                      resetWeatherProperties.value_or(true), resetLODs.value_or(true), resetSounds.value_or(true),
+                                                      resetGlitches.value_or(true), resetJetpackWeapons.value_or(true)});
 }

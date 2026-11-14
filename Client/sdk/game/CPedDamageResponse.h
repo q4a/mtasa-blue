@@ -5,13 +5,16 @@
  *  FILE:        sdk/game/CPedDamageResponse.h
  *  PURPOSE:     ped damage response interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
+class CEntity;
 class CPedDamageResponseSAInterface;
+enum ePedPieceTypes;
+enum eWeaponType;
 
 class CPedDamageResponse
 {

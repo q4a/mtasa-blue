@@ -5,7 +5,7 @@
  *  FILE:        mods/shared_logic/CClientColPolygon.h
  *  PURPOSE:     Polygon-shaped collision entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -35,8 +35,12 @@ public:
     std::vector<CVector2D>::const_iterator IterBegin() { return m_Points.begin(); };
     std::vector<CVector2D>::const_iterator IterEnd() { return m_Points.end(); };
 
-    bool        SetHeight(float fFloor, float fCeil);
-    inline void GetHeight(float& fFloor, float& fCeil) const { fFloor = m_fFloor; fCeil = m_fCeil; };
+    bool SetHeight(float fFloor, float fCeil);
+    void GetHeight(float& fFloor, float& fCeil) const
+    {
+        fFloor = m_fFloor;
+        fCeil = m_fCeil;
+    };
 
 protected:
     std::vector<CVector2D> m_Points;

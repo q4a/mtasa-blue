@@ -3,12 +3,14 @@
  *  PROJECT:     Multi Theft Auto v1.0
  *  LICENSE:     See LICENSE in the top level directory
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
 #include "SimHeaders.h"
+#include "CGame.h"
+#include "CMainConfig.h"
 
 volatile bool CNetBufferWatchDog::ms_bBlockOutgoingSyncPackets = false;
 volatile bool CNetBufferWatchDog::ms_bBlockIncomingSyncPackets = false;
@@ -357,6 +359,7 @@ bool CNetBufferWatchDog::IsUnreliableSyncPacket(uchar ucPacketID)
         case PACKET_ID_UNOCCUPIED_VEHICLE_SYNC:
         case PACKET_ID_PED_SYNC:
         case PACKET_ID_CAMERA_SYNC:
+        case PACKET_ID_PED_TASK:
             return true;
         default:
             return false;

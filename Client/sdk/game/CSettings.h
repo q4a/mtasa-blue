@@ -5,17 +5,17 @@
  *  FILE:        sdk/game/CSettings.h
  *  PURPOSE:     Game settings interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #if (!defined(RWFORCEENUMSIZEINT))
-#define RWFORCEENUMSIZEINT ((int)((~((unsigned int)0))>>1))
+    #define RWFORCEENUMSIZEINT ((int)((~((unsigned int)0)) >> 1))
 #endif /* (!defined(RWFORCEENUMSIZEINT)) */
 
-enum VideoModeFlag            // RwVideoModeFlag
+enum VideoModeFlag  // RwVideoModeFlag
 {
     rwVIDEOMODEEXCLUSIVE = 0x0001,   /**<Exclusive (i.e. full-screen) */
     rwVIDEOMODEINTERLACE = 0x0002,   /**<Interlaced                   */
@@ -60,7 +60,7 @@ enum VideoModeFlag            // RwVideoModeFlag
     rwVIDEOMODEFLAGFORCEENUMSIZEINT = RWFORCEENUMSIZEINT
 };
 
-struct VideoMode            // RwVideoMode
+struct VideoMode  // RwVideoMode
 {
     int           width;   /**< Width  */
     int           height;  /**< Height */
@@ -132,9 +132,16 @@ public:
     virtual bool IsMipMappingEnabled() = 0;
     virtual void SetMipMappingEnabled(bool bEnable) = 0;
 
-    virtual bool IsVolumetricShadowsEnabled() = 0;
+    virtual bool IsVolumetricShadowsEnabled() const noexcept = 0;
+    virtual bool GetVolumetricShadowsEnabledByVideoSetting() const noexcept = 0;
     virtual void SetVolumetricShadowsEnabled(bool bEnable) = 0;
     virtual void SetVolumetricShadowsSuspended(bool bSuspended) = 0;
+    virtual bool ResetVolumetricShadows() noexcept = 0;
+
+    virtual bool IsDynamicPedShadowsEnabled() = 0;
+    virtual void SetDynamicPedShadowsEnabled(bool bEnable) = 0;
+    virtual bool IsDynamicPedShadowsEnabledByVideoSetting() const noexcept = 0;
+    virtual bool ResetDynamicPedShadows() noexcept = 0;
 
     virtual float        GetAspectRatioValue() = 0;
     virtual eAspectRatio GetAspectRatio() = 0;
@@ -148,23 +155,27 @@ public:
 
     virtual void UpdateFieldOfViewFromSettings() = 0;
     virtual void ResetFieldOfViewFromScript() = 0;
-    virtual void SetFieldOfViewPlayer(float fAngle, bool bFromScript) = 0;
-    virtual void SetFieldOfViewVehicle(float fAngle, bool bFromScript) = 0;
-    virtual void SetFieldOfViewVehicleMax(float fAngle, bool bFromScript) = 0;
+    virtual void SetFieldOfViewPlayer(float fAngle, bool bFromScript, bool instant = false) = 0;
+    virtual void SetFieldOfViewVehicle(float fAngle, bool bFromScript, bool instant = false) = 0;
+    virtual void SetFieldOfViewVehicleMax(float fAngle, bool bFromScript, bool instant = false) = 0;
 
     virtual float GetFieldOfViewPlayer() = 0;
     virtual float GetFieldOfViewVehicle() = 0;
     virtual float GetFieldOfViewVehicleMax() = 0;
 
     virtual void SetVehiclesLODDistance(float fVehiclesLODDistance, float fTrainsPlanesLODDistance, bool bFromScript) = 0;
-    virtual void ResetVehiclesLODDistance(bool bFromScript) = 0;
-    virtual void ResetVehiclesLODDistanceFromScript() = 0;
+    virtual void ResetVehiclesLODDistance(bool bForceDefault = false) = 0;
     virtual void GetVehiclesLODDistance(float& fVehiclesLODDistance, float& fTrainsPlanesLODDistance) = 0;
 
     virtual void  SetPedsLODDistance(float fPedsLODDistance, bool bFromScript) = 0;
-    virtual void  ResetPedsLODDistance(bool bFromScript) = 0;
-    virtual void  ResetPedsLODDistanceFromScript() = 0;
+    virtual void  ResetPedsLODDistance(bool bForceDefault = false) = 0;
     virtual float GetPedsLODDistance() = 0;
+
+    virtual void ResetBlurEnabled() = 0;
+    virtual void SetBlurControlledByScript(bool bByScript) = 0;
+
+    virtual void ResetCoronaReflectionsEnabled() = 0;
+    virtual void SetCoronaReflectionsControlledByScript(bool bViaScript) = 0;
 
     virtual void Save() = 0;
 };

@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/rpc/CObjectRPCs.cpp
  *  PURPOSE:     Object remote procedure calls
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -20,6 +20,10 @@ void CObjectRPCs::LoadFunctions()
     AddHandler(STOP_OBJECT, StopObject, "StopObject");
     AddHandler(SET_OBJECT_SCALE, SetObjectScale, "SetObjectScale");
     AddHandler(SET_OBJECT_VISIBLE_IN_ALL_DIMENSIONS, SetObjectVisibleInAllDimensions, "SetObjectVisibleInAllDimensions");
+    AddHandler(SET_OBJECT_BREAKABLE, SetObjectBreakable, "SetObjectBreakable");
+    AddHandler(BREAK_OBJECT, BreakObject, "BreakObject");
+    AddHandler(RESPAWN_OBJECT, RespawnObject, "RespawnObject");
+    AddHandler(TOGGLE_OBJECT_RESPAWN, ToggleObjectRespawn, "ToggleObjectRespawn");
 }
 
 void CObjectRPCs::DestroyAllObjects(NetBitStreamInterface& bitStream)
@@ -29,12 +33,22 @@ void CObjectRPCs::DestroyAllObjects(NetBitStreamInterface& bitStream)
 
 void CObjectRPCs::SetObjectRotation(CClientEntity* pSource, NetBitStreamInterface& bitStream)
 {
+    // Read out the new rotation
+    CVector vecRotation;
+
+    if (pSource->GetType() == CCLIENTBUILDING)
+    {
+        if (bitStream.Read(vecRotation.fX) && bitStream.Read(vecRotation.fY) && bitStream.Read(vecRotation.fZ))
+            static_cast<CClientBuilding*>(pSource)->SetRotationRadians(vecRotation);
+
+        return;
+    }
+
     // Grab the object
     CDeathmatchObject* pObject = static_cast<CDeathmatchObject*>(m_pObjectManager->Get(pSource->GetID()));
+
     if (pObject)
     {
-        // Read out the new rotation
-        CVector vecRotation;
         if (bitStream.Read(vecRotation.fX) && bitStream.Read(vecRotation.fY) && bitStream.Read(vecRotation.fZ))
         {
             // Set the new rotation
@@ -65,11 +79,13 @@ void CObjectRPCs::StopObject(CClientEntity* pSource, NetBitStreamInterface& bitS
 {
     // Grab the object
     CDeathmatchObject* pObject = static_cast<CDeathmatchObject*>(m_pObjectManager->Get(pSource->GetID()));
+
     if (pObject)
     {
         // Read out the position and rotation
         CVector vecSourcePosition;
         CVector vecSourceRotation;
+
         if (bitStream.Read(vecSourcePosition.fX) && bitStream.Read(vecSourcePosition.fY) && bitStream.Read(vecSourcePosition.fZ) &&
             bitStream.Read(vecSourceRotation.fX) && bitStream.Read(vecSourceRotation.fY) && bitStream.Read(vecSourceRotation.fZ))
         {
@@ -84,6 +100,7 @@ void CObjectRPCs::StopObject(CClientEntity* pSource, NetBitStreamInterface& bitS
 void CObjectRPCs::SetObjectScale(CClientEntity* pSource, NetBitStreamInterface& bitStream)
 {
     CDeathmatchObject* pObject = static_cast<CDeathmatchObject*>(m_pObjectManager->Get(pSource->GetID()));
+
     if (pObject)
     {
         CVector vecScale;
@@ -91,11 +108,10 @@ void CObjectRPCs::SetObjectScale(CClientEntity* pSource, NetBitStreamInterface& 
         bitStream.Read(vecScale.fX);
         vecScale.fY = vecScale.fX;
         vecScale.fZ = vecScale.fX;
-        if (bitStream.Version() >= 0x40)
-        {
-            bitStream.Read(vecScale.fY);
-            bitStream.Read(vecScale.fZ);
-        }
+
+        bitStream.Read(vecScale.fY);
+        bitStream.Read(vecScale.fZ);
+
         pObject->SetScale(vecScale);
     }
 }
@@ -114,4 +130,38 @@ void CObjectRPCs::SetObjectVisibleInAllDimensions(CClientEntity* pSource, NetBit
 
         pObject->SetVisibleInAllDimensions(bVisible, usNewDimension);
     }
+}
+
+void CObjectRPCs::SetObjectBreakable(CClientEntity* pSource, NetBitStreamInterface& bitStream)
+{
+    CDeathmatchObject* pObject = static_cast<CDeathmatchObject*>(m_pObjectManager->Get(pSource->GetID()));
+
+    if (pObject)
+    {
+        pObject->SetBreakable(bitStream.ReadBit());
+    }
+}
+
+void CObjectRPCs::BreakObject(CClientEntity* pSource, NetBitStreamInterface& bitStream)
+{
+    auto* pObject = static_cast<CDeathmatchObject*>(m_pObjectManager->Get(pSource->GetID()));
+
+    if (pObject)
+        pObject->Break();
+}
+
+void CObjectRPCs::RespawnObject(CClientEntity* pSource, NetBitStreamInterface& bitStream)
+{
+    auto* pObject = static_cast<CDeathmatchObject*>(m_pObjectManager->Get(pSource->GetID()));
+
+    if (pObject)
+        g_pClientGame->GetObjectRespawner()->Respawn(pObject);
+}
+
+void CObjectRPCs::ToggleObjectRespawn(CClientEntity* pSource, NetBitStreamInterface& bitStream)
+{
+    auto* pObject = static_cast<CDeathmatchObject*>(m_pObjectManager->Get(pSource->GetID()));
+
+    if (pObject)
+        pObject->SetRespawnEnabled(bitStream.ReadBit());
 }

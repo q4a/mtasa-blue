@@ -5,31 +5,33 @@
  *  FILE:        game_sa/CDoorSA.cpp
  *  PURPOSE:     Vehicle door entity
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CDoorSA.h"
 
 /**
  * \todo Find out what GetAngleOpenRatio actually does
  * @return FLOAT Not sure...
  */
-FLOAT CDoorSA::GetAngleOpenRatio()
+float CDoorSA::GetAngleOpenRatio()
 {
-    DEBUG_TRACE("FLOAT CDoorSA::GetAngleOpenRatio ( )");
     DWORD dwFunction = FUNC_GetAngleOpenRatio;
     DWORD dwPointer = (DWORD)GetInterface();
-    FLOAT fReturn = 0.0f;
+    float fReturn = 0.0f;
 
     if (dwPointer != 0)
     {
-        _asm
+        // clang-format off
+        __asm
         {
             mov     ecx, dwPointer
             call    dwFunction
             fstp    fReturn
         }
+        // clang-format on
     }
 
     return fReturn;
@@ -39,21 +41,22 @@ FLOAT CDoorSA::GetAngleOpenRatio()
  * Checks if the door is closed
  * @return BOOL TRUE if the door is closed, FALSE otherwise
  */
-BOOL CDoorSA::IsClosed()
+bool CDoorSA::IsClosed()
 {
-    DEBUG_TRACE("BOOL CDoorSA::IsClosed (  )");
     DWORD dwFunction = FUNC_IsClosed;
     DWORD dwPointer = (DWORD)GetInterface();
     BYTE  bReturn = 0;
 
     if (dwPointer != 0)
     {
-        _asm
+        // clang-format off
+        __asm
         {
             mov     ecx, dwPointer
             call    dwFunction
             mov     bReturn, al
         }
+        // clang-format on
     }
 
     return bReturn;
@@ -64,21 +67,22 @@ BOOL CDoorSA::IsClosed()
  * @return BOOL TRUE if the door is fully opened, FALSE if it is opening, is closed or is missing.
  * \todo Check what this returns if the door has been ripped off
  */
-BOOL CDoorSA::IsFullyOpen()
+bool CDoorSA::IsFullyOpen()
 {
-    DEBUG_TRACE("BOOL CDoorSA::IsFullyOpen (  )");
     DWORD dwFunction = FUNC_IsFullyOpen;
     DWORD dwPointer = (DWORD)GetInterface();
     BYTE  bReturn = 0;
 
     if (dwPointer != 0)
     {
-        _asm
+        // clang-format off
+        __asm
         {
             mov     ecx, dwPointer
             call    dwFunction
             mov     bReturn, al
         }
+        // clang-format on
     }
 
     return bReturn;
@@ -89,19 +93,20 @@ BOOL CDoorSA::IsFullyOpen()
  * @param fUnknown Not sure...
  * \todo Check what the parameter for Open does
  */
-VOID CDoorSA::Open(float fOpenRatio)
+void CDoorSA::Open(float fOpenRatio)
 {
-    DEBUG_TRACE("VOID CDoorSA::Open ( float fOpenRatio )");
     DWORD dwFunction = FUNC_Open;
     DWORD dwPointer = (DWORD)GetInterface();
 
     if (dwPointer != 0)
     {
-        _asm
+        // clang-format off
+        __asm
         {
             mov     ecx, dwPointer
             push    fOpenRatio
             call    dwFunction
         }
+        // clang-format on
     }
 }

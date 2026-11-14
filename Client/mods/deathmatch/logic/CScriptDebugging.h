@@ -41,6 +41,7 @@ public:
 
     void LogCustom(lua_State* luaVM, unsigned char ucRed, unsigned char ucGreen, unsigned char ucBlue, const char* szFormat, ...);
     void LogDebug(lua_State* luaVM, unsigned char ucRed, unsigned char ucGreen, unsigned char ucBlue, const char* szFormat, ...);
+    void LogInformationV(lua_State* luaVM, const char* format, va_list vlist);
     void LogInformation(lua_State* luaVM, const char* szFormat, ...);
     void LogWarning(lua_State* luaVM, const char* szFormat, ...);
     void LogError(lua_State* luaVM, const char* szFormat, ...);
@@ -68,6 +69,7 @@ private:
     void LogString(const char* szPrePend, const SLuaDebugInfo& luaDebugInfo, const char* szMessage, unsigned int uiMinimumDebugLevel, unsigned char ucRed = 255,
                    unsigned char ucGreen = 255, unsigned char ucBlue = 255);
     void PrintLog(const char* szText);
+    bool CheckForSufficientDebugLevel(std::uint8_t playerDebugLevel, std::uint8_t messageDebugLevel) const noexcept;
 
 public:
     static FILE* m_pLogFile;

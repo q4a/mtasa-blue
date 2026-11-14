@@ -5,13 +5,14 @@
  *  FILE:        mods/deathmatch/logic/CSingularFileDownloadManager.cpp
  *  PURPOSE:     Singular file download manager interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include <StdInc.h>
 
-CSingularFileDownload::CSingularFileDownload(CResource* pResource, const char* szName, const char* szNameShort, SString strHTTPURL, CResource* pRequestResource, CChecksum serverChecksum)
+CSingularFileDownload::CSingularFileDownload(CResource* pResource, const char* szName, const char* szNameShort, SString strHTTPURL, CResource* pRequestResource,
+                                             CChecksum serverChecksum)
 {
     // Store the name
     m_strName = szName;
@@ -64,15 +65,15 @@ void CSingularFileDownload::CallFinished(bool bSuccess)
     {
         // Call the onClientbFileDownloadComplete event
         CLuaArguments Arguments;
-        Arguments.PushString(GetShortName());            // file name
-        Arguments.PushBoolean(bSuccess);                 // Completed successfully?
+        Arguments.PushString(GetShortName());  // file name
+        Arguments.PushBoolean(bSuccess);       // Completed successfully?
         if (m_pRequestResource)
         {
             Arguments.PushResource(m_pRequestResource);  // Resource that called downloadFile
         }
         else
         {
-            Arguments.PushBoolean(false);                 // or false
+            Arguments.PushBoolean(false);  // or false
         }
 
         m_pResource->GetResourceEntity()->CallEvent("onClientFileDownloadComplete", Arguments, false);

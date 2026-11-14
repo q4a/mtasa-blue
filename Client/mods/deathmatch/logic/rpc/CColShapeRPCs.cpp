@@ -5,14 +5,14 @@
  *  FILE:        mods/deathmatch/logic/rpc/CColShapeRPC.cpp
  *  PURPOSE:     Colshapes remote procedure calls
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include <StdInc.h>
 #include "CColShapeRPCs.h"
 
-void CColShapeRPCs::LoadFunctions(void)
+void CColShapeRPCs::LoadFunctions()
 {
     AddHandler(SET_COLSHAPE_RADIUS, SetColShapeRadius, "SetColShapeRadius");
     AddHandler(SET_COLSHAPE_SIZE, SetColShapeSize, "SetColShapeSize");

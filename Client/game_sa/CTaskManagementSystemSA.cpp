@@ -5,17 +5,30 @@
  *  FILE:        game_sa/CTaskManagementSystemSA.cpp
  *  PURPOSE:     Task management system
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CGameSA.h"
+#include "CTaskManagementSystemSA.h"
+#include "TaskAttackSA.h"
+#include "TaskBasicSA.h"
+#include "TaskCarAccessoriesSA.h"
+#include "TaskCarSA.h"
+#include "TaskGoToSA.h"
+#include "TaskIKSA.h"
+#include "TaskJumpFallSA.h"
+#include "TaskPhysicalResponseSA.h"
+#include "TaskSA.h"
+#include "TaskSecondarySA.h"
+#include "TaskSimpleSwimSA.h"
+
+extern CGameSA* pGame;
 
 using namespace std;
 
-VOID HOOK_CTask_Operator_Delete();
-
-CTaskSAInterface* pTempTaskInterface = 0;
+void HOOK_CTask_Operator_Delete();
 
 CTaskManagementSystemSA::CTaskManagementSystemSA()
 {
@@ -36,10 +49,11 @@ CTaskManagementSystemSA::~CTaskManagementSystemSA()
     m_TaskList.clear();
 }
 
-CTask* CTaskManagementSystemSA::AddTask(CTaskSA* pTask)
+CTaskSA* CTaskManagementSystemSA::AddTask(CTaskSA* pTask)
 {
     if (!pTask)
         return NULL;
+
     assert(pTask->IsValid());
     STaskListItem* pItem = new STaskListItem;
     pItem->pTaskSA = pTask;
@@ -85,11 +99,24 @@ void CTaskManagementSystemSA::RemoveTask(CTaskSAInterface* pTaskInterface)
     }
 }
 
-CTask* CTaskManagementSystemSA::GetTask(CTaskSAInterface* pTaskInterface)
+CTaskSA* CTaskManagementSystemSA::GetTask(CTaskSAInterface* pTaskInterface)
 {
     // Return NULL if we got passed NULL
-    if (pTaskInterface == 0)
-        return NULL;
+    if (!pTaskInterface)
+        return nullptr;
+
+    // Check vtable pointer to prevent crash from corrupted task objects
+    TaskVTBL* pVTBL = pTaskInterface->VTBL;
+    if (!pVTBL)
+        return nullptr;
+
+    // Vtable should be in executable memory range (.text/.rdata sections)
+    // GTA SA base is around 0x400000-0x900000 range
+    constexpr DWORD GTA_BASE_MIN = 0x400000;
+    constexpr DWORD GTA_BASE_MAX = 0x900000;
+    DWORD           dwVTableAddr = reinterpret_cast<DWORD>(pVTBL);
+    if (dwVTableAddr < GTA_BASE_MIN || dwVTableAddr > GTA_BASE_MAX)
+        return nullptr;
 
     // Find it in our list
     STaskListItem*                       pListItem;
@@ -108,15 +135,17 @@ CTask* CTaskManagementSystemSA::GetTask(CTaskSAInterface* pTaskInterface)
     // its not existed before, lets create the task
     // First, we create a temp task
     int   iTaskType = 9999;
-    DWORD dwFunc = pTaskInterface->VTBL->GetTaskType;
+    DWORD dwFunc = pVTBL->GetTaskType;
     if (dwFunc && dwFunc != 0x82263A)
     {
-        _asm
+        // clang-format off
+        __asm
         {
             mov     ecx, pTaskInterface
             call    dwFunc
             mov     iTaskType, eax
         }
+        // clang-format on
     }
 
     // Create it and add it to our list
@@ -132,7 +161,7 @@ CTask* CTaskManagementSystemSA::GetTask(CTaskSAInterface* pTaskInterface)
     return pTask;
 }
 
-CTask* CTaskManagementSystemSA::CreateAppropriateTask(CTaskSAInterface* pTaskInterface, int iTaskType)
+CTaskSA* CTaskManagementSystemSA::CreateAppropriateTask(CTaskSAInterface* pTaskInterface, int iTaskType)
 {
     CTaskSA* pTaskSA = NULL;
 
@@ -167,6 +196,9 @@ CTask* CTaskManagementSystemSA::CreateAppropriateTask(CTaskSAInterface* pTaskInt
             break;
         case TASK_COMPLEX_SUNBATHE:
             pTaskSA = new CTaskComplexSunbatheSA;
+            break;
+        case TASK_SIMPLE_SWIM:
+            pTaskSA = new CTaskSimpleSwimSA;
             break;
 
         // Car accessories
@@ -242,26 +274,22 @@ CTask* CTaskManagementSystemSA::CreateAppropriateTask(CTaskSAInterface* pTaskInt
 }
 
 // HOOKS
-__declspec(noinline) void OnMY_Task_Operator_Delete(CTaskSAInterface* pTaskInterface)
+static void OnMY_Task_Operator_Delete(CTaskSAInterface* pTaskInterface)
 {
-    ((CTaskManagementSystemSA*)(pGame->GetTaskManagementSystem()))->RemoveTask(pTempTaskInterface);
+    pGame->GetTaskManagementSystem()->RemoveTask(pTaskInterface);
 }
 
-VOID _declspec(naked) HOOK_CTask_Operator_Delete()
+static void __declspec(naked) HOOK_CTask_Operator_Delete()
 {
-    _asm
-        {
-        mov     eax, [esp+4]
-        mov     pTempTaskInterface, eax
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
 
-        pushad
-        }
-
-    OnMY_Task_Operator_Delete(pTempTaskInterface);
-
-    // Continue on our merry way....
-    _asm
+    // clang-format off
+    __asm
     {
+        pushad
+        push    [esp + 32 + 4]
+        call    OnMY_Task_Operator_Delete
+        add     esp, 4
         popad
 
         mov     eax, 0xB744A8
@@ -270,4 +298,5 @@ VOID _declspec(naked) HOOK_CTask_Operator_Delete()
         add     eax, 6
         jmp     eax
     }
+    // clang-format on
 }

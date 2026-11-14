@@ -4,11 +4,13 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        mods/deathmatch/logic/packets/CPedTaskPacket.cpp
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPedTaskPacket.h"
+#include "CPlayer.h"
 #include "net/SyncStructures.h"
 
 CPedTaskPacket::CPedTaskPacket()

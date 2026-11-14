@@ -5,17 +5,26 @@
  *  FILE:        mods/deathmatch/logic/Utils.cpp
  *  PURPOSE:     Miscellaneous utility functions
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "Utils.h"
 
 #ifndef MTA_CLIENT
-#include "net/SyncStructures.h"
+    #include "CGame.h"
+    #include "packets/CPlayerDisconnectedPacket.h"
+    #include "net/SyncStructures.h"
 
-#include <sys/types.h>  // For stat().
-#include <sys/stat.h>   // For stat().
+    #include <sys/types.h>  // For stat().
+    #include <sys/stat.h>   // For stat().
+
+    #ifndef WIN32
+        #include <sys/socket.h>
+        #include <netinet/in.h>
+        #include <arpa/inet.h>
+    #endif
 #endif
 
 #ifdef MTA_CLIENT
@@ -75,8 +84,26 @@ bool IsValidFilePath(const char* szDir)
     // iterate through the char array
     for (unsigned int i = 0; i < uiLen; i++)
     {
-        c = szDir[i];                                          // current character
-        c_d = (i < (uiLen - 1)) ? szDir[i + 1] : 0;            // one character ahead, if any
+        c = szDir[i];                                // current character
+        c_d = (i < (uiLen - 1)) ? szDir[i + 1] : 0;  // one character ahead, if any
+        if (!IsVisibleCharacter(c) || c == ':' || (c == '.' && c_d == '.') || (c == '\\' && c_d == '\\'))
+            return false;
+    }
+    return true;
+}
+
+bool IsValidFilePath(const char* szDir, size_t length)
+{
+    if (szDir == nullptr)
+        return false;
+
+    std::uint8_t c, c_d;
+
+    // iterate through the char array
+    for (size_t i = 0; i < length; i++)
+    {
+        c = szDir[i];                                 // current character
+        c_d = (i < (length - 1)) ? szDir[i + 1] : 0;  // one character ahead, if any
         if (!IsVisibleCharacter(c) || c == ':' || (c == '.' && c_d == '.') || (c == '\\' && c_d == '\\'))
             return false;
     }
@@ -92,12 +119,12 @@ void ReplaceOccurrencesInString(std::string& s, const char* a, const char* b)
 
 void RaiseFatalError(unsigned int uiCode)
 {
-#ifdef MTA_DEBUG
+    #ifdef MTA_DEBUG
     assert(0);
-#endif
+    #endif
 
     // Populate the message and show the box
-    SString strBuffer(_("Fatal error (%u). If this problem persists, please check out mtasa.com for support."), uiCode);
+    SString strBuffer(_("Fatal error (%u). If this problem persists, please check out multitheftauto.com for support."), uiCode);
     SString strTroubleLink(SString("fatal-error&code=%d", uiCode));
     g_pCore->ShowErrorMessageBox(_("Fatal error") + _E("CD62"), strBuffer, strTroubleLink);
 
@@ -108,14 +135,14 @@ void RaiseFatalError(unsigned int uiCode)
 
 void RaiseProtocolError(unsigned int uiCode)
 {
-    //#ifdef MTA_DEBUG
-    //    assert ( 0 );
-    //#endif
+    // #ifdef MTA_DEBUG
+    //     assert ( 0 );
+    // #endif
 
     // Populate the message and show the box
-    SString strBuffer(_("Protocol error (%u). If this problem persists, please check out mtasa.com for support."), uiCode);
+    SString strBuffer(_("Protocol error (%u). If this problem persists, please check out multitheftauto.com for support."), uiCode);
     SString strTroubleLink(SString("protocol-error&code=%d", uiCode));
-    g_pCore->ShowErrorMessageBox(_("Connection error") + _E("CD63"), strBuffer, strTroubleLink);            // Protocol error
+    g_pCore->ShowErrorMessageBox(_("Connection error") + _E("CD63"), strBuffer, strTroubleLink);  // Protocol error
 
     // Request the mod unload
     g_pCore->GetModManager()->RequestUnload();
@@ -159,32 +186,29 @@ void AttachedMatrix(const CMatrix& matrix, CMatrix& returnMatrix, const CVector&
 
 void LongToDottedIP(unsigned long ulIP, char* szDottedIP)
 {
-    in_addr in;
-    in.s_addr = ulIP;
-    char* szTemp = inet_ntoa(in);
-    if (szTemp)
-    {
-        strncpy(szDottedIP, szTemp, 22);
-    }
-    else
-    {
-        szDottedIP[0] = 0;
-    }
+    const unsigned char b1 = static_cast<unsigned char>((ulIP >> 24) & 0xFF);
+    const unsigned char b2 = static_cast<unsigned char>((ulIP >> 16) & 0xFF);
+    const unsigned char b3 = static_cast<unsigned char>((ulIP >> 8) & 0xFF);
+    const unsigned char b4 = static_cast<unsigned char>(ulIP & 0xFF);
+
+    const SString str = SString("%u.%u.%u.%u", b1, b2, b3, b4);
+    strncpy(szDottedIP, str, 22);
+    szDottedIP[21] = 0;
 }
 #else
 
 bool DoesDirectoryExist(const char* szPath)
 {
-#ifdef WIN32
+    #ifdef WIN32
     DWORD dwAtr = GetFileAttributes(szPath);
     if (dwAtr == INVALID_FILE_ATTRIBUTES)
         return false;
     return ((dwAtr & FILE_ATTRIBUTE_DIRECTORY) != 0);
-#else
+    #else
     struct stat Info;
     stat(szPath, &Info);
     return (S_ISDIR(Info.st_mode));
-#endif
+    #endif
 }
 
 bool CheckNickProvided(const char* szNick)
@@ -349,22 +373,22 @@ void DisconnectConnectionDesync(CGame* pGame, CPlayer& Player, unsigned int uiCo
 
 bool InitializeSockets()
 {
-#ifdef WIN32
+    #ifdef WIN32
     WSADATA wsaData;
     if (WSAStartup(0x202, &wsaData) == SOCKET_ERROR)
     {
         WSACleanup();
         return false;
     }
-#endif
+    #endif
     return true;
 }
 
 bool CleanupSockets()
 {
-#ifdef WIN32
+    #ifdef WIN32
     WSACleanup();
-#endif
+    #endif
     return true;
 }
 #endif
@@ -426,78 +450,6 @@ SString GetDataUnit(unsigned long long ullInput)
     return strUnknown;
 }
 
-#ifdef MTA_DEBUG
-HMODULE RemoteLoadLibrary(HANDLE hProcess, const char* szLibPath)
-{
-    /* Called correctly? */
-    if (szLibPath == NULL)
-    {
-        return 0;
-    }
-
-    /* Allocate memory in the remote process for the library path */
-    HANDLE  hThread = 0;
-    void*   pLibPathRemote = NULL;
-    HMODULE hKernel32 = GetModuleHandle("Kernel32");
-    pLibPathRemote = VirtualAllocEx(hProcess, NULL, strlen(szLibPath) + 1, MEM_COMMIT, PAGE_READWRITE);
-
-    if (pLibPathRemote == NULL)
-    {
-        DWORD dwError = GetLastError();
-        return 0;
-    }
-
-    /* Make sure pLibPathRemote is always freed */
-    __try
-    {
-        /* Write the DLL library path to the remote allocation */
-        DWORD byteswritten = 0;
-        WriteProcessMemory(hProcess, pLibPathRemote, (void*)szLibPath, strlen(szLibPath) + 1, &byteswritten);
-
-        if (byteswritten != strlen(szLibPath) + 1)
-        {
-            return 0;
-        }
-
-        /* Start a remote thread executing LoadLibraryA exported from Kernel32. Passing the
-           remotly allocated path buffer as an argument to that thread (and also to LoadLibraryA)
-           will make the remote process load the DLL into it's userspace (giving the DLL full
-           access to the game executable).*/
-        hThread =
-            CreateRemoteThread(hProcess, NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(GetProcAddress(hKernel32, "LoadLibraryA")), pLibPathRemote, 0, NULL);
-
-        if (hThread == 0)
-        {
-            return 0;
-        }
-    }
-    __finally
-    {
-        VirtualFreeEx(hProcess, pLibPathRemote, strlen(szLibPath) + 1, MEM_RELEASE);
-    }
-
-    /*  We wait for the created remote thread to finish executing. When it's done, the DLL
-        is loaded into the game's userspace, and we can destroy the thread-handle. We wait
-        5 seconds which is way longer than this should take to prevent this application
-        from deadlocking if something goes really wrong allowing us to kill the injected
-        game executable and avoid user inconvenience.*/
-    WaitForSingleObject(hThread, INFINITE);
-
-    /* Get the handle of the remotely loaded DLL module */
-    DWORD hLibModule = 0;
-    GetExitCodeThread(hProcess, &hLibModule);
-
-    // Wait for the LoadLibrary thread to finish
-    WaitForSingleObject(hThread, INFINITE);
-
-    /* Clean up the resources we used to inject the DLL */
-    VirtualFreeEx(hProcess, pLibPathRemote, strlen(szLibPath) + 1, MEM_RELEASE);
-
-    /* Success */
-    return (HINSTANCE)(1);
-}
-
-#endif
 #else
 bool IsValidFilePath(const char* szDir)
 {
@@ -506,7 +458,7 @@ bool IsValidFilePath(const char* szDir)
 
     unsigned int uiLen = strlen(szDir);
 
-    if (uiLen > 0 && szDir[uiLen - 1] == '/')            // will return false if ending with an invalid character, mainly used for linux (#6871)
+    if (uiLen > 0 && szDir[uiLen - 1] == '/')  // will return false if ending with an invalid character, mainly used for linux (#6871)
         return false;
 
     unsigned char c, c_d;
@@ -514,8 +466,26 @@ bool IsValidFilePath(const char* szDir)
     // iterate through the char array
     for (unsigned int i = 0; i < uiLen; i++)
     {
-        c = szDir[i];                                          // current character
-        c_d = (i < (uiLen - 1)) ? szDir[i + 1] : 0;            // one character ahead, if any
+        c = szDir[i];                                // current character
+        c_d = (i < (uiLen - 1)) ? szDir[i + 1] : 0;  // one character ahead, if any
+        if (!IsVisibleCharacter(c) || c == ':' || (c == '.' && c_d == '.') || (c == '\\' && c_d == '\\'))
+            return false;
+    }
+    return true;
+}
+
+bool IsValidFilePath(const char* szDir, size_t length)
+{
+    if (szDir == nullptr)
+        return false;
+
+    std::uint8_t c, c_d;
+
+    // iterate through the char array
+    for (size_t i = 0; i < length; i++)
+    {
+        c = szDir[i];                                 // current character
+        c_d = (i < (length - 1)) ? szDir[i + 1] : 0;  // one character ahead, if any
         if (!IsVisibleCharacter(c) || c == ':' || (c == '.' && c_d == '.') || (c == '\\' && c_d == '\\'))
             return false;
     }
@@ -529,7 +499,7 @@ bool IsValidOrganizationPath(const char* szDir)
 
     unsigned int uiLen = strlen(szDir);
 
-    if (uiLen > 0 && szDir[uiLen - 1] == '/')            // will return false if ending with an invalid character, mainly used for linux (#6871)
+    if (uiLen > 0 && szDir[uiLen - 1] == '/')  // will return false if ending with an invalid character, mainly used for linux (#6871)
         return false;
 
     unsigned char c;
@@ -538,7 +508,7 @@ bool IsValidOrganizationPath(const char* szDir)
     // iterate through the char array
     for (unsigned int i = 0; i < uiLen; i++)
     {
-        c = szDir[i];            // current character
+        c = szDir[i];  // current character
 
         // Enforce braces around visible letters
         if (!bInsideBraces && IsVisibleCharacter(c) && c != '[' && c != ']' && c != '/' && c != '\\')
@@ -547,21 +517,21 @@ bool IsValidOrganizationPath(const char* szDir)
         if (c == '[')
         {
             if (bInsideBraces)
-                return false;            // Duplicate braces (e.g. "[hel[lo]world]")
+                return false;  // Duplicate braces (e.g. "[hel[lo]world]")
             else
                 bInsideBraces = true;
         }
         else if (c == ']')
         {
             if (!bInsideBraces)
-                return false;            // Ending brace without opening brace (e.g. "hello]")
+                return false;  // Ending brace without opening brace (e.g. "hello]")
             else
                 bInsideBraces = false;
         }
         else if (c == '/' || c == '\\')
         {
             if (bInsideBraces)
-                return false;            // Slash within braches (e.g. "[hell/o]")
+                return false;  // Slash within braches (e.g. "[hell/o]")
         }
     }
 
@@ -614,7 +584,7 @@ bool XMLColorToInt(const char* szColor, unsigned long& ulColor)
         if (uiLength >= 4 && szColor[4] == 0)
         {
             // Make a RRGGBBAA string
-            unsigned char szTemp[12];
+            unsigned char szTemp[12]{};
             szTemp[0] = 'F';
             szTemp[1] = 'F';
             szTemp[2] = szColor[3];
@@ -635,7 +605,7 @@ bool XMLColorToInt(const char* szColor, unsigned long& ulColor)
         else if (uiLength >= 5 && szColor[5] == 0)
         {
             // Make a RRGGBBAA string
-            unsigned char szTemp[12];
+            unsigned char szTemp[12]{};
             szTemp[0] = szColor[4];
             szTemp[1] = szColor[4];
             szTemp[2] = szColor[3];
@@ -656,7 +626,7 @@ bool XMLColorToInt(const char* szColor, unsigned long& ulColor)
         else if (uiLength >= 7 && szColor[7] == 0)
         {
             // Make a RRGGBBAA string
-            unsigned char szTemp[12];
+            unsigned char szTemp[12]{};
             szTemp[0] = 'F';
             szTemp[1] = 'F';
             szTemp[2] = szColor[5];
@@ -677,7 +647,7 @@ bool XMLColorToInt(const char* szColor, unsigned long& ulColor)
         else if (uiLength >= 9 && szColor[9] == 0)
         {
             // Copy the string without the pre-#
-            unsigned char szTemp[12];
+            unsigned char szTemp[12]{};
             szTemp[0] = szColor[7];
             szTemp[1] = szColor[8];
             szTemp[2] = szColor[5];
@@ -715,6 +685,11 @@ bool XMLColorToInt(const char* szColor, unsigned char& ucRed, unsigned char& ucG
     ucBlue = static_cast<unsigned char>(ulColor >> 16);
     ucAlpha = static_cast<unsigned char>(ulColor >> 24);
     return true;
+}
+
+SString XMLColorFromInt(unsigned char ucRed, unsigned char ucGreen, unsigned char ucBlue, unsigned char ucAlpha)
+{
+    return SString("#%02X%02X%02X%02X", ucRed, ucGreen, ucBlue, ucAlpha);
 }
 
 #ifdef MTA_CLIENT
@@ -757,47 +732,43 @@ bool ReadSmallKeysync(CControllerState& ControllerState, NetBitStreamInterface& 
     if (!BitStream.Read(&keys))
         return false;
 
+    short sButtonSquare = keys.data.bButtonSquare ? 255 : 0;
+    short sButtonCross = keys.data.bButtonCross ? 255 : 0;
+    {
+        if (keys.data.ucButtonSquare != 0)
+            sButtonSquare = (short)keys.data.ucButtonSquare;  // override controller state with analog data if present
+
+        if (keys.data.ucButtonCross != 0)
+            sButtonCross = (short)keys.data.ucButtonCross;  // override controller state with analog data if present
+    }
+
     // Put the result into the controllerstate
     ControllerState.LeftShoulder1 = keys.data.bLeftShoulder1;
     ControllerState.RightShoulder1 = keys.data.bRightShoulder1;
-    short sButtonSquare = keys.data.bButtonSquare ? 255 : 0;
-    short sButtonCross = keys.data.bButtonCross ? 255 : 0;
-    if (BitStream.Can(eBitStreamVersion::AnalogControlSync_AccelBrakeReverse))
-    {
-        if (keys.data.ucButtonSquare != 0)
-            sButtonSquare = (short)keys.data.ucButtonSquare;            // override controller state with analog data if present
-
-        if (keys.data.ucButtonCross != 0)
-            sButtonCross = (short)keys.data.ucButtonCross;              // override controller state with analog data if present
-    }
     ControllerState.ButtonSquare = sButtonSquare;
     ControllerState.ButtonCross = sButtonCross;
     ControllerState.ButtonCircle = keys.data.bButtonCircle;
     ControllerState.ButtonTriangle = keys.data.bButtonTriangle;
     ControllerState.ShockButtonL = keys.data.bShockButtonL;
     ControllerState.m_bPedWalk = keys.data.bPedWalk;
-    if (BitStream.Version() >= 0x2C)
-    {
-        ControllerState.LeftStickX = keys.data.sLeftStickX;
-        ControllerState.LeftStickY = keys.data.sLeftStickY;
-    }
-
+    ControllerState.LeftStickX = keys.data.sLeftStickX;
+    ControllerState.LeftStickY = keys.data.sLeftStickY;
     return true;
 }
 
 void WriteSmallKeysync(const CControllerState& ControllerState, NetBitStreamInterface& BitStream)
 {
     SSmallKeysyncSync keys;
-    keys.data.bLeftShoulder1 = (ControllerState.LeftShoulder1 != 0);                   // Action / Secondary-Fire
-    keys.data.bRightShoulder1 = (ControllerState.RightShoulder1 != 0);                 // Aim-Weapon / Handbrake
-    keys.data.bButtonSquare = (ControllerState.ButtonSquare != 0);                     // Jump / Reverse
-    keys.data.bButtonCross = (ControllerState.ButtonCross != 0);                       // Sprint / Accelerate
-    keys.data.bButtonCircle = (ControllerState.ButtonCircle != 0);                     // Fire // Fire
-    keys.data.bButtonTriangle = (ControllerState.ButtonTriangle != 0);                 // Enter/Exit/Special-Attack / Enter/exit
-    keys.data.bShockButtonL = (ControllerState.ShockButtonL != 0);                     // Crouch / Horn
-    keys.data.bPedWalk = (ControllerState.m_bPedWalk != 0);                            // Walk / -
-    keys.data.ucButtonSquare = (unsigned char)ControllerState.ButtonSquare;            // Reverse
-    keys.data.ucButtonCross = (unsigned char)ControllerState.ButtonCross;              // Accelerate
+    keys.data.bLeftShoulder1 = (ControllerState.LeftShoulder1 != 0);         // Action / Secondary-Fire
+    keys.data.bRightShoulder1 = (ControllerState.RightShoulder1 != 0);       // Aim-Weapon / Handbrake
+    keys.data.bButtonSquare = (ControllerState.ButtonSquare != 0);           // Jump / Reverse
+    keys.data.bButtonCross = (ControllerState.ButtonCross != 0);             // Sprint / Accelerate
+    keys.data.bButtonCircle = (ControllerState.ButtonCircle != 0);           // Fire // Fire
+    keys.data.bButtonTriangle = (ControllerState.ButtonTriangle != 0);       // Enter/Exit/Special-Attack / Enter/exit
+    keys.data.bShockButtonL = (ControllerState.ShockButtonL != 0);           // Crouch / Horn
+    keys.data.bPedWalk = (ControllerState.m_bPedWalk != 0);                  // Walk / -
+    keys.data.ucButtonSquare = (unsigned char)ControllerState.ButtonSquare;  // Reverse
+    keys.data.ucButtonCross = (unsigned char)ControllerState.ButtonCross;    // Accelerate
     keys.data.sLeftStickX = ControllerState.LeftStickX;
     keys.data.sLeftStickY = ControllerState.LeftStickY;
 
@@ -812,19 +783,19 @@ bool ReadFullKeysync(CControllerState& ControllerState, NetBitStreamInterface& B
     if (!BitStream.Read(&keys))
         return false;
 
+    short sButtonSquare = keys.data.bButtonSquare ? 255 : 0;
+    short sButtonCross = keys.data.bButtonCross ? 255 : 0;
+    {
+        if (keys.data.ucButtonSquare != 0)
+            sButtonSquare = (short)keys.data.ucButtonSquare;  // override controller state with analog data if present
+
+        if (keys.data.ucButtonCross != 0)
+            sButtonCross = (short)keys.data.ucButtonCross;  // override controller state with analog data if present
+    }
+
     // Put the result into the controllerstate
     ControllerState.LeftShoulder1 = keys.data.bLeftShoulder1;
     ControllerState.RightShoulder1 = keys.data.bRightShoulder1;
-    short sButtonSquare = keys.data.bButtonSquare ? 255 : 0;
-    short sButtonCross = keys.data.bButtonCross ? 255 : 0;
-    if (BitStream.Can(eBitStreamVersion::AnalogControlSync_AccelBrakeReverse))
-    {
-        if (keys.data.ucButtonSquare != 0)
-            sButtonSquare = (short)keys.data.ucButtonSquare;            // override controller state with analog data if present
-
-        if (keys.data.ucButtonCross != 0)
-            sButtonCross = (short)keys.data.ucButtonCross;              // override controller state with analog data if present
-    }
     ControllerState.ButtonSquare = sButtonSquare;
     ControllerState.ButtonCross = sButtonCross;
     ControllerState.ButtonCircle = keys.data.bButtonCircle;
@@ -833,7 +804,6 @@ bool ReadFullKeysync(CControllerState& ControllerState, NetBitStreamInterface& B
     ControllerState.m_bPedWalk = keys.data.bPedWalk;
     ControllerState.LeftStickX = keys.data.sLeftStickX;
     ControllerState.LeftStickY = keys.data.sLeftStickY;
-
     return true;
 }
 
@@ -888,10 +858,10 @@ void ReadCameraOrientation(const CVector& vecBasePosition, NetBitStreamInterface
         uint  uiNumBits;
         float fRange;
     } bitCountTable[4] = {
-        {3, 4.0f},                // 3 bits is +-4        12 bits total
-        {5, 16.0f},               // 5 bits is +-16       18 bits total
-        {9, 256.0f},              // 9 bits is +-256      30 bits total
-        {14, 8192.0f},            // 14 bits is +-8192    45 bits total
+        {3, 4.0f},      // 3 bits is +-4        12 bits total
+        {5, 16.0f},     // 5 bits is +-16       18 bits total
+        {9, 256.0f},    // 9 bits is +-256      30 bits total
+        {14, 8192.0f},  // 14 bits is +-8192    45 bits total
     };
     // Read flag
     bool bUseAbsolutePosition = false;
@@ -966,6 +936,10 @@ bool IsNickValid(const char* szNick)
         {
             return false;
         }
+        if (ucTemp == '`')  // Backtick is rejected to match CheckNickProvided
+        {
+            return false;
+        }
     }
 
     // Nickname is valid, return true
@@ -1004,9 +978,12 @@ void RotateVector(CVector& vecLine, const CVector& vecRotation)
 
 SString LongToDottedIP(unsigned long ulIP)
 {
-    in_addr in;
-    in.s_addr = ulIP;
-    return inet_ntoa(in);
+    const unsigned char b1 = static_cast<unsigned char>((ulIP >> 24) & 0xFF);
+    const unsigned char b2 = static_cast<unsigned char>((ulIP >> 16) & 0xFF);
+    const unsigned char b3 = static_cast<unsigned char>((ulIP >> 8) & 0xFF);
+    const unsigned char b4 = static_cast<unsigned char>(ulIP & 0xFF);
+
+    return SString("%u.%u.%u.%u", b1, b2, b3, b4);
 }
 #endif
 
@@ -1038,7 +1015,7 @@ SString LongToDottedIP(unsigned long ulIP)
 CVector euler_ZXY_to_ZYX(const CVector& a_vZXY)
 {
     CVector vZXY(a_vZXY);
-    ConvertDegreesToRadiansNoWrap(vZXY);            // NoWrap for this conversion since it's used for cos/sin only
+    ConvertDegreesToRadiansNoWrap(vZXY);  // NoWrap for this conversion since it's used for cos/sin only
 
     float cx = cos(vZXY.fX);
     float sx = sin(vZXY.fX);
@@ -1070,7 +1047,7 @@ CVector euler_ZXY_to_ZYX(const CVector& a_vZXY)
 CVector euler_ZYX_to_ZXY(const CVector& a_vZYX)
 {
     CVector vZYX(a_vZYX);
-    ConvertDegreesToRadiansNoWrap(vZYX);            // NoWrap for this conversion since it's used for cos/sin only
+    ConvertDegreesToRadiansNoWrap(vZYX);  // NoWrap for this conversion since it's used for cos/sin only
 
     float cx = cos(vZYX.fX);
     float sx = sin(vZYX.fX);

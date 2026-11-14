@@ -5,11 +5,12 @@
  *  FILE:        mods/deathmatch/logic/CPerfStat.DebugTable.cpp
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPerfStatManager.h"
 
 namespace
 {
@@ -19,7 +20,7 @@ namespace
         CTickCount           endTickCount;
         bool                 bHasEndTime;
     };
-}            // namespace
+}  // namespace
 
 ///////////////////////////////////////////////////////////////
 //
@@ -48,7 +49,7 @@ public:
     SString                      m_strCategoryName;
     CElapsedTime                 m_TimeSinceRemoveOld;
     std::map<SString, SLineInfo> m_LineMap;
-    CCriticalSection             m_CS;            // Required as some methods are called from the database thread
+    CCriticalSection             m_CS;  // Required as some methods are called from the database thread
 };
 
 ///////////////////////////////////////////////////////////////

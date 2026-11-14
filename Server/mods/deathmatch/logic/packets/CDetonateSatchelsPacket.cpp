@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CDetonateSatchelsPacket.cpp
  *  PURPOSE:     Satchel detonation packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CDetonateSatchelsPacket.h"
+#include "CPlayer.h"
 
 CDetonateSatchelsPacket::CDetonateSatchelsPacket()
 {
@@ -27,7 +29,8 @@ bool CDetonateSatchelsPacket::Write(NetBitStreamInterface& BitStream) const
     {
         BitStream.Write(m_pSourceElement->GetID());
 
-        unsigned short usLatency = static_cast<CPlayer*>(m_pSourceElement)->GetPing();
+        const unsigned int   uiPing = static_cast<CPlayer*>(m_pSourceElement)->GetPing();
+        const unsigned short usLatency = uiPing <= 0xFFFF ? static_cast<unsigned short>(uiPing) : 0xFFFF;
         BitStream.WriteCompressed(usLatency);
     }
     else

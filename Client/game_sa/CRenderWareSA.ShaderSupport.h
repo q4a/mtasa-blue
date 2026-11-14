@@ -5,21 +5,25 @@
  *  FILE:
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
+#pragma once
+
+#include "CRenderWareSA.h"
+
 #ifdef MTA_DEBUG
 // Comment out the lines below for your desired debug options
-//#define SHADER_DEBUG_CHECKS         // Do lots of validation which can slow a debug build
-//#define SHADER_DEBUG_OUTPUT         // Output lots of debug strings
+// #define SHADER_DEBUG_CHECKS         // Do lots of validation which can slow a debug build
+// #define SHADER_DEBUG_OUTPUT         // Output lots of debug strings
 #endif
 
 // Various dodgy pointer values
-#define FAKE_D3DTEXTURE_EMPTY_KEY   ( (CD3DDUMMY*)-1 )
-#define FAKE_D3DTEXTURE_DELETED_KEY ( (CD3DDUMMY*)-2 )
-#define FAKE_D3DTEXTURE_NO_TEXTURE  ( (CD3DDUMMY*)-9 )
-#define FAKE_RWTEXTURE_NO_TEXTURE   ( (RwTexture*)-10 )
+#define FAKE_D3DTEXTURE_EMPTY_KEY   ((CD3DDUMMY*)-1)
+#define FAKE_D3DTEXTURE_DELETED_KEY ((CD3DDUMMY*)-2)
+#define FAKE_D3DTEXTURE_NO_TEXTURE  ((CD3DDUMMY*)-9)
+#define FAKE_RWTEXTURE_NO_TEXTURE   ((RwTexture*)-10)
 #define FAKE_NAME_NO_TEXTURE        "unnamed"
 
 class CMatchChannel;
@@ -40,8 +44,8 @@ struct STexTag
     bool operator==(RwTexture* pTex) const { return !m_bUsingTxdId && pTex == m_pTex; }
 
     const bool       m_bUsingTxdId;
-    const ushort     m_usTxdId;            // Streamed textures are identified using the TXD id
-    const RwTexture* m_pTex;               // Custom textures are identified using the RwTexture pointer
+    const ushort     m_usTxdId;  // Streamed textures are identified using the TXD id
+    const RwTexture* m_pTex;     // Custom textures are identified using the RwTexture pointer
 };
 
 struct SOrderValue
@@ -54,7 +58,7 @@ struct SOrderValue
         return fOrderPriority < other.fOrderPriority || (fOrderPriority == other.fOrderPriority && uiShaderCreateTime < other.uiShaderCreateTime);
     }
 
-    const float fOrderPriority;            // Lower is higher priority
+    const float fOrderPriority;  // Lower is higher priority
     const uint  uiShaderCreateTime;
 };
 
@@ -89,7 +93,7 @@ struct STexInfo
     {
     }
     STexTag          texTag;
-    const SString    strTextureName;            // Always lower case
+    const SString    strTextureName;  // Always lower case
     CD3DDUMMY* const pD3DData;
     STexNameInfo*    pAssociatedTexNameInfo;
 };
@@ -117,7 +121,7 @@ struct SShaderInfoLayers
 {
     SShaderInfoInstance              pBase;
     std::vector<SShaderInfoInstance> layerList;
-    SShaderItemLayers                output;            // For renderer
+    SShaderItemLayers                output;  // For renderer
 
 #ifdef SHADER_DEBUG_CHECKS
     bool operator==(const SShaderInfoLayers& other) const
@@ -166,11 +170,11 @@ struct STexNameInfo
         return texNoEntityShaders[idx];
     }
 
-    const SString           strTextureName;            // Always lower case
+    const SString           strTextureName;  // Always lower case
     CFastHashSet<STexInfo*> usedByTexInfoList;
 
     CFastHashSet<CMatchChannel*>                            matchChannelList;
-    STexShaderReplacement                                   texNoEntityShaders[5];            // 0 - world  1-ped  2-vehicle  3-object  4-other
+    STexShaderReplacement                                   texNoEntityShaders[5];  // 0 - world  1-ped  2-vehicle  3-object  4-other
     CFastHashMap<CClientEntityBase*, STexShaderReplacement> texEntityShaderMap;
 
 #ifdef SHADER_DEBUG_CHECKS

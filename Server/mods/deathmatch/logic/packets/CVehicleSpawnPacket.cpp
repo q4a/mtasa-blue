@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CVehicleSpawnPacket.cpp
  *  PURPOSE:     Vehicle spawn packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CVehicleSpawnPacket.h"
+#include "CVehicle.h"
 
 bool CVehicleSpawnPacket::Write(NetBitStreamInterface& BitStream) const
 {
@@ -26,8 +28,8 @@ bool CVehicleSpawnPacket::Write(NetBitStreamInterface& BitStream) const
     if (m_List.size() > 0)
     {
         // Write each vehicle to the bitstream
-        CVehicle*                         pVehicle;
-        vector<CVehicle*>::const_iterator iter = m_List.begin();
+        CVehicle*                              pVehicle;
+        std::vector<CVehicle*>::const_iterator iter = m_List.begin();
         for (; iter != m_List.end(); iter++)
         {
             pVehicle = *iter;

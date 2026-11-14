@@ -5,20 +5,21 @@
  *  FILE:        sdk/game/CEventDamage.h
  *  PURPOSE:     Event damage interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-enum eWeaponType;
-enum ePedPieceTypes;
 class CEntity;
-typedef unsigned long AssocGroupId;
-typedef unsigned long AnimationId;
 class CEventDamageSAInterface;
 class CPed;
 class CPedDamageResponse;
+enum ePedPieceTypes;
+enum eWeaponType;
+
+typedef unsigned long AnimationId;
+typedef unsigned long AssocGroupId;
 
 namespace EDamageReason
 {

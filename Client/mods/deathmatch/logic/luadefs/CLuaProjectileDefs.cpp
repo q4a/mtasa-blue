@@ -5,7 +5,7 @@
  *  FILE:        mods/shared_logic/luadefs/CLuaProjectileDefs.cpp
  *  PURPOSE:     Lua definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -14,12 +14,8 @@
 void CLuaProjectileDefs::LoadFunctions()
 {
     constexpr static const std::pair<const char*, lua_CFunction> functions[]{
-        {"createProjectile", CreateProjectile},
-        {"getProjectileType", GetProjectileType},
-        {"getProjectileTarget", GetProjectileTarget},
-        {"getProjectileCreator", GetProjectileCreator},
-        {"getProjectileForce", GetProjectileForce},
-        {"setProjectileCounter", SetProjectileCounter},
+        {"createProjectile", CreateProjectile},         {"getProjectileType", GetProjectileType},   {"getProjectileTarget", GetProjectileTarget},
+        {"getProjectileCreator", GetProjectileCreator}, {"getProjectileForce", GetProjectileForce}, {"setProjectileCounter", SetProjectileCounter},
         {"getProjectileCounter", GetProjectileCounter},
     };
 

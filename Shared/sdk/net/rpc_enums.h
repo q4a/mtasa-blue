@@ -5,7 +5,7 @@
  *  FILE:        Shared/sdk/net/rpc_enums.h
  *  PURPOSE:     Lua RPC enums
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -273,18 +273,27 @@ enum eElementRPCFunctions
     SET_TRANSFER_BOX_VISIBILITY,
     SET_COLPOLYGON_HEIGHT,
 
-    NUM_RPC_FUNCS // Add above this line
-};
+    SET_OBJECT_BREAKABLE,
 
-enum eServerRPCFunctions
-{
-    PLAYER_INGAME_NOTICE,
-    INITIAL_DATA_STREAM,
-    PLAYER_TARGET,
-    PLAYER_WEAPON,
-    KEY_BIND,
-    CURSOR_EVENT,
-    REQUEST_STEALTH_KILL,
+    SET_WORLD_SPECIAL_PROPERTY,
 
-    NUM_SERVER_RPC_FUNCS // Add above this line
+    BREAK_OBJECT,
+
+    SET_PLAYER_SCRIPT_DEBUG_LEVEL,
+
+    SET_MARKER_TARGET_ARROW_PROPERTIES,
+
+    RESPAWN_OBJECT,
+    TOGGLE_OBJECT_RESPAWN,
+    RESET_WORLD_PROPERTIES,
+
+    SPAWN_VEHICLE_FLYING_COMPONENT,
+
+    SET_VEHICLE_NITRO_ACTIVATED,
+
+    SET_ELEMENT_ON_FIRE,
+
+    SET_CUSTOM_WEAPON_WEAPON_RANGE,
+
+    NUM_RPC_FUNCS  // Add above this line
 };

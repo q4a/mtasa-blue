@@ -8,6 +8,7 @@
  *
  *****************************************************************************/
 #include <StdInc.h>
+#include <game/CPointLights.h>
 
 CClientSearchLight::CClientSearchLight(CClientManager* pManager, ElementID ID) : ClassInit(this), CClientStreamElement(pManager->GetLightStreamer(), ID)
 {
@@ -32,5 +33,5 @@ void CClientSearchLight::Render()
     DoAttaching();
 
     if (IsStreamedIn())
-        g_pGame->GetPointLights()->RenderHeliLight(m_StartPosition, m_EndPosition, m_StartRadius, m_EndRadius, m_bRenderSpot);
+        g_pGame->GetPointLights()->RenderHeliLight(m_StartPosition, m_EndPosition, m_StartRadius, m_EndRadius, m_bRenderSpot, m_color);
 }

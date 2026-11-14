@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/CTextDisplay.cpp
  *  PURPOSE:     Text display class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CTextDisplay.h"
+#include "CIdArray.h"
+#include "lua/LuaCommon.h"
 
 CTextDisplay::CTextDisplay()
 {

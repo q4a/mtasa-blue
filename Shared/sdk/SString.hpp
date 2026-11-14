@@ -5,7 +5,7 @@
  *  FILE:        SString.hpp
  *  PURPOSE:     SString implementation
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 #include "SString.h"
@@ -30,7 +30,7 @@ SString& SString::vFormat(const char* szFormat, va_list vl)
     {
         iRequiredCapacity = _vscprintf(szFormat, vlLocal);
     }
-    __except (1 /* EXCEPTION_EXECUTE_HANDLER */ )
+    __except (1 /* EXCEPTION_EXECUTE_HANDLER */)
     {
         // Clean up and indicate problem
         OnFormatException(szFormat);

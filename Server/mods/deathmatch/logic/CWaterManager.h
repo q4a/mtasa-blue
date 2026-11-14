@@ -5,13 +5,14 @@
  *  FILE:        mods/deathmatch/logic/CWaterManager.h
  *  PURPOSE:     Water entity manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
-class CWaterManager;
-
 #pragma once
+
+#include "CWater.h"
+#include "packets/CMapInfoPacket.h"
 
 class CWaterManager
 {

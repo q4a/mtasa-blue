@@ -5,11 +5,13 @@
  *  FILE:        sdk/game/CAnimBlendSequence.h
  *  PURPOSE:     Animation blend sequence interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
+
+class CAnimBlendSequenceSAInterface;
 
 class CAnimBlendSequence
 {

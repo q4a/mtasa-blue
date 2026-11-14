@@ -5,11 +5,12 @@
  *  FILE:        game_sa/CWantedSA.cpp
  *  PURPOSE:     Wanted level management
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CWantedSA.h"
 
 CWantedSA::CWantedSA()
 {
@@ -37,43 +38,22 @@ CWantedSA::~CWantedSA()
     }
 }
 
-void CWantedSA::SetMaximumWantedLevel(DWORD dwWantedLevel)
-{
-    DWORD dwFunc = FUNC_SetMaximumWantedLevel;
-    _asm
-    {
-        push    dwWantedLevel
-        call    dwFunc
-        add     esp, 4
-    }
-}
-
 void CWantedSA::SetWantedLevel(DWORD dwWantedLevel)
 {
-    DWORD dwThis = (DWORD)this->GetInterface();
+    DWORD dwThis = (DWORD)GetInterface();
     DWORD dwFunc = FUNC_SetWantedLevel;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThis
         push    dwWantedLevel
         call    dwFunc
     }
+    // clang-format on
 }
 void CWantedSA::SetWantedLevelNoFlash(DWORD dwWantedLevel)
 {
     DWORD dwLastTimeChanged = internalInterface->m_LastTimeWantedLevelChanged;
     SetWantedLevel(dwWantedLevel);
     internalInterface->m_LastTimeWantedLevelChanged = dwLastTimeChanged;
-}
-
-void CWantedSA::SetWantedLevelNoDrop(DWORD dwWantedLevel)
-{
-    DWORD dwThis = (DWORD)this->GetInterface();
-    DWORD dwFunc = FUNC_SetWantedLevelNoDrop;
-    _asm
-    {
-        mov     ecx, dwThis
-        push    dwWantedLevel
-        call    dwFunc
-    }
 }

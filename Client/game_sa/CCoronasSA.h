@@ -5,26 +5,31 @@
  *  FILE:        game_sa/CCoronasSA.cpp
  *  PURPOSE:     Header file for corona entity manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
+#include <game/Common.h>
 #include <game/CCoronas.h>
-#include "CRegisteredCoronaSA.h"
 
-#define FUNC_DoSunAndMoon           0x6FC5A0
+class CRegisteredCorona;
+class CRegisteredCoronaSA;
+struct RwTexture;
 
-#define MAX_CORONAS                 64 // ##SA##
-#define MAX_CORONA_TEXTURES         9
-#define ARRAY_CORONAS               0xC3E058 // also in CRegisteredCoronasSA.h ##SA##
-#define ARRAY_CORONA_TEXTURES       0xC3E000 // ##SA##
+#define FUNC_DoSunAndMoon 0x6FC5A0
+
+#define MAX_CORONAS           64
+#define MAX_CORONA_TEXTURES   9
+#define ARRAY_CORONAS         0xC3E058  // also in CRegisteredCoronasSA.h
+#define ARRAY_CORONA_TEXTURES 0xC3E000
 
 class CCoronasSA : public CCoronas
 {
 private:
     CRegisteredCoronaSA* Coronas[MAX_CORONAS];
+    unsigned char        m_ucCoronaReflectionsEnabled;
 
 public:
     CCoronasSA();
@@ -34,7 +39,10 @@ public:
     CRegisteredCorona* CreateCorona(DWORD Identifier, CVector* position);
     CRegisteredCorona* FindFreeCorona();
     CRegisteredCorona* FindCorona(DWORD Identifier);
-    RwTexture*         GetTexture(eCoronaType type);
+    RwTexture*         GetTexture(CoronaType::Enum type);
 
     void DisableSunAndMoon(bool bDisabled);
+
+    void          SetCoronaReflectionsEnabled(unsigned char ucEnabled);
+    unsigned char GetCoronaReflectionsEnabled();
 };

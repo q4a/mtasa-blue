@@ -9,6 +9,7 @@
 
 #include "StdInc.h"
 #include "CRenderItem.EffectTemplate.h"
+#include <DXHook/CProxyDirect3DDevice9.h>
 #include <DXHook/CProxyDirect3DEffect.h>
 
 ///////////////////////////////////////////////////////////////
@@ -16,8 +17,8 @@
 // CEffectTemplate instantiation
 //
 ///////////////////////////////////////////////////////////////
-CEffectTemplate* NewEffectTemplate(CRenderItemManager* pManager, const SString& strFile, const SString& strRootPath, bool bIsRawData, SString& strOutStatus, bool bDebug,
-        const EffectMacroList& macros, HRESULT& outHResult)
+CEffectTemplate* NewEffectTemplate(CRenderItemManager* pManager, const SString& strFile, const SString& strRootPath, bool bIsRawData, SString& strOutStatus,
+                                   bool bDebug, const EffectMacroList& macros, HRESULT& outHResult)
 {
     CEffectTemplate* pEffectTemplate = new CEffectTemplate();
     pEffectTemplate->PostConstruct(pManager, strFile, strRootPath, bIsRawData, strOutStatus, bDebug, macros);
@@ -47,7 +48,7 @@ namespace
         SString                    m_strReport;
         std::map<SString, SString> m_FileMD5Map;
 
-        CIncludeManager::CIncludeManager(const SString& strRootPath, const SString& strCurrentPath)
+        CIncludeManager(const SString& strRootPath, const SString& strCurrentPath)
         {
             m_strRootPath = strRootPath;
             m_strCurrentPath = strCurrentPath;
@@ -108,11 +109,11 @@ namespace
         STDMETHOD(Close)(LPCVOID pData)
         {
             // Free memory allocated for file contents
-            delete pData;
+            free(const_cast<void*>(pData));
             return S_OK;
         }
     };
-}            // namespace
+}  // namespace
 
 ////////////////////////////////////////////////////////////////
 //
@@ -122,7 +123,7 @@ namespace
 //
 ////////////////////////////////////////////////////////////////
 void CEffectTemplate::PostConstruct(CRenderItemManager* pManager, const SString& strFile, const SString& strRootPath, bool bIsRawData, SString& strOutStatus,
-    bool bDebug, const EffectMacroList& macros)
+                                    bool bDebug, const EffectMacroList& macros)
 {
     Super::PostConstruct(pManager);
 
@@ -153,7 +154,7 @@ void CEffectTemplate::PreDestruct()
 int CEffectTemplate::GetTicksSinceLastUsed()
 {
     if (m_uiCloneCount != 0)
-        return 0;            // Used right now
+        return 0;  // Used right now
 
     CTickCount delta = CTickCount::Now(true) - m_TickCountLastUsed;
     return static_cast<int>(delta.ToLongLong()) + 1;
@@ -202,8 +203,8 @@ void CEffectTemplate::OnResetDevice()
 //
 //
 ////////////////////////////////////////////////////////////////
-void CEffectTemplate::CreateUnderlyingData(const SString& strFile, const SString& strRootPath, bool bIsRawData, SString& strOutStatus,
-    bool bDebug, const EffectMacroList& macros)
+void CEffectTemplate::CreateUnderlyingData(const SString& strFile, const SString& strRootPath, bool bIsRawData, SString& strOutStatus, bool bDebug,
+                                           const EffectMacroList& macros)
 {
     assert(!m_pD3DEffect);
 
@@ -217,24 +218,26 @@ void CEffectTemplate::CreateUnderlyingData(const SString& strFile, const SString
     macroList.back().Definition = bUsesRAWZ ? "1" : "0";
 
     for (const auto& [name, definition] : macros)
-        macroList.push_back(std::move(D3DXMACRO{ name.c_str(), definition.c_str() }));
+        macroList.push_back(std::move(D3DXMACRO{name.c_str(), definition.c_str()}));
 
     macroList.push_back(D3DXMACRO());
     macroList.back().Name = NULL;
     macroList.back().Definition = NULL;
 
     // Compile effect
-    DWORD dwFlags = D3DXFX_LARGEADDRESSAWARE;            // D3DXSHADER_PARTIALPRECISION, D3DXSHADER_DEBUG, D3DXFX_NOT_CLONEABLE;
+    DWORD dwFlags = D3DXFX_LARGEADDRESSAWARE;  // D3DXSHADER_PARTIALPRECISION, D3DXSHADER_DEBUG, D3DXFX_NOT_CLONEABLE;
     if (bDebug)
         dwFlags |= D3DXSHADER_DEBUG;
 
-    SString         strMetaPath = bIsRawData ? "" : strFile.Right(strFile.length() - strRootPath.length());
+    SString         strMetaPath = bIsRawData ? SStringX("") : strFile.Right(strFile.length() - strRootPath.length());
     CIncludeManager IncludeManager(strRootPath, ExtractPath(strMetaPath));
     LPD3DXBUFFER    pBufferErrors = NULL;
     if (bIsRawData)
-        m_CreateHResult = MyD3DXCreateEffect(m_pDevice, strFile, strFile.length(), &macroList[0], &IncludeManager, dwFlags, NULL, &m_pD3DEffect, &pBufferErrors);
+        m_CreateHResult =
+            MyD3DXCreateEffect(m_pDevice, strFile, strFile.length(), &macroList[0], &IncludeManager, dwFlags, NULL, &m_pD3DEffect, &pBufferErrors);
     else
-        m_CreateHResult = MyD3DXCreateEffectFromFile(m_pDevice, ExtractFilename(strMetaPath), &macroList[0], &IncludeManager, dwFlags, NULL, &m_pD3DEffect, &pBufferErrors);
+        m_CreateHResult =
+            MyD3DXCreateEffectFromFile(m_pDevice, ExtractFilename(strMetaPath), &macroList[0], &IncludeManager, dwFlags, NULL, &m_pD3DEffect, &pBufferErrors);
 
     // Handle compile errors
     strOutStatus = "";
@@ -298,14 +301,22 @@ void CEffectTemplate::CreateUnderlyingData(const SString& strFile, const SString
         }
 
         // Try resetting samplers if 1st attempt failed
-        LPDIRECT3DDEVICE9 pDevice;
-        m_pD3DEffect->GetDevice(&pDevice);
-        for (uint i = 0; i < 16; i++)
+        CScopedActiveProxyDevice proxyDevice;
+        IDirect3DDevice9*        pSamplerDevice = proxyDevice ? static_cast<IDirect3DDevice9*>(proxyDevice.Get()) : nullptr;
+        LPDIRECT3DDEVICE9        pDevice = nullptr;
+        if (!pSamplerDevice && SUCCEEDED(m_pD3DEffect->GetDevice(&pDevice)) && pDevice)
+            pSamplerDevice = pDevice;
+
+        if (pSamplerDevice)
         {
-            pDevice->SetSamplerState(i, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-            pDevice->SetSamplerState(i, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-            pDevice->SetSamplerState(i, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+            for (uint i = 0; i < 16; i++)
+            {
+                pSamplerDevice->SetSamplerState(i, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+                pSamplerDevice->SetSamplerState(i, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+                pSamplerDevice->SetSamplerState(i, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+            }
         }
+        SAFE_RELEASE(pDevice);
     }
 
     // Set technique

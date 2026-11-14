@@ -5,24 +5,23 @@
  *  FILE:        multiplayer_sa/multiplayer_shotsync.cpp
  *  PURPOSE:     Multiplayer module shooting sync methods
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
 
-// These includes have to be fixed!
-#include "../game_sa/CPedSA.h"
+#include <game/CFireManager.h>
+#include <game/CProjectile.h>
+#include <game/CProjectileInfo.h>
+#include <game/CEventList.h>
 #include "../game_sa/CEventDamageSA.h"
-#include "../game_sa/CColPointSA.h"
 #include <net/SyncStructures.h>
 
 extern CMultiplayerSA* pMultiplayer;
 
-using std::list;
-
-list<CShotSyncData*> ShotSyncData;
-CShotSyncData        LocalShotSyncData;
+std::list<CShotSyncData*> ShotSyncData;
+CShotSyncData             LocalShotSyncData;
 
 float*                        fDirectionX;
 float*                        fDirectionY;
@@ -80,7 +79,7 @@ DWORD RETURN_CProjectile__CProjectile = 0x4037B3;
 
 CPools* m_pools = 0;
 
-#define VAR_CWorld_IncludeCarTyres 0xb7cd70 // Used for CWorld_ProcessLineOfSight
+#define VAR_CWorld_IncludeCarTyres 0xb7cd70  // Used for CWorld_ProcessLineOfSight
 
 void InitFireInstantHit_MidHooks();
 void InitFireSniper_MidHooks();
@@ -96,7 +95,6 @@ VOID InitShotsyncHooks()
     HookInstall(HOOKPOS_CEventDamage__AffectsPed, (DWORD)HOOK_CEventDamage__AffectsPed, 6);
     HookInstall(HOOKPOS_CEventVehicleExplosion__AffectsPed, (DWORD)HOOK_CEventVehicleExplosion__AffectsPed, 5);
     HookInstall(HOOKPOS_CFireManager__StartFire, (DWORD)HOOK_CFireManager__StartFire, 6);
-    HookInstall(HOOKPOS_CFireManager__StartFire_, (DWORD)HOOK_CFireManager__StartFire_, 6);
     HookInstall(HOOKPOS_CProjectileInfo__AddProjectile, (DWORD)HOOK_CProjectileInfo__AddProjectile, 7);
     HookInstall(HOOKPOS_CProjectile__CProjectile, (DWORD)HOOK_CProjectile__CProjectile, 7);
     HookInstall(HOOKPOS_IKChainManager_PointArm, (DWORD)HOOK_IKChainManager_PointArm, 7);
@@ -287,7 +285,7 @@ static void Event_BulletImpact()
             }
             else
             {
-                // Correct start postion if remote player
+                // Correct start position if remote player
                 CRemoteDataStorageSA* data = CRemoteDataSA::GetRemoteDataStorage(pBulletImpactInitiator);
                 if (data)
                 {
@@ -309,21 +307,24 @@ static void Event_BulletImpact()
                 m_pBulletImpactHandler(pInitiator, pVictim, pBulletImpactStartPosition, pBulletImpactEndPosition);
             }
         }
-        vecSavedBulletImpactEndPosition = *pBulletImpactEndPosition;            // Saved for vehicle damage event parameters
+        vecSavedBulletImpactEndPosition = *pBulletImpactEndPosition;  // Saved for vehicle damage event parameters
     }
 }
 
-CPedSAInterface*       pAPed = NULL;
-float                  fTempPosX = 0, fTempPosY = 0, fTempPosZ = 0;
-CPed*                  pATargetingPed = NULL;
-CVector*               pTempVec;
-bool*                  pSkipAim;
-CRemoteDataStorageSA*  pTempRemote;
+CPedSAInterface*      pAPed = NULL;
+float                 fTempPosX = 0, fTempPosY = 0, fTempPosZ = 0;
+CPed*                 pATargetingPed = NULL;
+CVector*              pTempVec;
+bool*                 pSkipAim;
+CRemoteDataStorageSA* pTempRemote;
 
-VOID _declspec(naked) HOOK_CTaskSimpleUsegun_ProcessPed()
+static void __declspec(naked) HOOK_CTaskSimpleUsegun_ProcessPed()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     // We can use EAX
-    _asm
+    // clang-format off
+    __asm
     {
         // Store the ped pointer for our later hook (SkipAim)
         mov         eax, [esp+4]
@@ -338,20 +339,24 @@ VOID _declspec(naked) HOOK_CTaskSimpleUsegun_ProcessPed()
         add         edx, 8
         jmp         edx
     }
+    // clang-format on
 }
 
-static CPed * GetTargetingPed()
+static CPed* GetTargetingPed()
 {
     SClientEntity<CPedSA>* pClientEntity = m_pools->GetPed((DWORD*)pAPed);
     return pClientEntity ? pClientEntity->pEntity : nullptr;
 }
 
-VOID _declspec(naked) HOOK_SkipAim()
+static void __declspec(naked) HOOK_SkipAim()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     // We can use ECX
     // Return to 0x62AEED for normal aiming
     // Return to 0x62A565 for arms up. Should probably set [esi+0Eh] to 1 too.
-    _asm
+    // clang-format off
+    __asm
     {
         // Store the pointer to the skipaim argument
         mov         ecx, esi
@@ -361,6 +366,7 @@ VOID _declspec(naked) HOOK_SkipAim()
         // Store all the registers
         pushad
     }
+    // clang-format on
 
     pATargetingPed = GetTargetingPed();
     if (pATargetingPed)
@@ -368,31 +374,28 @@ VOID _declspec(naked) HOOK_SkipAim()
         // If this is the local player
         if (IsLocalPlayer(pATargetingPed))
         {
-            // Store wheter he's aiming up or not
+            // Store whether he's aiming up or not
             pMultiplayer->m_bAkimboTargetUp = *pSkipAim;
         }
         else
         {
             // Grab his remote storage
             pTempRemote = CRemoteDataSA::GetRemoteDataStorage(
-                pAPed);            // TODO: Can be optimized further by using the PlayerPed class. Not sure how to convert CPed to CPlayerPed
-            if (pTempRemote)
+                pAPed);  // TODO: Can be optimized further by using the PlayerPed class. Not sure how to convert CPed to CPlayerPed
+            if (pTempRemote && pTempRemote->ProcessPlayerWeapon())
             {
-                if (pTempRemote->ProcessPlayerWeapon())
-                {
-                    // If this is remote player, use the data in his remote storage
-                    *pSkipAim = pTempRemote->m_bAkimboTargetUp;
-                }
+                // Synchronize akimbo arms posture for remote players
+                *pSkipAim = pTempRemote->m_bAkimboTargetUp;
             }
-            else
-                *pSkipAim = false;
+            // Do not force *pSkipAim to false when pTempRemote is nullptr; preserve GTA:SA logic for NPCs
         }
     }
 
-    // Return to the correct place wheter we put our arms up or not
+    // Return to the correct place whether we put our arms up or not
     if (*pSkipAim)
     {
-        _asm
+        // clang-format off
+        __asm
         {
             // Restore all registers
             popad
@@ -401,10 +404,12 @@ VOID _declspec(naked) HOOK_SkipAim()
             mov         ecx, 0x62A565
             jmp         ecx
         }
+        // clang-format on
     }
     else
     {
-        _asm
+        // clang-format off
+        __asm
         {
             // Restore all registers
             popad
@@ -413,56 +418,78 @@ VOID _declspec(naked) HOOK_SkipAim()
             mov         ecx, 0x62AEED
             jmp         ecx
         }
+        // clang-format on
     }
 }
 
-float* pTargetVector;
+float*                     pTargetVector;
+static CEntitySAInterface* lookAtEntity = nullptr;
+static int                 offsetBoneTag = -1;
 
-VOID _declspec(naked) HOOK_IKChainManager_PointArm()
+static void ProcessAkimboIKHook()
 {
-    // We can use edx
-    _asm
+    // Hip-fire passes ped as lookAtEntity and upper arm bone as offsetBoneTag with a local displacement {0, 2, 0}.
+    // Only overwrite targetVector when free-aiming at a world target without an entity or bone offset.
+    if (pTargetVector == nullptr || lookAtEntity != nullptr || (offsetBoneTag != -1 && offsetBoneTag != 0))
+        return;
+
+    CPed* targetingPed = GetTargetingPed();
+    if (!targetingPed)
+        return;
+
+    // If this is the local player
+    if (IsLocalPlayer(targetingPed))
     {
-        // Grab the ped whose aiming the gun and the pointer to the vector we aim at
+        // Store the position being aimed at in world space
+        pMultiplayer->m_vecAkimboTarget.fX = pTargetVector[0];
+        pMultiplayer->m_vecAkimboTarget.fY = pTargetVector[1];
+        pMultiplayer->m_vecAkimboTarget.fZ = pTargetVector[2];
+    }
+    else
+    {
+        // Grab his remote storage
+        CRemoteDataStorageSA* remoteData = CRemoteDataSA::GetRemoteDataStorage(pAPed);
+        if (remoteData && remoteData->ProcessPlayerWeapon())
+        {
+            const CVector& akimboTarget = remoteData->m_vecAkimboTarget;
+            if (akimboTarget.fX != 0.0f || akimboTarget.fY != 0.0f || akimboTarget.fZ != 0.0f)
+            {
+                // Overwrite aim target with synced coordinates only for valid world-aiming
+                pTargetVector[0] = akimboTarget.fX;
+                pTargetVector[1] = akimboTarget.fY;
+                pTargetVector[2] = akimboTarget.fZ;
+            }
+        }
+    }
+}
+
+static void __declspec(naked) HOOK_IKChainManager_PointArm()
+{
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // We can use edx
+    // clang-format off
+    __asm
+    {
+        // Grab the ped whose aiming the gun, look-at entity, bone tag, and the pointer to the target vector
         mov         edx, [esp+24]
         mov         pTargetVector, edx
+        mov         edx, [esp+20]
+        mov         offsetBoneTag, edx
+        mov         edx, [esp+16]
+        mov         lookAtEntity, edx
         mov         edx, [esp+12]
         mov         pAPed, edx
 
         // Store all the registers on the stack
         pushad
     }
+    // clang-format on
 
-    pATargetingPed = GetTargetingPed();
-    if (pATargetingPed)
-    {
-        // If this is the local player
-        if (IsLocalPlayer(pATargetingPed))
-        {
-            // Store the position his aiming at
-            pMultiplayer->m_vecAkimboTarget.fX = pTargetVector[0];
-            pMultiplayer->m_vecAkimboTarget.fY = pTargetVector[1];
-            pMultiplayer->m_vecAkimboTarget.fZ = pTargetVector[2];
-        }
-        else
-        {
-            // Grab his remote storage
-            pTempRemote = CRemoteDataSA::GetRemoteDataStorage(
-                pAPed);            // TODO: Can be optimized further by using the PlayerPed class. Not sure how to convert CPed to CPlayerPed
-            if (pTempRemote)
-            {
-                if (pTempRemote->ProcessPlayerWeapon())
-                {
-                    // If this is remote player, use the data in his remote storage to point his aim position
-                    pTargetVector[0] = pTempRemote->m_vecAkimboTarget.fX;
-                    pTargetVector[1] = pTempRemote->m_vecAkimboTarget.fY;
-                    pTargetVector[2] = pTempRemote->m_vecAkimboTarget.fZ;
-                }
-            }
-        }
-    }
+    ProcessAkimboIKHook();
 
-    _asm
+    // clang-format off
+    __asm
     {
         // Restore all the registers from the stack
         popad
@@ -476,57 +503,36 @@ VOID _declspec(naked) HOOK_IKChainManager_PointArm()
         add     edx, 7
         jmp     edx
     }
+    // clang-format on
 }
 
-VOID _declspec(naked) HOOK_IKChainManager_LookAt()
+static void __declspec(naked) HOOK_IKChainManager_LookAt()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     // We can use eax
-    _asm
+    // clang-format off
+    __asm
     {
-        // Grab the player ped and the vector pointer from the stack
+        // Grab the player ped, look-at entity, bone tag, and the vector pointer from the stack
         mov         eax, [esp+24]
         mov         pTargetVector, eax
+        mov         eax, [esp+16]
+        mov         offsetBoneTag, eax
+        mov         eax, [esp+12]
+        mov         lookAtEntity, eax
         mov         eax, [esp+8]
         mov         pAPed, eax
 
         // Store all the registers on the stack
         pushad
     }
+    // clang-format on
 
-    // Jax: this gets called on vehicle collision and pTargetVector is null
-    if (pTargetVector)
-    {
-        pATargetingPed = GetTargetingPed();
-        if (pATargetingPed)
-        {
-            // If this is the local player
-            if (IsLocalPlayer(pATargetingPed))
-            {
-                // Store the position his aiming at
-                pMultiplayer->m_vecAkimboTarget.fX = pTargetVector[0];
-                pMultiplayer->m_vecAkimboTarget.fY = pTargetVector[1];
-                pMultiplayer->m_vecAkimboTarget.fZ = pTargetVector[2];
-            }
-            else
-            {
-                // Grab his remote storage
-                pTempRemote = CRemoteDataSA::GetRemoteDataStorage(
-                    pAPed);            // TODO: Can be optimized further by using the PlayerPed class. Not sure how to convert CPed to CPlayerPed
-                if (pTempRemote)
-                {
-                    if (pTempRemote->ProcessPlayerWeapon())
-                    {
-                        // If this is remote player, use the data in his remote storage to point his aim position
-                        pTargetVector[0] = pTempRemote->m_vecAkimboTarget.fX;
-                        pTargetVector[1] = pTempRemote->m_vecAkimboTarget.fY;
-                        pTargetVector[2] = pTempRemote->m_vecAkimboTarget.fZ;
-                    }
-                }
-            }
-        }
-    }
+    ProcessAkimboIKHook();
 
-    _asm
+    // clang-format off
+    __asm
     {
         // Restore all the registers from the stack
         popad
@@ -540,11 +546,15 @@ VOID _declspec(naked) HOOK_IKChainManager_LookAt()
         add     edx, 7
         jmp     edx
     }
+    // clang-format on
 }
 
-VOID _declspec(naked) HOOK_CWeapon__Fire()
+static void __declspec(naked) HOOK_CWeapon__Fire()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         push    ebx
         mov     ebx, esp
@@ -560,6 +570,7 @@ VOID _declspec(naked) HOOK_CWeapon__Fire()
 
         pushad
     }
+    // clang-format on
 
     // Weapon inaccuracy and animations problems may be fixed by blanking out the CWeapon variables nTimer and beyond.
 
@@ -567,15 +578,18 @@ VOID _declspec(naked) HOOK_CWeapon__Fire()
     if (!WriteTargetDataForPed(pShootingPed, vecTargetPosition, vecOrigin))
     {
         // Don't fire shot
-         _asm
+        // clang-format off
+         __asm
         {
             popad
             mov     al, 1
             retn    18h
         }
+        // clang-format on
     }
 
-     _asm
+    // clang-format off
+     __asm
     {
         popad
 
@@ -584,25 +598,33 @@ VOID _declspec(naked) HOOK_CWeapon__Fire()
         push    esi
         push    edi
     }
+    // clang-format on
 
-    _asm
+    // clang-format off
+    __asm
     {
         mov     esi, HOOKPOS_CWeapon__Fire
         add     esi, 6
         jmp     esi
     }
+    // clang-format on
 }
 
-VOID _declspec(naked) HOOK_CWeapon__PostFire()
+static void __declspec(naked) HOOK_CWeapon__PostFire()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         pushad
     }
+    // clang-format on
 
     Event_PostFire();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
 
@@ -612,30 +634,40 @@ VOID _declspec(naked) HOOK_CWeapon__PostFire()
         add     esp, 3Ch
         ret     18h
     }
+    // clang-format on
 }
 
-VOID _declspec(naked) HOOK_CWeapon__PostFire2()            // handles the FALSE exit point at 0x074241E
+static void __declspec(naked) HOOK_CWeapon__PostFire2()  // handles the FALSE exit point at 0x074241E
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         pushad
     }
+    // clang-format on
 
     Event_PostFire();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
 
         add     esp, 3Ch
         ret     18h
     }
+    // clang-format on
 }
 
-static const DWORD CWeapon_DoBulletImpact_RET = 0x73B557;
-void _declspec(naked) HOOK_CWeapon_DoBulletImpact()
+static const DWORD            CWeapon_DoBulletImpact_RET = 0x73B557;
+static void __declspec(naked) HOOK_CWeapon_DoBulletImpact()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     eax, [esp+4]
         mov     pBulletImpactInitiator, eax
@@ -647,33 +679,41 @@ void _declspec(naked) HOOK_CWeapon_DoBulletImpact()
         mov     pBulletImpactEndPosition, eax
         pushad
     }
+    // clang-format on
 
     Event_BulletImpact();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         push    0xFFFFFFFF
         push    0x00848E50
         jmp     CWeapon_DoBulletImpact_RET
     }
+    // clang-format on
 }
 
-VOID _declspec(naked) HOOK_CTaskSimpleGangDriveBy__PlayerTarget()
+static void __declspec(naked) HOOK_CTaskSimpleGangDriveBy__PlayerTarget()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     // Replacement code
-    _asm
+    // clang-format off
+    __asm
     {
         mov     cTempGunDirection, al
         mov     pPedInterfaceTemp, edi
         pushad
     }
+    // clang-format on
 
     // either store or change the data
     WriteGunDirectionDataForPed(pPedInterfaceTemp, 0, 0, &cTempGunDirection);
 
     // cTempGunDirection may be modified by the function, so write it back
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         movsx   eax, cTempGunDirection
@@ -684,11 +724,15 @@ VOID _declspec(naked) HOOK_CTaskSimpleGangDriveBy__PlayerTarget()
         jmp     edx
 
     }
+    // clang-format on
 }
 
-VOID _declspec(naked) HOOK_CPedIK__PointGunInDirection()
+static void __declspec(naked) HOOK_CPedIK__PointGunInDirection()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     pPedIKInterface, ecx
         mov     edx, esp
@@ -698,12 +742,14 @@ VOID _declspec(naked) HOOK_CPedIK__PointGunInDirection()
         mov     fDirectionY, edx
         pushad
     }
+    // clang-format on
 
     // either store or change the data
     WriteGunDirectionDataForPed((CPedSAInterface*)((DWORD)pPedIKInterface - 1292), fDirectionX, fDirectionY, 0);
 
     // replacement code
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         sub     esp, 0x10
@@ -716,28 +762,34 @@ VOID _declspec(naked) HOOK_CPedIK__PointGunInDirection()
         add     edx, 7
         jmp     edx
     }
+    // clang-format on
 }
 
 // This hook prevents remote players always hitting local players if both players are targeting with sniper.
 // This was because it then used the FireSniper mode rather than FireInstantHit so it appeared that the local
 // player was shooting himself!
-void _declspec(naked) HOOK_CWeapon__Fire_Sniper()
+static void __declspec(naked) HOOK_CWeapon__Fire_Sniper()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     /*
     007424A6   8B4424 14        MOV EAX,DWORD PTR SS:[ESP+14]
     007424AA   85C0             TEST EAX,EAX
     */
 
-    _asm
+    // clang-format off
+    __asm
     {
         mov     pPedInterfaceTemp, edi
         pushad
     }
+    // clang-format on
 
     if (IsLocalPlayer(pPedInterfaceTemp))
     {
         // use sniper (local players)
-        _asm
+        // clang-format off
+        __asm
         {
             popad
             mov     ecx, HOOKPOS_CWeapon__Fire_Sniper
@@ -748,16 +800,19 @@ void _declspec(naked) HOOK_CWeapon__Fire_Sniper()
 
             jmp     ecx
         }
+        // clang-format on
     }
     else
     {
         // use instanthit (remote players)
-        _asm
+        // clang-format off
+        __asm
         {
             popad
             mov     ecx, HOOKRET_CWeapon__Fire_Sniper
             jmp     ecx
         }
+        // clang-format on
     }
 }
 
@@ -772,6 +827,11 @@ bool ProcessDamageEvent(CEventDamageSAInterface* event, CPedSAInterface* affects
 
         if (pPed)
         {
+            // The damage handler runs Lua events that may call CPed::Teleport
+            // (via setElementPosition), which nulls m_pCollidedEntity. Save and
+            // restore it so ScanForCollisionEvents can use it after this hook.
+            CEntitySAInterface* pSavedCollidedEntity = affectsPed->m_pCollidedEntity;
+
             // This creates a CEventDamageSA for us
             CEventDamage* pEvent = pGameInterface->GetEventList()->GetEventDamage(event);
             pEvent->SetDamageReason(g_GenerateDamageEventReason);
@@ -779,6 +839,9 @@ bool ProcessDamageEvent(CEventDamageSAInterface* event, CPedSAInterface* affects
             bool bReturn = m_pDamageHandler(pPed, pEvent);
             // Destroy the CEventDamageSA (so we dont get a leak)
             pEvent->Destroy();
+
+            affectsPed->m_pCollidedEntity = pSavedCollidedEntity;
+
             // Finally, return
             return bReturn;
         }
@@ -786,17 +849,20 @@ bool ProcessDamageEvent(CEventDamageSAInterface* event, CPedSAInterface* affects
     return true;
 }
 
-CPedSAInterface*         affectsPed = 0;
-CEventDamageSAInterface* event = 0;
-void _declspec(naked) HOOK_CEventDamage__AffectsPed()
+CPedSAInterface*              affectsPed = 0;
+CEventDamageSAInterface*      event = 0;
+static void __declspec(naked) HOOK_CEventDamage__AffectsPed()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     /*
     004B35A0   83EC 0C          SUB ESP,0C
     004B35A3   56               PUSH ESI
     004B35A4   8BF1             MOV ESI,ECX
     */
 
-    _asm
+    // clang-format off
+    __asm
     {
         push    esi
 
@@ -808,11 +874,13 @@ void _declspec(naked) HOOK_CEventDamage__AffectsPed()
 
         pushad
     }
+    // clang-format on
 
     if (ProcessDamageEvent(event, affectsPed))
     {
         // they want the damage to happen!
-        _asm
+        // clang-format off
+        __asm
         {
             popad
 
@@ -824,113 +892,65 @@ void _declspec(naked) HOOK_CEventDamage__AffectsPed()
             add     ecx, 6
             jmp     ecx
         }
+        // clang-format on
     }
     else
     {
         // they want the player to escape unscathed
 
-        _asm
+        // clang-format off
+        __asm
         {
             popad
             xor     eax, eax
             retn    4 // return from the function
         }
-    }
-}
-
-void ProcessStartFire(CFireSAInterface* fire)
-{
-    if (m_pFireHandler)
-    {
-        DWORD  dwID = ((DWORD)fire - 0xB71F80 /* CLASS_CFireManager */) / 40;
-        CFire* pFire = pGameInterface->GetFireManager()->GetFire(dwID);
-        if (pFire)
-        {
-            m_pFireHandler(pFire);
-        }
-    }
-}
-
-CFireSAInterface* tempFire;
-DWORD             dwStoredReturn;
-
-//  CFire*  StartFire(CVector vecLocation, float fFireSize=DEFAULT_FIRE_PARTICLE_SIZE, bool8 bExtinguishEnabled=TRUE, CEntity* pStartedFireEntity = NULL, UInt32
-//  ArgBurnTime = FIRE_AVERAGE_BURNTIME, Int8 NumGenerationsAllowed = 100, Bool8 bReportFire = true);
-void _declspec(naked) HOOK_CFireManager__StartFire()
-{
-    // replacement code
-    _asm
-    {
-        mov     edx, [esp]
-        mov     dwStoredReturn, edx
-        mov     edx, returnHere
-        mov     [esp], edx
-
-        push    ecx
-        push    ebp
-        mov     ebp, [esp+0x10]
-
-        mov     edx, HOOKPOS_CFireManager__StartFire
-        add     edx, 6
-        jmp     edx
-
-        returnHere:
-        mov     tempFire, eax
-
-        pushad
-    }
-
-    ProcessStartFire(tempFire);
-
-    _asm
-    {
-        popad
-
-        mov     eax, tempFire
-        mov     edx, dwStoredReturn
-        jmp     edx
+        // clang-format on
     }
 }
 
 //  CFire*  StartFire(CEntity *pBurningEntity, CEntity *pStartedFireEntity, float fFireSize=DEFAULT_FIRE_PARTICLE_SIZE, bool8 bExtinguishEnabled=TRUE, UInt32
 //  ArgBurnTime = FIRE_AVERAGE_BURNTIME, Int8 NumGenerationsAllowed = 100);
-void _declspec(naked) HOOK_CFireManager__StartFire_()
+static constexpr std::uintptr_t SKIP_CFireManager_StartFire = 0x53A0C5;
+static constexpr std::uintptr_t RETURN_CFireManager_StartFire = 0x53A056;
+
+static void __declspec(naked) HOOK_CFireManager__StartFire()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
-        // replacement code
-        mov     edx, [esp]
-        mov     dwStoredReturn, edx
-        mov     edx, returnHere
-        mov     [esp], edx
+        push esi
+        push edi
+        mov edi, [esp+0Ch]
 
-        push    esi
-        push    edi
-        mov     edi, [esp+0xC]
+        mov eax, m_pFireHandler
+        test eax, eax
+        jz startFire
 
-        //
-        mov     edx, HOOKPOS_CFireManager__StartFire_
-        add     edx, 6
-        jmp     edx
+        push ecx
 
-        returnHere:
-        mov     tempFire, eax
+        push [esp+14h]
+        push edi
+        call m_pFireHandler
+        add esp, 8
 
-        pushad
+        pop ecx
+
+        test al, al
+        jz abortCreatingFire
+
+        startFire:
+        jmp RETURN_CFireManager_StartFire
+
+        abortCreatingFire:
+        jmp SKIP_CFireManager_StartFire
     }
-
-    ProcessStartFire(tempFire);
-
-    _asm
-    {
-        popad
-
-        mov     eax, tempFire
-        jmp     dwStoredReturn
-    }
+    // clang-format on
 }
 
-static CEntity* GetProjectileOwner(CPools*  pPools)
+static CEntity* GetProjectileOwner(CPools* pPools)
 {
     CEntity* pOwner = nullptr;
     if (pProjectileOwner)
@@ -960,7 +980,7 @@ static CEntity* GetProjectileOwner(CPools*  pPools)
     return pOwner;
 }
 
-static void GetProjectileTarget(CPools*  pPools)
+static void GetProjectileTarget(CPools* pPools)
 {
     projectileTargetEntity = nullptr;
 
@@ -1012,7 +1032,7 @@ void ProcessProjectile()
     if (m_pProjectileHandler != NULL)
     {
         CPoolsSA* pPools = (CPoolsSA*)pGameInterface->GetPools();
-        CEntity* pOwner = GetProjectileOwner(pPools);
+        CEntity*  pOwner = GetProjectileOwner(pPools);
         GetProjectileTarget(pPools);
 
         CProjectileInfo* projectileInfo = pGameInterface->GetProjectileInfo()->GetProjectileInfo(dwProjectileInfoIndex);
@@ -1026,9 +1046,12 @@ void ProcessProjectile()
 
 // CProjectileInfo::AddProjectile(class CEntity * owner,enum eWeaponType weapon type
 // ,class CVector origin?,float 0?,class CVector * direction,class CEntity * target)
-void _declspec(naked) HOOK_CProjectileInfo__AddProjectile()
+static void __declspec(naked) HOOK_CProjectileInfo__AddProjectile()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     edx, [esp+4]
         mov     pProjectileOwner, edx
@@ -1050,45 +1073,56 @@ void _declspec(naked) HOOK_CProjectileInfo__AddProjectile()
 
         pushad
     }
+    // clang-format on
     if (ProcessProjectileAdd())
-    {            // projectile should be created
-        _asm
+    {  // projectile should be created
+        // clang-format off
+        __asm
         {
             popad
             push    0xFFFFFFFF
             mov     edx, RETURN_CProjectile__AddProjectile
             jmp     edx
         }
+        // clang-format on
     }
     else
     {
-        _asm
+        // clang-format off
+        __asm
         {
             popad
             xor al, al
             retn
         }
+        // clang-format on
     }
 }
 
-void _declspec(naked) HOOK_CProjectile__CProjectile()
+static void __declspec(naked) HOOK_CProjectile__CProjectile()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwProjectileInfoIndex, ebx // it happens to be in here, luckily
         mov     pProjectile, ecx
         pushad
     }
+    // clang-format on
 
     ProcessProjectile();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         push    0xFFFFFFFF
         mov     edx, RETURN_CProjectile__CProjectile
         jmp     edx
     }
+    // clang-format on
 }
 
 static void CheckInVehicleDamage()
@@ -1107,7 +1141,8 @@ static void CheckInVehicleDamage()
                 eWeaponType weaponType = pWeapon->GetType();
                 DWORD       dwFunc = FUNC_CWeapon_CheckForShootingVehicleOccupant;
 
-                _asm
+                // clang-format off
+                __asm
                 {
                     push    pInstantHitStart
                     push    pInstantHitEnd
@@ -1117,6 +1152,7 @@ static void CheckInVehicleDamage()
                     call    dwFunc
                     add     esp, 0x14
                 }
+                // clang-format on
             }
         }
     }
@@ -1164,12 +1200,15 @@ void OnMy_CWeapon_FireInstantHit_Mid(CEntitySAInterface* pEntity, CVector* pvecN
 }
 
 // Hook info
-#define HOOKPOS_CWeapon_FireInstantHit_Mid                         0x740B89
-#define HOOKSIZE_CWeapon_FireInstantHit_Mid                        5
-DWORD RETURN_CWeapon_FireInstantHit_Mid = 0x740B8E;
-void _declspec(naked) HOOK_CWeapon_FireInstantHit_Mid()
+#define HOOKPOS_CWeapon_FireInstantHit_Mid  0x740B89
+#define HOOKSIZE_CWeapon_FireInstantHit_Mid 5
+DWORD                         RETURN_CWeapon_FireInstantHit_Mid = 0x740B8E;
+static void __declspec(naked) HOOK_CWeapon_FireInstantHit_Mid()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         pushad
 
@@ -1200,6 +1239,7 @@ void _declspec(naked) HOOK_CWeapon_FireInstantHit_Mid()
         push        eax
         jmp     RETURN_CWeapon_FireInstantHit_Mid
     }
+    // clang-format on
 }
 
 // Hook install
@@ -1245,12 +1285,15 @@ void OnMy_CWeapon_FireSniper_Mid(CEntitySAInterface* pEntity, CVector* pvecEndHi
 }
 
 // Hook info
-#define HOOKPOS_CWeapon_FireSniper_Mid                         0x73AE31
-#define HOOKSIZE_CWeapon_FireSniper_Mid                        5
-DWORD RETURN_CWeapon_FireSniper_Mid = 0x73AE39;
-void _declspec(naked) HOOK_CWeapon_FireSniper_Mid()
+#define HOOKPOS_CWeapon_FireSniper_Mid  0x73AE31
+#define HOOKSIZE_CWeapon_FireSniper_Mid 5
+DWORD                         RETURN_CWeapon_FireSniper_Mid = 0x73AE39;
+static void __declspec(naked) HOOK_CWeapon_FireSniper_Mid()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         // Do original code
         fstp        dword ptr [esp+4Ch]
@@ -1285,6 +1328,7 @@ void _declspec(naked) HOOK_CWeapon_FireSniper_Mid()
         // Continue
         jmp     RETURN_CWeapon_FireSniper_Mid
     }
+    // clang-format on
 }
 
 // Hook install
@@ -1331,10 +1375,12 @@ void _cdecl DoFireInstantHitPokes()
     MemPutFast<unsigned char>(VAR_CWorld_IncludeCarTyres, 1);
 }
 
-DWORD dwFunc_CWeapon_FireInstantHit_ret = 0x740B6E;
-DWORD dwFunc_CWorld_ProcessLineOfSight = 0x56BA00;
-void _declspec(naked) HOOK_CWeapon_FireInstantHit()
+DWORD                         dwFunc_CWeapon_FireInstantHit_ret = 0x740B6E;
+DWORD                         dwFunc_CWorld_ProcessLineOfSight = 0x56BA00;
+static void __declspec(naked) HOOK_CWeapon_FireInstantHit()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     /* CWeapon::FireInstantHit->CWorld::ProcessLineOfSight
     00740B42  push        1
     00740B44  push        0
@@ -1354,7 +1400,8 @@ void _declspec(naked) HOOK_CWeapon_FireInstantHit()
     00740B68  push        eax
     00740B69  call        0056BA00
     */
-    _asm
+    // clang-format off
+    __asm
     {
         push        1
         push        0
@@ -1378,29 +1425,35 @@ void _declspec(naked) HOOK_CWeapon_FireInstantHit()
         push        eax
         pushad
     }
+    // clang-format on
 
     // Make sure we include car tyres in our ProcessLineOfSight check
-    _asm
+    // clang-format off
+    __asm
     {
         call DoFireInstantHitPokes
-    }
+    }  // clang-format on
 
     HandleRemoteInstantHit();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         call        dwFunc_CWorld_ProcessLineOfSight
         pushad
     }
+    // clang-format on
 
     CheckInVehicleDamage();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         jmp         dwFunc_CWeapon_FireInstantHit_ret
     }
+    // clang-format on
 }
 
 bool FireInstantHit_CameraMode()
@@ -1418,12 +1471,14 @@ bool FireInstantHit_CameraMode()
     return false;
 }
 
-DWORD dwFunc_CWeapon_FireInstantHit_CameraMode_ret = 0x7403C7;
-DWORD dwAddr_FireInstantHit_CameraMode = 0x740389;
-DWORD dwAddr_FireInstantHit_CameraMode_2 = 0x740373;
-short sFireInstantHit_CameraMode_camMode = 0;
-void _declspec(naked) HOOK_CWeapon_FireInstantHit_CameraMode()
+DWORD                         dwFunc_CWeapon_FireInstantHit_CameraMode_ret = 0x7403C7;
+DWORD                         dwAddr_FireInstantHit_CameraMode = 0x740389;
+DWORD                         dwAddr_FireInstantHit_CameraMode_2 = 0x740373;
+short                         sFireInstantHit_CameraMode_camMode = 0;
+static void __declspec(naked) HOOK_CWeapon_FireInstantHit_CameraMode()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     /* CWeapon::FireInstantHit->'CameraMode switch'
     0074036D  cmp         ax,35h (53)   ** <hook>
     00740371  je          00740389      ** <hook>
@@ -1434,37 +1489,45 @@ void _declspec(naked) HOOK_CWeapon_FireInstantHit_CameraMode()
     0074037F  cmp         ax,31h (39)
     00740383  jne         007407C1
     */
-    _asm
+    // clang-format off
+    __asm
     {
         mov     sFireInstantHit_CameraMode_camMode, ax
         pushad
     }
+    // clang-format on
 
     if (FireInstantHit_CameraMode())
     {
-        _asm
+        // clang-format off
+        __asm
         {
             popad
             jmp          dwAddr_FireInstantHit_CameraMode
         }
+        // clang-format on
     }
     else
     {
         if (sFireInstantHit_CameraMode_camMode == 0x35)
         {
-            _asm
+            // clang-format off
+            __asm
             {
                 popad
                 jmp dwAddr_FireInstantHit_CameraMode
             }
+            // clang-format on
         }
         else
         {
-            _asm
+            // clang-format off
+            __asm
             {
                 popad
                 jmp         dwAddr_FireInstantHit_CameraMode_2
             }
+            // clang-format on
         }
     }
 }
@@ -1490,10 +1553,12 @@ bool             FireInstantHit_IsPlayer()
     return false;
 }
 
-DWORD RETURN_CWeapon_FireInstantHit_IsPlayer = 0x740353;
-DWORD FUNC_CPlayer_IsPed = 0x5DF8F0;
-void _declspec(naked) HOOK_CWeapon_FireInstantHit_IsPlayer()
+DWORD                         RETURN_CWeapon_FireInstantHit_IsPlayer = 0x740353;
+DWORD                         FUNC_CPlayer_IsPed = 0x5DF8F0;
+static void __declspec(naked) HOOK_CWeapon_FireInstantHit_IsPlayer()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     /*
     0074034C  call        005DF8F0          <hook>
     00740351  test        al,al             <hook>
@@ -1509,43 +1574,52 @@ void _declspec(naked) HOOK_CWeapon_FireInstantHit_IsPlayer()
     00740E6B  test        al,al
     00740E6D  je          00740E7E
     */
-    _asm
+    // clang-format off
+    __asm
     {
         mov     pFireInstantHit_IsPlayerPed, ecx
         pushad
     }
+    // clang-format on
     if (!FireInstantHit_IsPlayer())
     {
-        _asm
+        // clang-format off
+        __asm
         {
             popad
             xor     al, al
             test    al, al
             jmp     RETURN_CWeapon_FireInstantHit_IsPlayer
         }
+        // clang-format on
     }
     else
     {
-        _asm
+        // clang-format off
+        __asm
         {
             popad
             call    FUNC_CPlayer_IsPed
             test    al,al
             jmp     RETURN_CWeapon_FireInstantHit_IsPlayer
         }
+        // clang-format on
     }
 }
 
 #if false
-VOID _declspec(naked) HOOK_CCamera__Find3rdPersonCamTargetVector()
+static void __declspec(naked) HOOK_CCamera__Find3rdPersonCamTargetVector()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     /*
     0046FB36  |. 5D             POP EBP
     0046FB37  |. 5E             POP ESI
     0046FB38  |. 5B             POP EBX
     0046FB39  \. C2 1800        RETN 18
     */
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ebp, esp
         add     ebp, 0x14
@@ -1559,6 +1633,7 @@ VOID _declspec(naked) HOOK_CCamera__Find3rdPersonCamTargetVector()
 
         pushad
     }
+    // clang-format on
 
     if(IsNotInLocalContext() && GetContextSwitchPedID())
     {
@@ -1605,7 +1680,8 @@ VOID _declspec(naked) HOOK_CCamera__Find3rdPersonCamTargetVector()
         OutputDebugString(szDebug);*/
     }
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
 
@@ -1614,10 +1690,13 @@ VOID _declspec(naked) HOOK_CCamera__Find3rdPersonCamTargetVector()
         pop     ebx
         retn    0x18
     }
+    // clang-format on
 }
 
-VOID _declspec(naked) HOOK_CWeapon__FireShotgun()
+static void __declspec(naked) HOOK_CWeapon__FireShotgun()
 {
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     // this is used to store and replace the CrossProduct
     /*
     005CDA99   . 50                      PUSH EAX
@@ -1629,14 +1708,17 @@ VOID _declspec(naked) HOOK_CWeapon__FireShotgun()
     005CDAAA   . 83C4 0C                 ADD ESP,0C
     */
 
-    _asm
+    // clang-format off
+    __asm
     {
         pushad
     }
+    // clang-format on
 
     if(IsNotInLocalContext() && GetContextSwitchPedID())
     {
-        _asm
+        // clang-format off
+        __asm
         {
             popad
 
@@ -1647,6 +1729,7 @@ VOID _declspec(naked) HOOK_CWeapon__FireShotgun()
 
             pushad
         }
+        // clang-format on
         sprintf(szDebug, "Switched Cross Products to %f  %f  %f (0x%X)",
             RemotePlayerCrossProducts[GetContextSwitchPedID()].fX,
             RemotePlayerCrossProducts[GetContextSwitchPedID()].fY,
@@ -1657,7 +1740,8 @@ VOID _declspec(naked) HOOK_CWeapon__FireShotgun()
     }
     else
     {
-        _asm
+        // clang-format off
+        __asm
         {
             popad
 
@@ -1673,6 +1757,7 @@ VOID _declspec(naked) HOOK_CWeapon__FireShotgun()
 
             pushad
         }
+        // clang-format on
 
         MemCpy (&LocalPlayerCrossProduct, vecCrossProduct, sizeof(CVector));
         sprintf(szDebug, "SHOTGUN: Saved Local Cross Product  %f  %f  %f",
@@ -1682,7 +1767,8 @@ VOID _declspec(naked) HOOK_CWeapon__FireShotgun()
         OutputDebugString(szDebug);
     }
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
 
@@ -1690,6 +1776,7 @@ VOID _declspec(naked) HOOK_CWeapon__FireShotgun()
         add     edx, 20
         jmp     edx
     }
+    // clang-format on
 }
 #endif
 
@@ -1704,13 +1791,18 @@ void CEventVehicleExplosion_NotifyDeathmatch()
         CPed*                  pPed = pPedClientEntity ? pPedClientEntity->pEntity : nullptr;
 
         if (pPed)
-            m_pDeathHandler(pPed, 63, 3);
+        {
+            m_pDeathHandler(pPed, WEAPONTYPE_EXPLOSION, 3);
+        }
     }
 }
 
-void _declspec(naked) HOOK_CEventVehicleExplosion__AffectsPed()
+static void __declspec(naked) HOOK_CEventVehicleExplosion__AffectsPed()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         // Save the ped
         mov CEventVehicleExplosion_pPed, edi
@@ -1729,15 +1821,18 @@ void _declspec(naked) HOOK_CEventVehicleExplosion__AffectsPed()
 
         pushad
     }
+    // clang-format on
 
     // Notify Deathmatch about the death
     CEventVehicleExplosion_NotifyDeathmatch();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
 
 return_from:
         retn 4
     }
+    // clang-format on
 }

@@ -5,13 +5,14 @@
  *  FILE:        mods/deathmatch/logic/packets/CUnoccupiedVehicleStartSyncPacket.h
  *  PURPOSE:     Unoccupied vehicle start synchronization packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #include "CPacket.h"
+
 class CVehicle;
 
 class CUnoccupiedVehicleStartSyncPacket final : public CPacket

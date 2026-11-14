@@ -5,105 +5,112 @@
  *  FILE:        game_sa/CAERadioTrackManagerSA.cpp
  *  PURPOSE:     Audio entity radio track manager
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CAERadioTrackManagerSA.h"
 
 BYTE CAERadioTrackManagerSA::GetCurrentRadioStationID()
 {
-    DEBUG_TRACE("BYTE CAERadioTrackManagerSA::GetCurrentRadioStationID()");
     DWORD dwFunc = FUNC_GetCurrentRadioStationID;
     BYTE  bReturn = 0;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CAERadioTrackManager
         call    dwFunc
         mov     bReturn, al
     }
+    // clang-format on
 
     return bReturn;
 }
 
 BYTE CAERadioTrackManagerSA::IsVehicleRadioActive()
 {
-    DEBUG_TRACE("BYTE CAERadioTrackManagerSA::IsVehicleRadioActive()");
     DWORD dwFunc = FUNC_IsVehicleRadioActive;
     BYTE  bReturn = 0;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CAERadioTrackManager
         call    dwFunc
         mov     bReturn, al
     }
+    // clang-format on
 
     return bReturn;
 }
 
 char* CAERadioTrackManagerSA::GetRadioStationName(BYTE bStationID)
 {
-    DEBUG_TRACE("char * CAERadioTrackManagerSA::GetRadioStationName(BYTE bStationID)");
     DWORD dwFunc = FUNC_GetRadioStationName;
     char* cReturn = 0;
     DWORD dwStationID = bStationID;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CAERadioTrackManager
         push    dwStationID
         call    dwFunc
         mov     cReturn, eax
     }
+    // clang-format on
 
     return cReturn;
 }
 
-BOOL CAERadioTrackManagerSA::IsRadioOn()
+bool CAERadioTrackManagerSA::IsRadioOn()
 {
-    DEBUG_TRACE("BOOL CAERadioTrackManagerSA::IsRadioOn()");
     DWORD dwFunc = FUNC_IsRadioOn;
-    BYTE  bReturn = 0;
-    _asm
+    bool  bReturn = false;
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CAERadioTrackManager
         call    dwFunc
         mov     bReturn, al
     }
+    // clang-format on
 
     return bReturn;
 }
 
-VOID CAERadioTrackManagerSA::SetBassSetting(DWORD dwBass)
+void CAERadioTrackManagerSA::SetBassSetting(DWORD dwBass)
 {
-    DEBUG_TRACE("VOID CAERadioTrackManagerSA::SetBassSetting(DWORD dwBass)");
     DWORD dwFunc = FUNC_SetBassSetting;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CAERadioTrackManager
         push    0x3F800000 // 1.0f
         push    dwBass
         call    dwFunc
     }
+    // clang-format on
 }
 
-VOID CAERadioTrackManagerSA::Reset()
+void CAERadioTrackManagerSA::Reset()
 {
-    DEBUG_TRACE("VOID CAERadioTrackManagerSA::Reset()");
     DWORD dwFunc = FUNC_Reset;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CAERadioTrackManager
         call    dwFunc
     }
+    // clang-format on
 }
 
-VOID CAERadioTrackManagerSA::StartRadio(BYTE bStationID, BYTE bUnknown)
+void CAERadioTrackManagerSA::StartRadio(BYTE bStationID, BYTE bUnknown)
 {
-    DEBUG_TRACE("VOID CAERadioTrackManagerSA::StartRadio(BYTE bStationID, BYTE bUnknown)");
     DWORD dwFunc = FUNC_StartRadio;
     DWORD dwStationID = bStationID;
     DWORD dwUnknown = bUnknown;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CAERadioTrackManager
         push    0
@@ -112,4 +119,11 @@ VOID CAERadioTrackManagerSA::StartRadio(BYTE bStationID, BYTE bUnknown)
         push    dwStationID
         call    dwFunc
     }
+    // clang-format on
+}
+
+bool CAERadioTrackManagerSA::IsStationLoading() const
+{
+    CAERadioTrackManagerSAInterface* trackInterface = GetInterface();
+    return (trackInterface->stationsListed || trackInterface->stationsListDown);
 }

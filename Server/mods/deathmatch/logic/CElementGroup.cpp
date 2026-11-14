@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CElementGroup.cpp
  *  PURPOSE:     Element group class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -17,6 +17,11 @@
 // be enforced at this level).
 
 #include "StdInc.h"
+#include "CElementGroup.h"
+#include "packets/CEntityRemovePacket.h"
+#include "CGame.h"
+#include "CMapManager.h"
+#include "CPerPlayerEntity.h"
 
 extern CGame* g_pGame;
 
@@ -50,6 +55,10 @@ CElementGroup::~CElementGroup()
                 }
                 else
                 {
+                    // Skip if client already destroys this element as part of a bulk tree removal
+                    if (m_treeRoot && m_treeRoot->IsMyChild(pElement, true))
+                        continue;
+
                     // Tell everyone to destroy it
                     removePacket.Add(pElement);
                 }
@@ -59,11 +68,11 @@ CElementGroup::~CElementGroup()
         }
 
         CElementDeleter* deleter = g_pGame->GetElementDeleter();
-        CElement*        pElement = NULL;
+        CElement*        pElement = nullptr;
         for (CFastList<CElement*>::iterator iter = m_elements.begin(); iter != m_elements.end(); iter++)
         {
             pElement = *iter;
-            pElement->SetElementGroup(NULL);
+            pElement->SetElementGroup(nullptr);
             pElement->DeleteAllEvents();
             deleter->Delete(pElement, true, false);
         }

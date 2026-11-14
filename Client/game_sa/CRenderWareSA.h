@@ -5,38 +5,59 @@
  *  FILE:        game_sa/CRenderWareSA.h
  *  PURPOSE:     Header file for RenderWare game engine class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-
 #include <game/CRenderWare.h>
-
 #include "CModelInfoSA.h"
-#include "CColModelSA.h"
-#include "Common.h"
-#include <windows.h>
-#include <stdio.h>
 #include "CRenderWareSA.ShaderSupport.h"
 
+class CMatchChannelManager;
 class CModelTexturesInfo;
+struct RpAtomic;
+struct RwRaster;
+struct SShaderReplacementStats;
+struct STexInfo;
+struct STexTag;
+
+//
+// A texture a replaced model renders with, watched for as long as the model uses it
+//
+struct SDffTexInfo
+{
+    STexInfo* pTexInfo;
+    uint      uiUsageCount;
+    uint      uiId;
+};
+
+//
+// One texture a clump registered, kept so removal never has to dereference anything that may be gone
+//
+struct SDffTexRef
+{
+    CD3DDUMMY* pD3DData;
+    uint       uiId;
+};
 
 class CRenderWareSA : public CRenderWare
 {
 public:
     ZERO_ON_NEW
-    CRenderWareSA(enum eGameVersion version);
+    CRenderWareSA();
     ~CRenderWareSA();
     void Initialize();
     bool ModelInfoTXDLoadTextures(SReplacementTextures* pReplacementTextures, const SString& strFilename, const SString& buffer, bool bFilteringEnabled);
     bool ModelInfoTXDAddTextures(SReplacementTextures* pReplacementTextures, ushort usModelId);
     void ModelInfoTXDRemoveTextures(SReplacementTextures* pReplacementTextures);
-    void ClothesAddReplacementTxd(char* pFileData, ushort usFileId);
-    void ClothesRemoveReplacementTxd(char* pFileData);
+    void ClothesAddReplacement(char* pFileData, size_t fileSize, ushort usFileId);
+    void ClothesRemoveReplacement(char* pFileData);
     bool HasClothesReplacementChanged();
+    bool ClothesAddFile(const char* fileData, std::size_t fileSize, const char* fileName) override;
+    bool ClothesRemoveFile(char* fileData) override;
+    bool HasClothesFile(const char* fileName) const noexcept override;
 
     // Reads and parses a TXD file specified by a path (szTXD)
     RwTexDictionary* ReadTXD(const SString& strFilename, const SString& buffer);
@@ -63,7 +84,7 @@ public:
     unsigned int LoadAtomics(RpClump* pClump, RpAtomicContainer* pAtomics);
 
     // Replaces all atomics for a specific model
-    void ReplaceAllAtomicsInModel(RpClump* pSrc, unsigned short usModelID);
+    bool ReplaceAllAtomicsInModel(RpClump* pSrc, unsigned short usModelID) override;
 
     // Replaces all atomics in a clump
     void ReplaceAllAtomicsInClump(RpClump* pDst, RpAtomicContainer* pAtomics, unsigned int uiAtomics);
@@ -78,14 +99,14 @@ public:
     void AddAllAtomics(RpClump* pDst, RpClump* pSrc);
 
     // Replaces a CClumpModelInfo (or CVehicleModelInfo, since its just for vehicles) clump with a new clump
-    void ReplaceVehicleModel(RpClump* pNew, unsigned short usModelID);
+    bool ReplaceVehicleModel(RpClump* pNew, unsigned short usModelID) override;
 
     // Replaces a CClumpModelInfo clump with a new clump
-    void ReplaceWeaponModel(RpClump* pNew, unsigned short usModelID);
+    bool ReplaceWeaponModel(RpClump* pNew, unsigned short usModelID) override;
 
-    void ReplacePedModel(RpClump* pNew, unsigned short usModelID);
+    bool ReplacePedModel(RpClump* pNew, unsigned short usModelID) override;
 
-    void ReplaceModel(RpClump* pNew, unsigned short usModelID, DWORD dwSetClumpFunction);
+    bool ReplaceModel(RpClump* pNew, unsigned short usModelID, DWORD dwSetClumpFunction);
 
     // Replaces dynamic parts of the vehicle (models that have two different versions: 'ok' and 'dam'), such as doors
     // szName should be without the part suffix (e.g. 'door_lf' or 'door_rf', and not 'door_lf_dummy')
@@ -136,34 +157,41 @@ public:
     void      StreamingAddedTexture(ushort usTxdId, const SString& strTextureName, CD3DDUMMY* pD3DData);
     void      StreamingRemovedTxd(ushort usTxdId);
     void      ScriptAddedTxd(RwTexDictionary* pTxd);
+    void      ScriptAddedDff(RpClump* pClump);
     void      ScriptRemovedTexture(RwTexture* pTex);
+    void      ScriptRemovedDff(RpClump* pClump);
     void      SpecialAddedTexture(RwTexture* texture, const char* szTextureName = NULL);
     void      SpecialRemovedTexture(RwTexture* texture);
     STexInfo* CreateTexInfo(const STexTag& texTag, const SString& strTextureName, CD3DDUMMY* pD3DData);
     void      DestroyTexInfo(STexInfo* pTexInfo);
 
     static void GetClumpAtomicList(RpClump* pClump, std::vector<RpAtomic*>& outAtomicList);
+    static void GetClumpTextures(std::vector<RwTexture*>& outTextureList, RpClump* pClump);
     static bool DoContainTheSameGeometry(RpClump* pClumpA, RpClump* pClumpB, RpAtomic* pAtomicB);
 
     void OnTextureStreamIn(STexInfo* pTexInfo);
+    void OnRasterDestroyed(RwRaster* pRaster);
     void OnTextureStreamOut(STexInfo* pTexInfo);
     void DisableGTAVertexShadersForAWhile();
     void UpdateDisableGTAVertexShadersTimer();
     void SetGTAVertexShadersEnabled(bool bEnable);
 
     // Watched world textures
-    std::multimap<ushort, STexInfo*>    m_TexInfoMap;
-    CFastHashMap<CD3DDUMMY*, STexInfo*> m_D3DDataTexInfoMap;
-    CClientEntityBase*                  m_pRenderingClientEntity;
-    ushort                              m_usRenderingEntityModelId;
-    int                                 m_iRenderingEntityType;
-    CMatchChannelManager*               m_pMatchChannelManager;
-    int                                 m_uiReplacementRequestCounter;
-    int                                 m_uiReplacementMatchCounter;
-    int                                 m_uiNumReplacementRequests;
-    int                                 m_uiNumReplacementMatches;
-    CElapsedTime                        m_GTAVertexShadersDisabledTimer;
-    bool                                m_bGTAVertexShadersEnabled;
-    std::set<RwTexture*>                m_SpecialTextures;
-    static int                          ms_iRenderingType;
+    std::multimap<ushort, STexInfo*>                m_TexInfoMap;
+    CFastHashMap<CD3DDUMMY*, STexInfo*>             m_D3DDataTexInfoMap;
+    CFastHashMap<CD3DDUMMY*, SDffTexInfo>           m_DffTexInfoMap;
+    CFastHashMap<RpClump*, std::vector<SDffTexRef>> m_DffClumpTextures;
+    uint                                            m_uiDffTexInfoId;
+    CClientEntityBase*                              m_pRenderingClientEntity;
+    ushort                                          m_usRenderingEntityModelId;
+    int                                             m_iRenderingEntityType;
+    CMatchChannelManager*                           m_pMatchChannelManager;
+    int                                             m_uiReplacementRequestCounter;
+    int                                             m_uiReplacementMatchCounter;
+    int                                             m_uiNumReplacementRequests;
+    int                                             m_uiNumReplacementMatches;
+    CElapsedTime                                    m_GTAVertexShadersDisabledTimer;
+    bool                                            m_bGTAVertexShadersEnabled;
+    std::set<RwTexture*>                            m_SpecialTextures;
+    static int                                      ms_iRenderingType;
 };

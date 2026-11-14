@@ -1,5 +1,8 @@
 #include "SharedUtil.AsyncTaskScheduler.h"
 
+// Workaround MultiplayerSA including this header for whatever reason..
+#ifdef HAS_ASYNC_TASK_SCHED
+
 namespace SharedUtil
 {
     CAsyncTaskScheduler::CAsyncTaskScheduler(std::size_t numWorkers)
@@ -12,7 +15,10 @@ namespace SharedUtil
 
     CAsyncTaskScheduler::~CAsyncTaskScheduler()
     {
-        m_Running = false;
+        {
+            std::lock_guard<std::mutex> lock{m_TasksMutex};
+            m_Running = false;
+        }
 
         // Wait for all threads to end
         for (auto& thread : m_Workers)
@@ -35,13 +41,19 @@ namespace SharedUtil
 
     void CAsyncTaskScheduler::DoWork()
     {
-        while (m_Running)
+        while (true)
         {
             m_TasksMutex.lock();
 
             // Sleep a bit if there are no tasks
             if (m_Tasks.empty())
             {
+                if (!m_Running)
+                {
+                    m_TasksMutex.unlock();
+                    return;
+                }
+
                 m_TasksMutex.unlock();
                 std::this_thread::sleep_for(std::chrono::milliseconds(4));
                 continue;
@@ -64,4 +76,5 @@ namespace SharedUtil
             }
         }
     }
-}            // namespace SharedUtil
+}  // namespace SharedUtil
+#endif

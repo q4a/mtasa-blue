@@ -5,11 +5,12 @@
  *  FILE:        game_sa/CAudioContainerLookupTableSA.h
  *  PURPOSE:     Audio container lookup table reader
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include <fstream>
 #include "CAudioContainerLookupTableSA.h"
 
 CAudioContainerLookupTableSA::CAudioContainerLookupTableSA(const SString& strPath)
@@ -65,13 +66,3 @@ SAudioLookupEntrySA* CAudioContainerLookupTableSA::GetEntry(eAudioLookupIndex lo
 
     return m_Entries[lookupIndex][bankIndex];
 }
-
-/*
-SAudioLookupEntrySA* CAudioContainerLookupTableSA::Next ( bool goToNext )
-{
-    if ( goToNext )
-        return *++m_CurrentEntry;
-
-    return *m_CurrentEntry++;
-}
-*/

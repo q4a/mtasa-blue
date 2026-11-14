@@ -4,9 +4,14 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        mods/deathmatch/utils/CMasterServerAnnouncer.h
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
+
+#pragma once
+
+#include "ASE.h"
+#include "version.h"
 
 struct SMasterServerDefinition
 {
@@ -41,12 +46,12 @@ public:
     {
         m_Stage = ANNOUNCE_STAGE_INITIAL;
         m_uiInitialAnnounceRetryAttempts = 5;
-        m_uiInitialAnnounceRetryInterval = 1000 * 60 * 5;            // 5 mins initial announce retry interval
-        m_uiPushInterval = 1000 * 60 * 10;                           // 10 mins push interval
+        m_uiInitialAnnounceRetryInterval = 1000 * 60 * 5;  // 5 mins initial announce retry interval
+        m_uiPushInterval = 1000 * 60 * 10;                 // 10 mins push interval
     }
 
 protected:
-    ~CMasterServer() {}            // Must use Release()
+    ~CMasterServer() {}  // Must use Release()
 public:
     //
     // Pulse this master server
@@ -76,7 +81,7 @@ public:
                 m_llLastAnnounceTime = llTickCountNow;
 
                 // Send request
-                this->AddRef();            // Keep object alive
+                this->AddRef();  // Keep object alive
                 m_bStatusBusy = true;
                 SHttpRequestOptions options;
                 options.uiConnectionAttempts = 2;
@@ -110,7 +115,7 @@ public:
     {
         CMasterServer* pMasterServer = (CMasterServer*)result.pObj;
         pMasterServer->DownloadFinishedCallback(result);
-        pMasterServer->Release();            // No need to keep object alive now
+        pMasterServer->Release();  // No need to keep object alive now
     }
 
     //
@@ -125,10 +130,15 @@ public:
             if (m_Stage < ANNOUNCE_STAGE_REMINDER)
             {
                 m_Stage = ANNOUNCE_STAGE_REMINDER;
+
+                CArgMap argMap;
+                argMap.SetFromString(result.pData);
+
+                if (result.iErrorCode == 200)
+                    m_remoteAddress = argMap.Get("remote_addr");
+
                 if (!m_Definition.bHideSuccess)
                 {
-                    CArgMap argMap;
-                    argMap.SetFromString(result.pData);
                     SString strOkMessage = argMap.Get("ok_message");
 
                     // Log successful initial announcement
@@ -141,7 +151,7 @@ public:
         }
         else
         {
-            bool bCanRetry = (result.iErrorCode == 28);            // We can retry if 'Timeout was reached'
+            bool bCanRetry = (result.iErrorCode == 28);  // We can retry if 'Timeout was reached'
 
             if (m_Stage == ANNOUNCE_STAGE_INITIAL)
             {
@@ -174,6 +184,9 @@ public:
 
     const SMasterServerDefinition& GetDefinition() const { return m_Definition; }
 
+    bool               HasRemoteAddress() const noexcept { return !m_remoteAddress.empty(); }
+    const std::string& GetRemoteAddress() const noexcept { return m_remoteAddress; }
+
     //
     // Get http downloader used for master server comms etc.
     //
@@ -188,6 +201,7 @@ protected:
     long long                     m_llLastAnnounceTime;
     long long                     m_llLastPushTime;
     const SMasterServerDefinition m_Definition;
+    std::string                   m_remoteAddress;
 };
 
 ////////////////////////////////////////////////////////////////////
@@ -264,6 +278,21 @@ public:
         {
             m_MasterServerList[i]->Pulse();
         }
+    }
+
+    /*
+     * @brief Get remote address of the first master server that has it.
+     */
+    const std::string& GetRemoteAddress() const noexcept
+    {
+        for (CMasterServer* masterServer : m_MasterServerList)
+        {
+            if (masterServer->HasRemoteAddress())
+                return masterServer->GetRemoteAddress();
+        }
+
+        static std::string empty;
+        return empty;
     }
 
 protected:

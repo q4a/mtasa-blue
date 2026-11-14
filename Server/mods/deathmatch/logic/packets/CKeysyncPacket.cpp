@@ -5,12 +5,17 @@
  *  FILE:        mods/deathmatch/logic/packets/CKeysyncPacket.cpp
  *  PURPOSE:     Key controls synchronization packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CKeysyncPacket.h"
+#include "CPlayer.h"
+#include "CWeaponNames.h"
+#include "CVehicleManager.h"
 #include "net/SyncStructures.h"
+#include "Utils.h"
 
 CKeysyncPacket::CKeysyncPacket(CPlayer* pPlayer)
 {
@@ -65,28 +70,37 @@ bool CKeysyncPacket::Read(NetBitStreamInterface& BitStream)
 
                 if (pSourcePlayer->GetWeaponType() != ucClientWeaponType)
                 {
-                    bWeaponCorrect = false;                          // Possibly old weapon data.
-                    ucUseWeaponType = ucClientWeaponType;            // Use the packet supplied weapon type to skip over the correct amount of data
+                    bWeaponCorrect = false;                // Possibly old weapon data.
+                    ucUseWeaponType = ucClientWeaponType;  // Use the packet supplied weapon type to skip over the correct amount of data
                 }
 
                 // Read out the current weapon slot and set it
                 SWeaponSlotSync slot;
                 if (!BitStream.Read(&slot))
                     return false;
-                unsigned int uiSlot = slot.data.uiSlot;
+                auto ucSlot = static_cast<unsigned char>(slot.data.uiSlot);
 
                 if (bWeaponCorrect)
-                    pSourcePlayer->SetWeaponSlot(uiSlot);
+                {
+                    const unsigned int uiCurrSlot = slot.data.uiSlot;
+                    if (uiCurrSlot != static_cast<unsigned int>(pSourcePlayer->GetWeaponSlot()))
+                    {
+                        if (uiCurrSlot > 0xFF)
+                            return false;
+
+                        pSourcePlayer->SetWeaponSlot(static_cast<unsigned char>(uiCurrSlot));
+                    }
+                }
 
                 // Did he have a weapon?
-                if (CWeaponNames::DoesSlotHaveAmmo(uiSlot))
+                if (CWeaponNames::DoesSlotHaveAmmo(ucSlot))
                 {
                     // And ammo in clip
                     SWeaponAmmoSync ammo(ucUseWeaponType, false, true);
                     if (!BitStream.Read(&ammo))
                         return false;
 
-                    float fWeaponRange = pSourcePlayer->GetWeaponRangeFromSlot(uiSlot);
+                    float fWeaponRange = pSourcePlayer->GetWeaponRangeFromSlot(ucSlot);
 
                     // Read the aim data
                     SWeaponAimSync aim(fWeaponRange);
@@ -109,7 +123,7 @@ bool CKeysyncPacket::Read(NetBitStreamInterface& BitStream)
 
                     // Read out the driveby direction
                     eVehicleAimDirection ucDriveByDirection;
-                    if (!BitStream.Read(*reinterpret_cast<underlying_type_t<eVehicleAimDirection>*>(&ucDriveByDirection)))
+                    if (!BitStream.Read(*reinterpret_cast<std::underlying_type_t<eVehicleAimDirection>*>(&ucDriveByDirection)))
                         return false;
                     pSourcePlayer->SetDriveByDirection(ucDriveByDirection);
                 }
@@ -126,7 +140,7 @@ bool CKeysyncPacket::Read(NetBitStreamInterface& BitStream)
         {
             ReadVehicleSpecific(pVehicle, BitStream);
 
-            if (pVehicle->GetUpgrades()->HasUpgrade(1087))            // Hydraulics?
+            if (pVehicle->GetUpgrades()->HasUpgrade(1087))  // Hydraulics?
             {
                 short sRightStickX, sRightStickY;
                 if (!BitStream.Read(sRightStickX) || !BitStream.Read(sRightStickY))
@@ -216,7 +230,7 @@ bool CKeysyncPacket::Write(NetBitStreamInterface& BitStream) const
                 BitStream.Write(&aim);
 
                 // Write the driveby aim directoin
-                BitStream.Write(static_cast<underlying_type_t<eVehicleAimDirection>>(pSourcePlayer->GetDriveByDirection()));
+                BitStream.Write(static_cast<std::underlying_type_t<eVehicleAimDirection>>(pSourcePlayer->GetDriveByDirection()));
             }
             else
             {
@@ -230,7 +244,7 @@ bool CKeysyncPacket::Write(NetBitStreamInterface& BitStream) const
         {
             WriteVehicleSpecific(pVehicle, BitStream);
 
-            if (pVehicle->GetUpgrades()->HasUpgrade(1087))            // Hydraulics?
+            if (pVehicle->GetUpgrades()->HasUpgrade(1087))  // Hydraulics?
             {
                 BitStream.Write(ControllerState.RightStickX);
                 BitStream.Write(ControllerState.RightStickY);

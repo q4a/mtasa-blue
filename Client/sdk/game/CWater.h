@@ -5,11 +5,13 @@
  *  FILE:        sdk/game/CWater.h
  *  PURPOSE:     Water interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
+
+class CVector;
 
 enum EWaterPolyType
 {
@@ -18,9 +20,6 @@ enum EWaterPolyType
     WATER_POLY_TRIANGLE = 2,
     WATER_POLY_LIST = 3
 };
-
-#define WATER_VISIBLE 1
-#define WATER_SHALLOW 2
 
 class CWaterVertex
 {

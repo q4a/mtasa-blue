@@ -5,11 +5,14 @@
  *  FILE:        game_sa/CCarEnterExitSA.cpp
  *  PURPOSE:     Car enter and exit handler
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CCarEnterExitSA.h"
+#include "CPedSA.h"
+#include "CVehicleSA.h"
 
 bool CCarEnterExitSA::GetNearestCarDoor(CPed* pPed, CVehicle* pVehicle, CVector* pVector, int* pDoor)
 {
@@ -23,7 +26,8 @@ bool CCarEnterExitSA::GetNearestCarDoor(CPed* pPed, CVehicle* pVehicle, CVector*
     {
         CPedSAInterface*     pPedInterface = pPedSA->GetPedInterface();
         CVehicleSAInterface* pVehicleInterface = pVehicleSA->GetVehicleInterface();
-        _asm
+        // clang-format off
+        __asm
         {
             push    pDoor
             push    pVector
@@ -33,6 +37,7 @@ bool CCarEnterExitSA::GetNearestCarDoor(CPed* pPed, CVehicle* pVehicle, CVector*
             add     esp, 0x10
             mov     bReturn, al
         }
+        // clang-format on
     }
 
     return bReturn;
@@ -51,7 +56,8 @@ bool CCarEnterExitSA::GetNearestCarPassengerDoor(CPed* pPed, CVehicle* pVehicle,
     {
         CPedSAInterface*     pPedInterface = pPedSA->GetPedInterface();
         CVehicleSAInterface* pVehicleInterface = pVehicleSA->GetVehicleInterface();
-        _asm
+        // clang-format off
+        __asm
         {
             push    ebx
             xor     ebx, ebx
@@ -70,9 +76,23 @@ bool CCarEnterExitSA::GetNearestCarPassengerDoor(CPed* pPed, CVehicle* pVehicle,
             mov     bReturn, al
             pop     ebx
         }
+        // clang-format on
     }
 
     return bReturn;
+}
+
+void CCarEnterExitSA::GetPositionToOpenCarDoor(CVector& position, CVehicle* vehicle, std::uint32_t door) const noexcept
+{
+    CVehicleSA* vehicleSA = dynamic_cast<CVehicleSA*>(vehicle);
+
+    if (!vehicleSA)
+        return;
+
+    CVehicleSAInterface* vehicleInterface = vehicleSA->GetVehicleInterface();
+
+    auto CCarEnterExit_GetPositionToOpenCarDoor = (void(__cdecl*)(CVector&, CVehicleSAInterface*, int))FUNC_GetPositionToOpenCarDoor;
+    CCarEnterExit_GetPositionToOpenCarDoor(position, vehicleInterface, door);
 }
 
 int CCarEnterExitSA::ComputeTargetDoorToExit(CPed* pPed, CVehicle* pVehicle)
@@ -87,7 +107,8 @@ int CCarEnterExitSA::ComputeTargetDoorToExit(CPed* pPed, CVehicle* pVehicle)
     {
         CPedSAInterface*     pPedInterface = pPedSA->GetPedInterface();
         CVehicleSAInterface* pVehicleInterface = pVehicleSA->GetVehicleInterface();
-        _asm
+        // clang-format off
+        __asm
         {
             push    pPedInterface
             push    pVehicleInterface
@@ -95,6 +116,7 @@ int CCarEnterExitSA::ComputeTargetDoorToExit(CPed* pPed, CVehicle* pVehicle)
             add     esp, 8
             mov     door, eax
         }
+        // clang-format on
 
         switch (door)
         {
@@ -169,7 +191,8 @@ bool CCarEnterExitSA::IsRoomForPedToLeaveCar(CVehicle* pVehicle, int iDoor, CVec
         if (pVehicleSA)
         {
             CVehicleSAInterface* pVehicleInterface = pVehicleSA->GetVehicleInterface();
-            _asm
+            // clang-format off
+            __asm
             {
                 push    pUnknown
                 push    dwIdx
@@ -178,6 +201,7 @@ bool CCarEnterExitSA::IsRoomForPedToLeaveCar(CVehicle* pVehicle, int iDoor, CVec
                 add     esp, 12
                 mov     bRet, al
             }
+            // clang-format on
         }
     }
 

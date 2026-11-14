@@ -17,7 +17,7 @@ const char* const szVehicleNameEmpty = "";
 struct SVehicleName
 {
     const char* szName;
-    const char* szName_replaced;            // Compatability
+    const char* szName_replaced;  // Compatibility
 };
 
 static const SFixedArray<SVehicleName, 212> VehicleNames = {{{"Landstalker"},
@@ -122,8 +122,8 @@ static const SFixedArray<SVehicleName, 212> VehicleNames = {{{"Landstalker"},
                                                              {"Benson"},
                                                              {"Mesa"},
                                                              {"RC Goblin"},
-                                                             {"Hotring Racer 3"},
                                                              {"Hotring Racer 2"},
+                                                             {"Hotring Racer 3"},
                                                              {"Bloodring Banger"},
                                                              {"Rancher Lure"},
                                                              {"Super GT"},
@@ -225,7 +225,7 @@ static const SFixedArray<SVehicleName, 212> VehicleNames = {{{"Landstalker"},
                                                              {"Alpha"},
                                                              {"Phoenix"},
                                                              {"Glendale Damaged"},
-                                                             {"Sadler", "Sadler Damaged"},
+                                                             {"Sadler Damaged", "Sadler"},
                                                              {"Baggage Trailer (covered)"},
                                                              {"Baggage Trailer (Uncovered)"},
                                                              {"Trailer (Stairs)"},
@@ -287,6 +287,10 @@ unsigned int CVehicleNames::GetVehicleModel(const char* szName)
 
 const char* CVehicleNames::GetVehicleTypeName(unsigned long ulModel)
 {
+    // Use parent model ID for non-standard vehicle model IDs.
+    if ((ulModel < 400 || ulModel > 611) && CClientVehicleManager::IsValidModel(ulModel))
+        ulModel = g_pGame->GetModelInfo(ulModel)->GetParentID();
+
     // Check whether the model is valid
     if ((IsValidModel(ulModel) || IsModelTrailer(ulModel)) && ((ulModel - 400) < NUMELMS(ucVehicleTypes)))
     {

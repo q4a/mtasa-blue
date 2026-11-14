@@ -9,6 +9,8 @@
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CElementRefManager.h"
+#include "CElement.h"
 #include <set>
 
 static std::set<CElement**>            ms_ElementRefList;
@@ -137,11 +139,11 @@ void CElementRefManager::OnElementDelete(CElement* pElement)
             {
                 // NULL invalid pointer
                 pOther = NULL;
-    #ifdef MTA_DEBUG
+#ifdef MTA_DEBUG
                 SString* pstrDebugInfo = MapFind(ms_ElementRefListDebugInfo, &pOther);
                 assert(pstrDebugInfo);
                 OutputDebugLine(SString("[ElementRef] Did null %s (%08x @ %08x)", **pstrDebugInfo, pElement, &pOther));
-    #endif
+#endif
             }
         }
     }
@@ -162,11 +164,11 @@ void CElementRefManager::OnElementDelete(CElement* pElement)
                 {
                     // Remove invalid pointer from list - TODO - Think man, think
                     itList = rList.erase(itList);
-        #ifdef MTA_DEBUG
+#ifdef MTA_DEBUG
                     SString* pstrDebugInfo = MapFind(ms_ElementRefListListDebugInfo, &rList);
                     assert(pstrDebugInfo);
                     OutputDebugLine(SString("[ElementRef] Did list item %s (%08x @ %08x)", **pstrDebugInfo, pElement, &rList));
-        #endif
+#endif
                 }
                 else
                     ++itList;

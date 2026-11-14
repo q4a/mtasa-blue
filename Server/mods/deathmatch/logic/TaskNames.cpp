@@ -5,11 +5,12 @@
  *  FILE:        mods/deathmatch/logic/TaskNames.cpp
  *  PURPOSE:     GTA task name definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "TaskNames.h"
 
 char sNoTaskName[100] = "[NO TASK TYPE]";
 

@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CPickupHitConfirmPacket.cpp
  *  PURPOSE:     Pickup hit confirmation packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPickupHitConfirmPacket.h"
+#include "CPickup.h"
 
 bool CPickupHitConfirmPacket::Write(NetBitStreamInterface& BitStream) const
 {

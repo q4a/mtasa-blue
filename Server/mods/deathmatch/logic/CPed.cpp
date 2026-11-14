@@ -5,11 +5,16 @@
  *  FILE:        mods/deathmatch/logic/CPed.cpp
  *  PURPOSE:     Ped entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPed.h"
+#include "CPedManager.h"
+#include "CLogger.h"
+#include "Utils.h"
+#include "CStaticFunctionDefinitions.h"
 
 char szBodyPartNameEmpty[] = "";
 struct SBodyPartName
@@ -33,10 +38,10 @@ CPed::CPed(CPedManager* pPedManager, CElement* pParent, unsigned short usModel) 
     m_bWearingGoggles = false;
 
     m_fHealth = 0.0f;
-    m_fArmor = 0.0f;
+    m_armor = 0.0f;
 
     memset(&m_fStats[0], 0, sizeof(m_fStats));
-    m_fStats[24] = 569.0f;            // default max_health
+    m_fStats[24] = 569.0f;  // default max_health
 
     m_pClothes = new CPlayerClothes;
     m_pClothes->DefaultClothes();
@@ -58,7 +63,7 @@ CPed::CPed(CPedManager* pPedManager, CElement* pParent, unsigned short usModel) 
     m_bSpawned = false;
     m_fRotation = 0.0f;
     m_pTargetedEntity = NULL;
-    m_ucFightingStyle = 15;            // STYLE_GRAB_KICK
+    m_ucFightingStyle = 15;  // STYLE_GRAB_KICK
     m_iMoveAnim = MOVE_DEFAULT;
     m_fGravity = 0.008f;
     m_bDoingGangDriveby = false;
@@ -75,6 +80,7 @@ CPed::CPed(CPedManager* pPedManager, CElement* pParent, unsigned short usModel) 
     m_bCollisionsEnabled = true;
 
     m_pJackingVehicle = NULL;
+    m_nearPlayersList.reserve(20);
 
     // Add us to the Ped manager
     if (pPedManager)
@@ -233,7 +239,7 @@ bool CPed::ReadSpecialData(const int iLine)
         m_fHealth = 100.0f;
 
     // Grab the "armor" data
-    GetCustomDataFloat("armor", m_fArmor, true);
+    GetCustomDataFloat("armor", m_armor, true);
 
     // Grab the "interior" data
     if (GetCustomDataInt("interior", iTemp, true))
@@ -261,6 +267,33 @@ bool CPed::ReadSpecialData(const int iLine)
     GetCustomDataInt("walkingStyle", m_iMoveAnim, true);
 
     return true;
+}
+
+void CPed::WriteSpecialData(CXMLNode* pNode)
+{
+    CElement::WriteSpecialData(pNode);
+
+    CXMLAttributes& attributes = pNode->GetAttributes();
+
+    attributes.Create("model")->SetValue(static_cast<int>(m_usModel));
+
+    attributes.Create("posX")->SetValue(m_vecPosition.fX);
+    attributes.Create("posY")->SetValue(m_vecPosition.fY);
+    attributes.Create("posZ")->SetValue(m_vecPosition.fZ);
+
+    attributes.Create("rotZ")->SetValue(ConvertRadiansToDegrees(m_fRotation));
+
+    attributes.Create("health")->SetValue(m_fHealth);
+    attributes.Create("armor")->SetValue(m_armor);
+
+    attributes.Create("interior")->SetValue(static_cast<int>(m_ucInterior));
+    attributes.Create("dimension")->SetValue(static_cast<int>(m_usDimension));
+
+    attributes.Create("collisions")->SetValue(m_bCollisionsEnabled);
+    attributes.Create("alpha")->SetValue(static_cast<int>(m_ucAlpha));
+    attributes.Create("frozen")->SetValue(m_bFrozen);
+    attributes.Create("headless")->SetValue(m_bHeadless);
+    attributes.Create("walkingStyle")->SetValue(m_iMoveAnim);
 }
 
 bool CPed::HasValidModel()
@@ -350,16 +383,25 @@ void CPed::SetWeaponTotalAmmo(unsigned short usTotalAmmo, unsigned char ucSlot)
     }
 }
 
+bool CPed::HasWeaponType(unsigned char ucWeaponType)
+{
+    for (unsigned char slot = 0; slot < WEAPON_SLOTS; slot++)
+    {
+        if (GetWeaponType(slot) == ucWeaponType)
+            return true;
+    }
+
+    return false;
+}
+
 float CPed::GetMaxHealth()
 {
-    // TODO: Verify this formula
-
     // Grab his player health stat
     float fStat = GetPlayerStat(24 /*MAX_HEALTH*/);
 
     // Do a linear interpolation to get how much health this would allow
-    // Assumes: 100 health = 569 stat, 200 health = 1000 stat.
-    float fMaxHealth = 100.0f + (100.0f / 431.0f * (fStat - 569.0f));
+    // Assumes: 100 health = 569 stat, 176 health = 1000 stat.
+    float fMaxHealth = fStat * 0.176f;
 
     // Return the max health. Make sure it can't be below 1
     if (fMaxHealth < 1.0f)
@@ -369,7 +411,7 @@ float CPed::GetMaxHealth()
 
 const char* CPed::GetBodyPartName(unsigned char ucID)
 {
-    if (ucID <= NUMELMS(BodyPartNames))
+    if (ucID < NUMELMS(BodyPartNames))
     {
         return BodyPartNames[ucID].szName;
     }
@@ -462,22 +504,28 @@ void CPed::SetSyncer(CPlayer* pPlayer)
         {
             case VEHICLEACTION_ENTERING:
             {
-                CVehicle* pVehicle = GetOccupiedVehicle();
-                unsigned char ucOccupiedSeat = GetOccupiedVehicleSeat();
-                // Does it have an occupant and is the occupant us?
-                if (pVehicle && (this == pVehicle->GetOccupant(ucOccupiedSeat)))
+                CVehicle*          pVehicle = GetOccupiedVehicle();
+                const unsigned int uiOccupiedSeat = GetOccupiedVehicleSeat();
+                if (uiOccupiedSeat > 0xFF)
+                    break;
+
+                const unsigned char occupiedSeat = static_cast<unsigned char>(uiOccupiedSeat);
+                if (pVehicle && (this == pVehicle->GetOccupant(occupiedSeat)))
                 {
                     // Warp us into vehicle
-                    CStaticFunctionDefinitions::WarpPedIntoVehicle(this, pVehicle, ucOccupiedSeat);
+                    CStaticFunctionDefinitions::WarpPedIntoVehicle(this, pVehicle, occupiedSeat);
                 }
             }
 
             case VEHICLEACTION_EXITING:
             {
-                CVehicle* pVehicle = GetOccupiedVehicle();
-                unsigned char ucOccupiedSeat = GetOccupiedVehicleSeat();
-                // Does it have an occupant and is the occupant us?
-                if (pVehicle && (this == pVehicle->GetOccupant(ucOccupiedSeat)))
+                CVehicle*          pVehicle = GetOccupiedVehicle();
+                const unsigned int uiOccupiedSeat = GetOccupiedVehicleSeat();
+                if (uiOccupiedSeat > 0xFF)
+                    break;
+
+                const unsigned char occupiedSeat = static_cast<unsigned char>(uiOccupiedSeat);
+                if (pVehicle && (this == pVehicle->GetOccupant(occupiedSeat)))
                 {
                     // Warp us out of vehicle
                     CStaticFunctionDefinitions::RemovePedFromVehicle(this);

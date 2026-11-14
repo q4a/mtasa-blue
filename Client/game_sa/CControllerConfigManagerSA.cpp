@@ -5,17 +5,22 @@
  *  FILE:        game_sa/CControllerConfigManagerSA.cpp
  *  PURPOSE:     Controller configuration manager
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CControllerConfigManagerSA.h"
 
-#define VAR_InputType       ( ( BYTE * ) ( 0xB6EC2E ) )
-#define VAR_MouseInverted   ( ( BYTE * ) ( 0xBA6745 ) )
-#define VAR_FlyWithMouse    ( ( BYTE * ) ( 0xC1CC03 ) )
-#define VAR_SteerWithMouse  ( ( BYTE * ) ( 0xC1CC02 ) )
-#define VAR_VerticalAimSensitivity  ( ( FLOAT * ) ( 0xB6EC18 ) )
+#define VAR_InputType                  ((BYTE*)(0xB6EC2E))
+#define VAR_MouseInverted              ((BYTE*)(0xBA6745))
+#define VAR_FlyWithMouse               ((BYTE*)(0xC1CC03))
+#define VAR_SteerWithMouse             ((BYTE*)(0xC1CC02))
+#define VAR_VerticalAimSensitivity     ((float*)(0xB6EC18))
+#define VAR_HorizontalMouseSensitivity 0xB6EC1C
+
+#define VAR_InAirMouseSteeringCar  0x6B4EC0
+#define VAR_InAirMouseSteeringQuad 0x6CE827
 
 static const float VERTICAL_AIM_SENSITIVITY_MIN = 0.000312f;
 static const float VERTICAL_AIM_SENSITIVITY_DEFAULT = 0.0015f;
@@ -24,16 +29,23 @@ static const float VERTICAL_AIM_SENSITIVITY_MAX = VERTICAL_AIM_SENSITIVITY_DEFAU
 CControllerConfigManagerSA::CControllerConfigManagerSA()
 {
     m_bSuspendSteerAndFlyWithMouse = false;
+    m_bInAirMouseSteering = false;
     // Get initial settings
     m_bSteerWithMouse = *VAR_FlyWithMouse != 0;
     m_bFlyWithMouse = *VAR_SteerWithMouse != 0;
-    MemSet((void*)0x5BC7B4, 0x90, 10);            // Stop vertical aim sensitivity value reset
+    MemSet((void*)0x5BC7B4, 0x90, 10);  // Stop vertical aim sensitivity value reset
+
+    MemPut<DWORD>(VAR_InAirMouseSteeringCar, (DWORD)&m_bInAirMouseSteering);
+    MemPut<DWORD>(VAR_InAirMouseSteeringQuad, (DWORD)&m_bInAirMouseSteering);
+
+    UpdateInAirMouseSteering();
 }
 
 void CControllerConfigManagerSA::SetControllerKeyAssociatedWithAction(eControllerAction action, int iKey, eControllerType controllerType)
 {
     DWORD dwFunc = FUNC_SetControllerKeyAssociatedWithAction;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CControllerConfigManager
         push    controllerType
@@ -41,13 +53,15 @@ void CControllerConfigManagerSA::SetControllerKeyAssociatedWithAction(eControlle
         push    action
         call    dwFunc
     }
+    // clang-format on
 }
 
 int CControllerConfigManagerSA::GetControllerKeyAssociatedWithAction(eControllerAction action, eControllerType controllerType)
 {
     int   iReturn = 0;
     DWORD dwFunc = FUNC_GetControllerKeyAssociatedWithAction;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CControllerConfigManager
         push    controllerType
@@ -55,6 +69,7 @@ int CControllerConfigManagerSA::GetControllerKeyAssociatedWithAction(eController
         call    dwFunc
         mov     iReturn, eax
     }
+    // clang-format on
     return iReturn;
 }
 
@@ -62,31 +77,36 @@ int CControllerConfigManagerSA::GetNumOfSettingsForAction(eControllerAction acti
 {
     int   iReturn = 0;
     DWORD dwFunc = FUNC_GetNumOfSettingsForAction;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CControllerConfigManager
         push    action
         call    dwFunc
         mov     iReturn, eax
     }
+    // clang-format on
     return iReturn;
 }
 
 void CControllerConfigManagerSA::ClearSettingsAssociatedWithAction(eControllerAction action, eControllerType controllerType)
 {
     DWORD dwFunc = FUNC_ClearSettingsAssociatedWithAction;
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, CLASS_CControllerConfigManager
         push    controllerType
         push    action
         call    dwFunc
     }
+    // clang-format on
 }
 
 void CControllerConfigManagerSA::SetClassicControls(bool bClassicControls)
 {
     MemPutFast<unsigned char>(VAR_InputType, bClassicControls ? 0 : 1);
+    UpdateInAirMouseSteering();
 }
 
 void CControllerConfigManagerSA::SetMouseInverted(bool bInverted)
@@ -124,12 +144,19 @@ void CControllerConfigManagerSA::ApplySteerAndFlyWithMouseSettings()
         *VAR_FlyWithMouse = m_bFlyWithMouse;
         *VAR_SteerWithMouse = m_bSteerWithMouse;
     }
+
+    UpdateInAirMouseSteering();
+}
+
+void CControllerConfigManagerSA::UpdateInAirMouseSteering()
+{
+    m_bInAirMouseSteering = (!m_bSuspendSteerAndFlyWithMouse && *VAR_InputType != 0);
 }
 
 float CControllerConfigManagerSA::GetVerticalAimSensitivity()
 {
     float fRawValue = GetVerticalAimSensitivityRawValue();
-    return UnlerpClamped(VERTICAL_AIM_SENSITIVITY_MIN, fRawValue, VERTICAL_AIM_SENSITIVITY_MAX);            // Remap to 0-1
+    return UnlerpClamped(VERTICAL_AIM_SENSITIVITY_MIN, fRawValue, VERTICAL_AIM_SENSITIVITY_MAX);  // Remap to 0-1
 }
 
 void CControllerConfigManagerSA::SetVerticalAimSensitivity(float fSensitivity)
@@ -141,10 +168,21 @@ void CControllerConfigManagerSA::SetVerticalAimSensitivity(float fSensitivity)
 // Raw value used for saving so range can be changed without affecting user setting
 float CControllerConfigManagerSA::GetVerticalAimSensitivityRawValue()
 {
-    return *(FLOAT*)VAR_VerticalAimSensitivity;
+    return *(float*)VAR_VerticalAimSensitivity;
 }
 
 void CControllerConfigManagerSA::SetVerticalAimSensitivityRawValue(float fRawValue)
 {
-    MemPutFast<FLOAT>(VAR_VerticalAimSensitivity, fRawValue);
+    MemPutFast<float>(VAR_VerticalAimSensitivity, fRawValue);
+}
+
+void CControllerConfigManagerSA::SetVerticalAimSensitivitySameAsHorizontal(bool enabled)
+{
+    std::uintptr_t varToUse = enabled ? VAR_HorizontalMouseSensitivity : reinterpret_cast<std::uintptr_t>(VAR_VerticalAimSensitivity);
+
+    MemPut<std::uintptr_t>(0x50F048, varToUse);  // CCam::Process_1rstPersonPedOnPC
+    MemPut<std::uintptr_t>(0x50FB28, varToUse);  // CCam::Process_FollowPedWithMouse
+    MemPut<std::uintptr_t>(0x510C28, varToUse);  // CCam::Process_M16_1stPerson
+    MemPut<std::uintptr_t>(0x511E0A, varToUse);  // CCam::Process_Rocket
+    MemPut<std::uintptr_t>(0x52228E, varToUse);  // CCam::Process_AimWeapon
 }

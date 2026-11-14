@@ -3,9 +3,13 @@
  *  PROJECT:     Multi Theft Auto v1.0
  *  LICENSE:     See LICENSE in the top level directory
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
+
+#pragma once
+
+#include <net/SyncStructures.h>
 
 struct STrailerInfo
 {
@@ -22,7 +26,8 @@ public:
     ZERO_ON_NEW
     CSimVehiclePuresyncPacket(ElementID PlayerID, ushort usPlayerLatency, uchar ucPlayerSyncTimeContext, bool bPlayerHasOccupiedVehicle,
                               ushort usVehicleGotModel, uchar ucPlayerGotOccupiedVehicleSeat, uchar ucPlayerGotWeaponType, float fPlayerGotWeaponRange,
-                              CControllerState& sharedControllerState, uint m_uiDamageInfoSendPhase, const SSimVehicleDamageInfo& damageInfo);
+                              float fPlayerMaxHealth, CControllerState& sharedControllerState, uint m_uiDamageInfoSendPhase,
+                              const SSimVehicleDamageInfo& damageInfo);
 
     ePacketID     GetPacketID() const { return PACKET_ID_PLAYER_VEHICLE_PURESYNC; };
     unsigned long GetFlags() const { return PACKET_MEDIUM_PRIORITY | PACKET_SEQUENCED; };
@@ -50,6 +55,7 @@ private:
     const uchar                  m_ucPlayerGotOccupiedVehicleSeat;
     const uchar                  m_ucPlayerGotWeaponType;
     const float                  m_fPlayerGotWeaponRange;
+    const float                  m_fPlayerMaxHealth;
     CControllerState&            m_sharedControllerState;
     const uint                   m_uiDamageInfoSendPhase;
     const SSimVehicleDamageInfo& m_DamageInfo;
@@ -65,7 +71,7 @@ private:
         CVector vecCamPosition;
         CVector vecCamFwd;
 
-        CVector VehPosition;            // Same as PlrPosition ?
+        CVector VehPosition;  // Same as PlrPosition ?
         CVector VehRotationDeg;
         CVector BothVelocity;
         CVector VehTurnSpeed;
@@ -99,5 +105,7 @@ private:
         float fRailSpeed;
 
         SFixedArray<float, 4> fDoorOpenRatio;
+
+        bool isOnFire{false};
     } m_Cache;
 };

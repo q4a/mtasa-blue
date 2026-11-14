@@ -5,17 +5,19 @@
  *  FILE:        game_sa/CKeyGenSA.cpp
  *  PURPOSE:     Game key generator
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CKeyGenSA.h"
 
 unsigned int CKeyGenSA::GetKey(const char* szString, int iLength)
 {
     unsigned int uiReturn;
     DWORD        dwFunc = FUNC_CKeyGen_GetKey_len;
-    _asm
+    // clang-format off
+    __asm
     {
         push    iLength
         push    szString
@@ -23,6 +25,7 @@ unsigned int CKeyGenSA::GetKey(const char* szString, int iLength)
         add     esp, 0x8
         mov     uiReturn, eax
     }
+    // clang-format on
     return uiReturn;
 }
 
@@ -30,13 +33,15 @@ unsigned int CKeyGenSA::GetKey(const char* szString)
 {
     unsigned int uiReturn;
     DWORD        dwFunc = FUNC_CKeyGen_GetKey;
-    _asm
+    // clang-format off
+    __asm
     {
         push    szString
         call    dwFunc
         add     esp, 0x4
         mov     uiReturn, eax
     }
+    // clang-format on
     return uiReturn;
 }
 
@@ -44,13 +49,15 @@ unsigned int CKeyGenSA::GetUppercaseKey(const char* szString)
 {
     unsigned int uiReturn;
     DWORD        dwFunc = FUNC_CKeyGen_GetUppercaseKey;
-    _asm
+    // clang-format off
+    __asm
     {
         push    szString
         call    dwFunc
         add     esp, 0x4
         mov     uiReturn, eax
     }
+    // clang-format on
     return uiReturn;
 }
 
@@ -58,7 +65,8 @@ unsigned int CKeyGenSA::AppendStringToKey(unsigned int uiKey, const char* szStri
 {
     unsigned int uiReturn;
     DWORD        dwFunc = FUNC_CKeyGen_AppendStringToKey;
-    _asm
+    // clang-format off
+    __asm
     {
         push    szString
         push    uiKey
@@ -66,5 +74,6 @@ unsigned int CKeyGenSA::AppendStringToKey(unsigned int uiKey, const char* szStri
         add     esp, 0x8
         mov     uiReturn, eax
     }
+    // clang-format on
     return uiReturn;
 }

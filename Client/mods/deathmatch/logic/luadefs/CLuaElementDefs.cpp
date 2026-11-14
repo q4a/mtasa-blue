@@ -6,12 +6,13 @@
  *  FILE:        mods/shared_logic/luadefs/CLuaElementDefs.cpp
  *  PURPOSE:     Lua element definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
 #include <lua/CLuaFunctionParser.h>
+#include "CLuaElementDefs.h"
 using std::list;
 
 void CLuaElementDefs::LoadFunctions()
@@ -23,6 +24,7 @@ void CLuaElementDefs::LoadFunctions()
         {"getElementByID", GetElementByID},
         {"getElementByIndex", GetElementByIndex},
         {"getElementData", GetElementData},
+        {"getAllElementData", ArgumentParserWarn<false, GetAllElementData>},
         {"getElementMatrix", GetElementMatrix},
         {"getElementPosition", GetElementPosition},
         {"getElementRotation", GetElementRotation},
@@ -51,7 +53,8 @@ void CLuaElementDefs::LoadFunctions()
         {"hasElementData", HasElementData},
         {"getElementAttachedOffsets", GetElementAttachedOffsets},
         {"getElementAlpha", GetElementAlpha},
-        {"isElementOnScreen", IsElementOnScreen},
+        {"getElementLighting", ArgumentParser<GetElementLighting>},
+        {"isElementOnScreen", ArgumentParserWarn<nullptr, IsElementOnScreen>},
         {"getElementHealth", GetElementHealth},
         {"getElementModel", GetElementModel},
         {"isElementStreamedIn", IsElementStreamedIn},
@@ -67,6 +70,7 @@ void CLuaElementDefs::LoadFunctions()
         {"isElementLowLOD", IsElementLowLod},
         {"isElementCallPropagationEnabled", IsElementCallPropagationEnabled},
         {"isElementWaitingForGroundToLoad", IsElementWaitingForGroundToLoad},
+        {"isElementOnFire", ArgumentParser<IsElementOnFire>},
 
         // Element set funcs
         {"createElement", CreateElement},
@@ -93,8 +97,10 @@ void CLuaElementDefs::LoadFunctions()
         {"setElementCollidableWith", SetElementCollidableWith},
         {"setElementDoubleSided", SetElementDoubleSided},
         {"setElementFrozen", SetElementFrozen},
-        {"setLowLODElement", SetLowLodElement},
+        {"setLowLODElement", ArgumentParser<SetLowLodElement>},
         {"setElementCallPropagationEnabled", SetElementCallPropagationEnabled},
+        {"setElementLighting", ArgumentParser<SetElementLighting>},
+        {"setElementOnFire", ArgumentParser<SetElementOnFire>},
     };
 
     // Add functions
@@ -156,6 +162,7 @@ void CLuaElementDefs::AddClass(lua_State* luaVM)
     lua_classfunction(luaVM, "getDimension", "getElementDimension");
     lua_classfunction(luaVM, "getColShape", "getElementColShape");
     lua_classfunction(luaVM, "getAlpha", "getElementAlpha");
+    lua_classfunction(luaVM, "getLighting", "getElementLighting");
     lua_classfunction(luaVM, "getHealth", "getElementHealth");
     lua_classfunction(luaVM, "getModel", "getElementModel");
     lua_classfunction(luaVM, "getLowLOD", "getLowLODElement");
@@ -163,6 +170,8 @@ void CLuaElementDefs::AddClass(lua_State* luaVM)
     lua_classfunction(luaVM, "getAttachedTo", "getElementAttachedTo");
     lua_classfunction(luaVM, "getAttachedOffsets", "getElementAttachedOffsets");
     lua_classfunction(luaVM, "getData", "getElementData");
+    lua_classfunction(luaVM, "getAllData", "getAllElementData");
+    lua_classfunction(luaVM, "isOnFire", "isElementOnFire");
 
     lua_classfunction(luaVM, "setAttachedOffsets", "setElementAttachedOffsets");
     lua_classfunction(luaVM, "setData", "setElementData");
@@ -185,6 +194,8 @@ void CLuaElementDefs::AddClass(lua_State* luaVM)
     lua_classfunction(luaVM, "setLowLOD", "setLowLODElement");
     lua_classfunction(luaVM, "setCallPropagationEnabled", "setElementCallPropagationEnabled");
     lua_classfunction(luaVM, "setStreamable", "setElementStreamable");
+    lua_classfunction(luaVM, "setLighting", "setElementLighting");
+    lua_classfunction(luaVM, "setOnFire", "setElementOnFire");
 
     lua_classvariable(luaVM, "callPropagationEnabled", "setElementCallPropagationEnabled", "isElementCallPropagationEnabled");
     lua_classvariable(luaVM, "waitingForGroundToLoad", NULL, "isElementWaitingForGroundToLoad");
@@ -219,6 +230,8 @@ void CLuaElementDefs::AddClass(lua_State* luaVM)
     lua_classvariable(luaVM, "velocity", SetElementVelocity, OOP_GetElementVelocity);
     lua_classvariable(luaVM, "angularVelocity", SetElementAngularVelocity, OOP_GetElementTurnVelocity);
     lua_classvariable(luaVM, "isElement", NULL, "isElement");
+    lua_classvariable(luaVM, "lighting", "setElementLighting", "getElementLighting");
+    lua_classvariable(luaVM, "onFire", "setElementOnFire", "isElementOnFire");
     // TODO: Support element data: player.data["age"] = 1337; <=> setElementData(player, "age", 1337)
 
     lua_registerclass(luaVM, "Element");
@@ -954,30 +967,41 @@ int CLuaElementDefs::GetElementsWithinColShape(lua_State* luaVM)
     return 1;
 }
 
-CClientEntityResult CLuaElementDefs::GetElementsWithinRange(CVector pos, float radius, std::optional<std::string> type,
-    std::optional<unsigned short> interior, std::optional<unsigned short> dimension)
+CClientEntityResult CLuaElementDefs::GetElementsWithinRange(CVector pos, float radius, std::optional<std::string> type, std::optional<unsigned short> interior,
+                                                            std::optional<unsigned short> dimension)
 {
-    const auto typeHash = (type.has_value() && !type.value().empty()) ?
-        CClientEntity::GetTypeHashFromString(type.value()) : 0;
+    const auto typeHash = (type.has_value() && !type.value().empty()) ? CClientEntity::GetTypeHashFromString(type.value()) : 0;
 
     CClientEntityResult result;
-    GetClientSpatialDatabase()->SphereQuery(result, CSphere{ pos, radius });
+    GetClientSpatialDatabase()->SphereQuery(result, CSphere{pos, radius});
 
     // Remove elements that do not match the criterias
-    if (interior || dimension || typeHash) {
-        result.erase(std::remove_if(result.begin(), result.end(), [&](CElement* pElement) {
-            if (typeHash && typeHash != pElement->GetTypeHash())
-                return true;
+    if (interior || dimension || typeHash)
+    {
+        result.erase(std::remove_if(result.begin(), result.end(),
+                                    [&, radiusSq = radius * radius](CElement* pElement)
+                                    {
+                                        if (pElement->IsBeingDeleted())
+                                            return true;
 
-            if (interior.has_value() && interior != pElement->GetInterior())
-                return true;
+                                        if (typeHash && typeHash != pElement->GetTypeHash())
+                                            return true;
 
-            if (dimension.has_value() && dimension != pElement->GetDimension())
-                return true;
+                                        if (interior.has_value() && interior != pElement->GetInterior())
+                                            return true;
 
-            return pElement->IsBeingDeleted();
-            }), result.end()
-        );
+                                        if (dimension.has_value() && dimension != pElement->GetDimension())
+                                            return true;
+
+                                        // Check if element is within the sphere, because the spatial database is 2D
+                                        CVector elementPos;
+                                        pElement->GetPosition(elementPos);
+                                        if ((elementPos - pos).LengthSquared() > radiusSq)
+                                            return true;
+
+                                        return false;
+                                    }),
+                     result.end());
     }
 
     return result;
@@ -1307,6 +1331,47 @@ int CLuaElementDefs::GetElementAlpha(lua_State* luaVM)
     return 1;
 }
 
+std::variant<bool, float> CLuaElementDefs::GetElementLighting(CClientEntity* entity)
+{
+    switch (entity->GetType())
+    {
+        case CCLIENTPED:
+        case CCLIENTPLAYER:
+        {
+            CPlayerPed* ped = static_cast<CClientPed*>(entity)->GetGamePlayer();
+            if (ped)
+                return ped->GetLighting();
+            break;
+        }
+        case CCLIENTVEHICLE:
+        {
+            CVehicle* vehicle = static_cast<CClientVehicle*>(entity)->GetGameVehicle();
+            if (vehicle)
+                return vehicle->GetLighting();
+            break;
+        }
+        case CCLIENTOBJECT:
+        case CCLIENTWEAPON:
+        {
+            CObject* object = static_cast<CClientObject*>(entity)->GetGameObject();
+            if (object)
+                return object->GetLighting();
+            break;
+        }
+        default:
+            break;
+    }
+    return false;
+}
+
+bool CLuaElementDefs::IsElementOnScreen(CClientEntity* entity)
+{
+    if (entity->GetType() == CCLIENTMARKER)
+        return static_cast<CClientMarker*>(entity)->IsOnScreen();
+
+    return entity->IsOnScreen();
+}
+
 int CLuaElementDefs::GetElementHealth(lua_State* luaVM)
 {
     // Verify the argument
@@ -1527,6 +1592,16 @@ int CLuaElementDefs::IsElementStreamedIn(lua_State* luaVM)
         // Is this a streaming compatible class?
         if (pEntity->IsStreamingCompatibleClass())
         {
+            // Local player is always streamed in from its own perspective.
+            // Its entity is created via _CreateLocalModel() which doesn't go through
+            // InternalStreamIn(), so m_bStreamedIn can stay false even though the player
+            // is fully active — breaking scripts that filter handlers with isElementStreamedIn(source).
+            if (IS_PLAYER(pEntity) && static_cast<CClientPlayer*>(pEntity)->IsLocalPlayer())
+            {
+                lua_pushboolean(luaVM, true);
+                return 1;
+            }
+
             CClientStreamElement* pStreamElement = static_cast<CClientStreamElement*>(pEntity);
 
             // Return whether or not this class is streamed in
@@ -1580,30 +1655,6 @@ int CLuaElementDefs::IsElementStreamable(lua_State* luaVM)
         m_pScriptDebugging->LogCustom(luaVM, argStream.GetFullErrorMessage());
 
     // We failed
-    lua_pushnil(luaVM);
-    return 1;
-}
-
-int CLuaElementDefs::IsElementOnScreen(lua_State* luaVM)
-{
-    // Verify the argument
-    CClientEntity*   pEntity = NULL;
-    CScriptArgReader argStream(luaVM);
-    argStream.ReadUserData(pEntity);
-
-    if (!argStream.HasErrors())
-    {
-        // Return whether we're on the screen or not
-        bool bOnScreen;
-        if (CStaticFunctionDefinitions::IsElementOnScreen(*pEntity, bOnScreen))
-        {
-            lua_pushboolean(luaVM, bOnScreen);
-            return 1;
-        }
-    }
-    else
-        m_pScriptDebugging->LogCustom(luaVM, argStream.GetFullErrorMessage());
-
     lua_pushnil(luaVM);
     return 1;
 }
@@ -1713,13 +1764,13 @@ int CLuaElementDefs::SetElementData(lua_State* luaVM)
 {
     //  bool setElementData ( element theElement, string key, var value, [bool synchronize = true] )
     CClientEntity* pEntity;
-    SString        strKey;
+    CStringName    key;
     CLuaArgument   value;
     bool           bSynchronize;
 
     CScriptArgReader argStream(luaVM);
     argStream.ReadUserData(pEntity);
-    argStream.ReadString(strKey);
+    argStream.ReadStringName(key);
     argStream.ReadLuaArgument(value);
     argStream.ReadBool(bSynchronize, true);
 
@@ -1728,15 +1779,16 @@ int CLuaElementDefs::SetElementData(lua_State* luaVM)
         CLuaMain* pLuaMain = m_pLuaManager->GetVirtualMachine(luaVM);
         if (pLuaMain)
         {
-            if (strKey.length() > MAX_CUSTOMDATA_NAME_LENGTH)
+            if (key->length() > MAX_CUSTOMDATA_NAME_LENGTH)
             {
                 // Warn and truncate if key is too long
                 m_pScriptDebugging->LogCustom(luaVM, SString("Truncated argument @ '%s' [%s]", lua_tostring(luaVM, lua_upvalueindex(1)),
                                                              *SString("string length reduced to %d characters at argument 2", MAX_CUSTOMDATA_NAME_LENGTH)));
-                strKey = strKey.Left(MAX_CUSTOMDATA_NAME_LENGTH);
+
+                key = key->substr(0, MAX_CUSTOMDATA_NAME_LENGTH);
             }
 
-            if (CStaticFunctionDefinitions::SetElementData(*pEntity, strKey, value, bSynchronize))
+            if (CStaticFunctionDefinitions::SetElementData(*pEntity, key, value, bSynchronize))
             {
                 lua_pushboolean(luaVM, true);
                 return 1;
@@ -1755,26 +1807,27 @@ int CLuaElementDefs::RemoveElementData(lua_State* luaVM)
 {
     //  bool removeElementData ( element theElement, string key )
     CClientEntity* pEntity;
-    SString        strKey;
+    CStringName    key;
 
     CScriptArgReader argStream(luaVM);
     argStream.ReadUserData(pEntity);
-    argStream.ReadString(strKey);
+    argStream.ReadStringName(key);
 
     if (!argStream.HasErrors())
     {
         CLuaMain* pLuaMain = m_pLuaManager->GetVirtualMachine(luaVM);
         if (pLuaMain)
         {
-            if (strKey.length() > MAX_CUSTOMDATA_NAME_LENGTH)
+            if (key->length() > MAX_CUSTOMDATA_NAME_LENGTH)
             {
                 // Warn and truncate if key is too long
                 m_pScriptDebugging->LogCustom(luaVM, SString("Truncated argument @ '%s' [%s]", lua_tostring(luaVM, lua_upvalueindex(1)),
                                                              *SString("string length reduced to %d characters at argument 2", MAX_CUSTOMDATA_NAME_LENGTH)));
-                strKey = strKey.Left(MAX_CUSTOMDATA_NAME_LENGTH);
+
+                key = key->substr(0, MAX_CUSTOMDATA_NAME_LENGTH);
             }
 
-            if (CStaticFunctionDefinitions::RemoveElementData(*pEntity, strKey))
+            if (CStaticFunctionDefinitions::RemoveElementData(*pEntity, key))
             {
                 lua_pushboolean(luaVM, true);
                 return 1;
@@ -2046,7 +2099,7 @@ int CLuaElementDefs::SetElementInterior(lua_State* luaVM)
             }
 
             // Set the interior
-            if (CStaticFunctionDefinitions::SetElementInterior(*pEntity, uiInterior, bSetPosition, vecPosition))
+            if (CStaticFunctionDefinitions::SetElementInterior(*pEntity, static_cast<unsigned char>(uiInterior), bSetPosition, vecPosition))
             {
                 lua_pushboolean(luaVM, true);
                 return 1;
@@ -2454,29 +2507,18 @@ int CLuaElementDefs::GetLowLodElement(lua_State* luaVM)
     return 1;
 }
 
-int CLuaElementDefs::SetLowLodElement(lua_State* luaVM)
+bool CLuaElementDefs::SetLowLodElement(lua_State* luaVM, CClientEntity* pEntity, std::optional<CClientEntity*> pLowLodEntity)
 {
-    //  bool setLowLODElement ( element theElement )
-    CClientEntity* pEntity;
-    CClientEntity* pLowLodEntity;
+    //  bool setLowLODElement ( element theElement [, element lowLowElement ] )
+    return CStaticFunctionDefinitions::SetLowLodElement(*pEntity, pLowLodEntity.value_or(nullptr));
+}
 
-    CScriptArgReader argStream(luaVM);
-    argStream.ReadUserData(pEntity);
-    argStream.ReadUserData(pLowLodEntity, NULL);
+bool CLuaElementDefs::SetElementOnFire(CClientEntity* entity, bool onFire) noexcept
+{
+    if (!entity->IsLocalEntity() && entity != CStaticFunctionDefinitions::GetLocalPlayer())
+        return false;
 
-    if (!argStream.HasErrors())
-    {
-        if (CStaticFunctionDefinitions::SetLowLodElement(*pEntity, pLowLodEntity))
-        {
-            lua_pushboolean(luaVM, true);
-            return 1;
-        }
-    }
-    else
-        m_pScriptDebugging->LogCustom(luaVM, argStream.GetFullErrorMessage());
-
-    lua_pushboolean(luaVM, false);
-    return 1;
+    return entity->SetOnFire(onFire);
 }
 
 int CLuaElementDefs::IsElementLowLod(lua_State* luaVM)
@@ -2573,4 +2615,47 @@ int CLuaElementDefs::IsElementWaitingForGroundToLoad(lua_State* luaVM)
 
     lua_pushboolean(luaVM, false);
     return 1;
+}
+
+bool CLuaElementDefs::SetElementLighting(CClientEntity* entity, float lighting)
+{
+    switch (entity->GetType())
+    {
+        case CCLIENTPLAYER:
+        case CCLIENTPED:
+        {
+            auto* ped = static_cast<CClientPed*>(entity)->GetGamePlayer();
+            if (!ped)
+                return false;
+
+            ped->SetLighting(lighting);
+            return true;
+        }
+        case CCLIENTVEHICLE:
+        {
+            auto* vehicle = static_cast<CClientVehicle*>(entity)->GetGameVehicle();
+            if (!vehicle)
+                return false;
+
+            vehicle->SetLighting(lighting);
+            return true;
+        }
+        case CCLIENTOBJECT:
+        case CCLIENTWEAPON:
+        {
+            auto* object = static_cast<CClientObject*>(entity)->GetGameObject();
+            if (!object)
+                return false;
+
+            object->SetLighting(lighting);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool CLuaElementDefs::IsElementOnFire(CClientEntity* entity) noexcept
+{
+    return entity->IsOnFire();
 }

@@ -39,6 +39,7 @@ public:
     static unsigned char      GetMaxPassengerCount(unsigned long ulModel);
     static unsigned char      ConvertIndexToGameSeat(unsigned long ulModel, unsigned char ucIndex);
     static void               GetRandomVariation(unsigned short usModel, unsigned char& ucVariant, unsigned char& ucVariant2);
+    static bool               IsVariationValidForModel(unsigned short usModel, unsigned char ucVariant, unsigned char ucVariant2);
 
     static bool HasTurret(unsigned long ulModel);
     static bool HasSirens(unsigned long ulModel);
@@ -50,6 +51,7 @@ public:
     static bool HasDamageModel(unsigned long ulModel);
     static bool HasDamageModel(enum eClientVehicleType Type);
     static bool HasDoors(unsigned long ulModel);
+    static bool IsValidSeat(unsigned long ulModel, unsigned char ucSeat);
 
     bool Exists(CClientVehicle* pVehicle);
 
@@ -58,6 +60,8 @@ public:
     void RestreamVehicles(unsigned short usModel);
     void RestreamAllVehicles();
     void RestreamVehicleUpgrades(unsigned short usModel);
+
+    void OnModelReplaced(unsigned short usModel);
 
     std::vector<CClientVehicle*>::const_iterator IterBegin() { return m_List.begin(); };
     std::vector<CClientVehicle*>::const_iterator IterEnd() { return m_List.end(); };
@@ -70,9 +74,15 @@ public:
     void OnCreation(CClientVehicle* pVehicle);
     void OnDestruction(CClientVehicle* pVehicle);
 
+    bool IsSpawnFlyingComponentEnabled() const noexcept { return m_spawnFlyingComponentsDuringRecreate; }
+    void SetSpawnFlyingComponentEnabled(bool isEnabled) noexcept { m_spawnFlyingComponentsDuringRecreate = isEnabled; }
+
+    void ResetNotControlledRotors(bool engineAutoStart);
+
 protected:
     CClientManager*               m_pManager;
     bool                          m_bCanRemoveFromList;
     CMappedArray<CClientVehicle*> m_List;
     CMappedArray<CClientVehicle*> m_StreamedIn;
+    bool                          m_spawnFlyingComponentsDuringRecreate{true};
 };

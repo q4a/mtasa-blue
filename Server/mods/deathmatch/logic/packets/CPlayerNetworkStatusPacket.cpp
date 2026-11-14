@@ -4,11 +4,12 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        mods/deathmatch/logic/packets/CPlayerNetworkStatusPacket.h
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPlayerNetworkStatusPacket.h"
 
 bool CPlayerNetworkStatusPacket::Read(NetBitStreamInterface& BitStream)
 {

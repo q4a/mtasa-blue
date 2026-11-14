@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/CAccessControlListRight.cpp
  *  PURPOSE:     Access control list rights class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CAccessControlListRight.h"
+#include "CAclRightName.h"
+#include "lua/CLuaFunctionParseHelpers.h"
 
 CAccessControlListRight::CAccessControlListRight(const char* szRightName, ERightType eRightType, bool bAccess, CAccessControlListManager* pACLManager)
 {
@@ -89,6 +92,6 @@ SString CAccessControlListRight::GetAttributeValue(const SString& strAttributeNa
     else
     {
         SString* pResult = MapFind(m_ExtraAttributeMap, strAttributeName);
-        return pResult ? *pResult : "";
+        return pResult ? *pResult : SStringX("");
     }
 }

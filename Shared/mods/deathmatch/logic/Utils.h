@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/Utils.h
  *  PURPOSE:     Miscellaneous utility functions
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -14,13 +14,16 @@
 #ifdef MTA_CLIENT
 extern CLocalizationInterface* g_pLocalization;
 #else
-#include <CVector.h>
-#include <CVector2D.h>
-#include <net/bitstream.h>
-#include <cmath>
-#include "CCommon.h"
-#include "CPad.h"
+    #include <CVector.h>
+    #include <CVector2D.h>
+    #include <net/bitstream.h>
+    #include <cmath>
+    #include "CCommon.h"
+    #include "CPad.h"
+    #include "packets/CPlayerDisconnectedPacket.h"
 #endif
+
+class CMatrix;
 
 // Vector math
 inline float DistanceBetweenPoints2D(const CVector& vecPosition1, const CVector& vecPosition2)
@@ -133,6 +136,7 @@ double GetRandomDouble();
 int    GetRandom(int iLow, int iHigh);
 
 bool IsValidFilePath(const char* szPath);
+bool IsValidFilePath(const char* szDir, size_t length);
 bool IsValidOrganizationPath(const char* szPath);
 #endif
 
@@ -230,6 +234,15 @@ inline float GetOffsetDegrees(float a, float b)
         c = (360.0f + c);
     return c;
 }
+inline float GetOffsetRadians(float a, float b)
+{
+    float c = (b > a) ? b - a : 0.0f - (a - b);
+    if (c > PI)
+        c = 0.0f - (2 * PI - c);
+    else if (c <= -PI)
+        c = (2 * PI + c);
+    return c;
+}
 
 // Assuming fValue is the result of a difference calculation, calculate
 // the shortest positive distance after wrapping
@@ -249,6 +262,7 @@ unsigned int StripUnwantedCharacters(char* szText, unsigned char cReplace = ' ')
 unsigned int StripControlCodes(char* szText, unsigned char cReplace = ' ');
 bool         IsControlCode(unsigned char c);
 bool         IsValidFilePath(const char* szDir);
+bool         IsValidFilePath(const char* szDir, size_t length);
 void         ReplaceOccurrencesInString(std::string& s, const char* a, const char* b);
 
 void RaiseFatalError(unsigned int uiCode);
@@ -305,6 +319,7 @@ inline bool IsVisibleCharacter(unsigned char c)
 unsigned int HexToInt(const char* szHex);
 bool         XMLColorToInt(const char* szColor, unsigned long& ulColor);
 bool         XMLColorToInt(const char* szColor, unsigned char& ucRed, unsigned char& ucGreen, unsigned char& ucBlue, unsigned char& ucAlpha);
+SString      XMLColorFromInt(unsigned char ucRed, unsigned char ucGreen, unsigned char ucBlue, unsigned char ucAlpha = 255);
 
 // Maths utility functions
 CVector ConvertEulerRotationOrder(const CVector& a_vRotation, eEulerRotationOrder a_eSrcOrder, eEulerRotationOrder a_eDstOrder);
@@ -322,8 +337,3 @@ void DeletePointersAndClearList(T& elementList)
         delete *iter;
     }
 }
-
-// for debug
-#if defined(MTA_DEBUG) && defined(MTA_CLIENT)
-HMODULE RemoteLoadLibrary(HANDLE hProcess, const char* szLibPath);
-#endif

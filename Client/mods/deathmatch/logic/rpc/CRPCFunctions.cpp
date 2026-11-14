@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/rpc/CRPCFunctions.cpp
  *  PURPOSE:     Remote procedure calls manager
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -49,8 +49,8 @@ CBlendedWeather*           CRPCFunctions::m_pBlendedWeather;
 CClientGame*               CRPCFunctions::m_pClientGame;
 CClientWaterManager*       CRPCFunctions::m_pWaterManager;
 
-SFixedArray<CRPCFunctions::SRPCHandler, eElementRPCFunctions::NUM_RPC_FUNCS>        CRPCFunctions::m_RPCHandlers;
-SFixedArray<CRPCFunctions::SElementRPCHandler, eElementRPCFunctions::NUM_RPC_FUNCS> CRPCFunctions::m_ElementRPCHandlers;
+SFixedArray<CRPCFunctions::SRPCHandler, CRPCFunctions::NUM_RPC_FUNCS>        CRPCFunctions::m_RPCHandlers;
+SFixedArray<CRPCFunctions::SElementRPCHandler, CRPCFunctions::NUM_RPC_FUNCS> CRPCFunctions::m_ElementRPCHandlers;
 
 CRPCFunctions::CRPCFunctions(CClientGame* pClientGame)
 {

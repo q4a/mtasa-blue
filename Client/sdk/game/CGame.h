@@ -5,84 +5,74 @@
  *  FILE:        sdk/game/CGame.h
  *  PURPOSE:     Game base interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-// use this to check if you're using SA or VC headers
-#define GTA_SA
-
-typedef void(InRenderer)();
-
+#include <memory>
+#include <map>
+#include <SString.h>
 #include "Common.h"
-
-#include "C3DMarkers.h"
-#include "CAERadioTrackManager.h"
-#include "CAnimBlendAssociation.h"
-#include "CAnimBlock.h"
-#include "CAnimManager.h"
-#include "CAudioEngine.h"
-#include "CAEAudioHardware.h"
-#include "CAESoundManager.h"
-#include "CAEVehicleAudioEntity.h"
-#include "CAudioContainer.h"
-#include "CCam.h"
-#include "CCamera.h"
-#include "CCarEnterExit.h"
-#include "CClock.h"
-#include "CCheckpoints.h"
-#include "CControllerConfigManager.h"
-#include "CCoronas.h"
-#include "CEventDamage.h"
-#include "CEventGunShot.h"
-#include "CEventList.h"
-#include "CExplosionManager.h"
-#include "CFireManager.h"
-#include "CFont.h"
-#include "CFx.h"
-#include "CFxSystem.h"
-#include "CFxManager.h"
-#include "CGarages.h"
-#include "CHandlingManager.h"
-#include "CHud.h"
-#include "CKeyGen.h"
-#include "CMenuManager.h"
-#include "CModelInfo.h"
-#include "CPad.h"
-#include "CPathFind.h"
-#include "CPedDamageResponse.h"
-#include "CPedModelInfo.h"
-#include "CPickups.h"
-#include "CPlayerInfo.h"
-#include "CPointLights.h"
-#include "CPools.h"
-#include "CPopulation.h"
-#include "CProjectile.h"
-#include "CProjectileInfo.h"
-#include "CRadar.h"
-#include "CRenderWare.h"
-#include "CRestart.h"
-#include "CRopes.h"
-#include "CSettings.h"
-#include "CStats.h"
-#include "CStreaming.h"
-#include "CTaskManagementSystem.h"
-#include "CTasks.h"
-#include "CTheCarGenerators.h"
-#include "CVisibilityPlugins.h"
-#include "CWaterManager.h"
-#include "CWeaponStatManager.h"
-#include "CWeather.h"
 #include "CWeaponInfo.h"
-#include "CWorld.h"
-#include "TaskCarAccessories.h"
-#include "CObjectGroupPhysicalProperties.h"
+#include "enums/SystemState.h"
 
-#include <windows.h>
-
+class C3DMarkers;
+class CAEAudioHardware;
+class CAERadioTrackManager;
+class CAESoundManager;
+class CAnimBlendAssocGroup;
+class CAnimManager;
+class CAudioContainer;
+class CAudioEngine;
+class CCamera;
+class CCarEnterExit;
+class CCheckpoints;
+class CClock;
+class CColStore;
+class CControllerConfigManager;
+class CCoronas;
+class CEventList;
+class CExplosionManager;
+class CFireManager;
+class CFx;
+class CFxManager;
+class CGameSettings;
+class CGarages;
+class CHandlingManager;
+class CHud;
+class CKeyGen;
+class CModelInfo;
+class CObjectGroupPhysicalProperties;
+class CPad;
+class CPathFind;
+class CPed;
+class CPickups;
+class CPlayerInfo;
+class CPointLights;
+class CPools;
+class CProjectileInfo;
+class CRadar;
+class CRenderWare;
+class CRopes;
+class CStats;
+class CStreaming;
+class CTasks;
+class CVisibilityPlugins;
+class CWaterManager;
+class CWeapon;
+class CWeaponInfo;
+class CWeaponStat;
+class CWeaponStatManager;
+class CWeather;
+class CWorld;
+class CIplStore;
+class CBuildingRemoval;
+class CRenderer;
+class CVehicleAudioSettingsManager;
 enum eEntityType;
+enum ePedPieceTypes;
 
 typedef bool(PreWeaponFireHandler)(class CPlayerPed* pPlayer, bool bStopIfUsingBulletSync);
 typedef void(PostWeaponFireHandler)();
@@ -120,11 +110,10 @@ class __declspec(novtable) CGame
     typedef std::unique_ptr<CAnimBlendAssocGroup> AssocGroup_type;
 
 public:
-    virtual CPools*                   GetPools() = 0;
+    virtual CPools*                   GetPools() const noexcept = 0;
     virtual CPlayerInfo*              GetPlayerInfo() = 0;
     virtual CProjectileInfo*          GetProjectileInfo() = 0;
     virtual CRadar*                   GetRadar() = 0;
-    virtual CRestart*                 GetRestart() = 0;
     virtual CClock*                   GetClock() = 0;
     virtual CCheckpoints*             GetCheckpoints() = 0;
     virtual CCoronas*                 GetCoronas() = 0;
@@ -144,17 +133,13 @@ public:
     virtual CAEAudioHardware*         GetAEAudioHardware() = 0;
     virtual CAESoundManager*          GetAESoundManager() = 0;
     virtual CAudioContainer*          GetAudioContainer() = 0;
-    virtual CMenuManager*             GetMenuManager() = 0;
     virtual CStats*                   GetStats() = 0;
     virtual CTasks*                   GetTasks() = 0;
-    virtual CFont*                    GetFont() = 0;
-    virtual CPathFind*                GetPathFind() = 0;
-    virtual CPopulation*              GetPopulation() = 0;
     virtual CGameSettings*            GetSettings() = 0;
     virtual CCarEnterExit*            GetCarEnterExit() = 0;
     virtual CControllerConfigManager* GetControllerConfigManager() = 0;
     virtual CRenderWare*              GetRenderWare() = 0;
-    virtual CHandlingManager*         GetHandlingManager() = 0;
+    virtual CHandlingManager*         GetHandlingManager() const noexcept = 0;
     virtual CAnimManager*             GetAnimManager() = 0;
     virtual CStreaming*               GetStreaming() = 0;
     virtual CVisibilityPlugins*       GetVisibilityPlugins() = 0;
@@ -165,34 +150,33 @@ public:
     virtual CWaterManager*            GetWaterManager() = 0;
     virtual CWeaponStatManager*       GetWeaponStatManager() = 0;
     virtual CPointLights*             GetPointLights() = 0;
+    virtual CColStore*                GetCollisionStore() = 0;
+    virtual CBuildingRemoval*         GetBuildingRemoval() = 0;
+    virtual CRenderer*                GetRenderer() const noexcept = 0;
+
+    virtual CVehicleAudioSettingsManager* GetVehicleAudioSettingsManager() const noexcept = 0;
 
     virtual CWeaponInfo* GetWeaponInfo(eWeaponType weapon, eWeaponSkill skill = WEAPONSKILL_STD) = 0;
     virtual CModelInfo*  GetModelInfo(DWORD dwModelID, bool bCanBeInvalid = false) = 0;
 
-    virtual DWORD        GetSystemTime() = 0;
-    virtual BOOL         IsAtMenu() = 0;
-    virtual BOOL         IsGameLoaded() = 0;
-    virtual VOID         StartGame() = 0;
-    virtual VOID         SetSystemState(eSystemState State) = 0;
-    virtual eSystemState GetSystemState() = 0;
-    virtual VOID         Pause(bool bPaused) = 0;
-    virtual bool         IsPaused() = 0;
-    virtual bool         IsInForeground() = 0;
-    virtual VOID         DisableRenderer(bool bDisabled) = 0;
-    virtual VOID         SetRenderHook(InRenderer* pInRenderer) = 0;
-    virtual VOID         TakeScreenshot(char* szFileName) = 0;
-    virtual DWORD*       GetMemoryValue(DWORD dwOffset) = 0;
-    virtual void         SetTimeScale(float fTimeScale) = 0;
-    virtual float        GetFPS() = 0;
-    virtual float        GetTimeStep() = 0;
-    virtual float        GetOldTimeStep() = 0;
-    virtual float        GetTimeScale() = 0;
+    virtual DWORD             GetSystemTime() = 0;
+    virtual int               GetSystemFrameCounter() const = 0;
+    virtual bool              IsAtMenu() = 0;
+    virtual void              StartGame() = 0;
+    virtual void              SetSystemState(SystemState::Enum State) = 0;
+    virtual SystemState::Enum GetSystemState() = 0;
+    virtual void              Pause(bool bPaused) = 0;
+    virtual void              SetTimeScale(float fTimeScale) = 0;
+    virtual float             GetFPS() = 0;
+    virtual float             GetTimeStep() = 0;
+    virtual float             GetOldTimeStep() = 0;
+    virtual float             GetTimeScale() = 0;
 
     virtual void Initialize() = 0;
     virtual void Reset() = 0;
     virtual void Terminate() = 0;
 
-    virtual BOOL InitLocalPlayer(class CClientPed* pClientPed) = 0;
+    virtual bool InitLocalPlayer(class CClientPed* pClientPed) = 0;
 
     virtual float GetGravity() = 0;
     virtual void  SetGravity(float fGravity) = 0;
@@ -221,8 +205,47 @@ public:
     virtual bool IsMoonEasterEggEnabled() = 0;
     virtual void SetMoonEasterEggEnabled(bool bEnable) = 0;
 
+    virtual bool IsExtraAirResistanceEnabled() = 0;
+    virtual void SetExtraAirResistanceEnabled(bool bEnable) = 0;
+
+    virtual bool IsUnderWorldWarpEnabled() = 0;
+    virtual void SetUnderWorldWarpEnabled(bool bEnable) = 0;
+
+    virtual void SetVehicleSunGlareEnabled(bool bEnabled) = 0;
+    virtual bool IsVehicleSunGlareEnabled() = 0;
+
+    virtual void SetCoronaZTestEnabled(bool isEnabled) = 0;
+    virtual bool IsCoronaZTestEnabled() const noexcept = 0;
+
+    virtual bool IsWaterCreaturesEnabled() const noexcept = 0;
+    virtual void SetWaterCreaturesEnabled(bool isEnabled) = 0;
+
+    virtual bool IsBurnFlippedCarsEnabled() const noexcept = 0;
+    virtual void SetBurnFlippedCarsEnabled(bool isEnabled) = 0;
+
+    virtual bool IsFireballDestructEnabled() const noexcept = 0;
+    virtual void SetFireballDestructEnabled(bool isEnabled) = 0;
+
+    virtual bool IsExtendedWaterCannonsEnabled() const noexcept = 0;
+    virtual void SetExtendedWaterCannonsEnabled(bool isEnabled) = 0;
+
+    virtual bool IsRoadSignsTextEnabled() const noexcept = 0;
+    virtual void SetRoadSignsTextEnabled(bool isEnabled) = 0;
+
+    virtual bool IsTunnelWeatherBlendEnabled() const noexcept = 0;
+    virtual void SetTunnelWeatherBlendEnabled(bool isEnabled) = 0;
+
+    virtual bool IsIgnoreFireStateEnabled() const noexcept = 0;
+    virtual void SetIgnoreFireStateEnabled(bool isEnabled) = 0;
+
+    virtual bool IsVehicleBurnExplosionsEnabled() const noexcept = 0;
+    virtual void SetVehicleBurnExplosionsEnabled(bool isEnabled) = 0;
+
     virtual CWeapon*     CreateWeapon() = 0;
     virtual CWeaponStat* CreateWeaponStat(eWeaponType weaponType, eWeaponSkill weaponSkill) = 0;
+
+    virtual void SetWeaponRenderEnabled(bool enabled) = 0;
+    virtual bool IsWeaponRenderEnabled() const = 0;
 
     virtual bool VerifySADataFileNames() = 0;
     virtual bool PerformChecks() = 0;
@@ -232,9 +255,9 @@ public:
     virtual void SuspendASyncLoading(bool bSuspend, uint uiAutoUnsuspendDelay = 0) = 0;
     virtual bool IsASyncLoadingEnabled(bool bIgnoreSuspend = false) = 0;
 
-    virtual bool HasCreditScreenFadedOut() = 0;
     virtual void FlushPendingRestreamIPL() = 0;
     virtual void ResetModelLodDistances() = 0;
+    virtual void ResetModelFlags() = 0;
     virtual void ResetAlphaTransparencies() = 0;
     virtual void DisableVSync() = 0;
     virtual void ResetModelTimes() = 0;
@@ -250,13 +273,18 @@ public:
 
     virtual CObjectGroupPhysicalProperties* GetObjectGroupPhysicalProperties(unsigned char ucObjectGroup) = 0;
 
-    virtual int32_t GetBaseIDforDFF() = 0;
-    virtual int32_t GetBaseIDforTXD() = 0;
-    virtual int32_t GetBaseIDforCOL() = 0;
-    virtual int32_t GetBaseIDforIPL() = 0;
-    virtual int32_t GetBaseIDforDAT() = 0;
-    virtual int32_t GetBaseIDforIFP() = 0;
-    virtual int32_t GetBaseIDforRRR() = 0;
-    virtual int32_t GetBaseIDforSCM() = 0;
-    virtual int32_t GetCountOfAllFileIDs() = 0;
+    virtual uint32_t GetBaseIDforDFF() = 0;
+    virtual uint32_t GetBaseIDforTXD() = 0;
+    virtual uint32_t GetBaseIDforCOL() = 0;
+    virtual uint32_t GetBaseIDforIPL() = 0;
+    virtual uint32_t GetBaseIDforDAT() = 0;
+    virtual uint32_t GetBaseIDforIFP() = 0;
+    virtual uint32_t GetBaseIDforRRR() = 0;
+    virtual uint32_t GetBaseIDforSCM() = 0;
+    virtual uint32_t GetCountOfAllFileIDs() = 0;
+
+    virtual void RemoveGameWorld() = 0;
+    virtual void RestoreGameWorld() = 0;
+
+    virtual bool SetBuildingPoolSize(size_t size) = 0;
 };

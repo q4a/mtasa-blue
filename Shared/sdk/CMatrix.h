@@ -5,7 +5,7 @@
  *  FILE:        sdk/CMatrix.h
  *  PURPOSE:     4x3 GTA matrix class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -15,7 +15,6 @@
 #include "CVector.h"
 #include <array>
 #include <cassert>
-
 
 /**
  * Contains full positional data for a point
@@ -174,6 +173,11 @@ public:
         return CVector(vec.fX * vRight.fX + vec.fY * vFront.fX + vec.fZ * vUp.fX + vPos.fX, vec.fX * vRight.fY + vec.fY * vFront.fY + vec.fZ * vUp.fY + vPos.fY,
                        vec.fX * vRight.fZ + vec.fY * vFront.fZ + vec.fZ * vUp.fZ + vPos.fZ);
     }
+    CVector TransformVectorByRotation(const CVector& vec) const
+    {
+        return CVector(vec.fX * vRight.fX + vec.fY * vFront.fX + vec.fZ * vUp.fX, vec.fX * vRight.fY + vec.fY * vFront.fY + vec.fZ * vUp.fY,
+                       vec.fX * vRight.fZ + vec.fY * vFront.fZ + vec.fZ * vUp.fZ);
+    }
 
     //
     // Ensure matrix component axes are normalized and orthogonal to each other.
@@ -280,10 +284,7 @@ public:
     // Set matrix translational part
     void SetPosition(const CVector& vecPosition) { vPos = vecPosition; }
 
-    CVector GetScale() const
-    {
-        return CVector(vRight.Length(), vFront.Length(), vUp.Length());
-    }
+    CVector GetScale() const { return CVector(vRight.Length(), vFront.Length(), vUp.Length()); }
 
     void SetScale(const CVector& vecScale)
     {
@@ -330,12 +331,7 @@ public:
 
     std::array<std::array<float, 4>, 4> To4x4Array() const noexcept
     {
-        return {
-            vRight.fX, vRight.fY, vRight.fZ, 0.0f,
-            vFront.fX, vFront.fY, vFront.fZ, 0.0f,
-            vUp.fX,    vUp.fY,    vUp.fZ,    0.0f,
-            vPos.fX,   vPos.fY,   vPos.fZ,   1.0f
-        };
+        return {vRight.fX, vRight.fY, vRight.fZ, 0.0f, vFront.fX, vFront.fY, vFront.fZ, 0.0f, vUp.fX, vUp.fY, vUp.fZ, 0.0f, vPos.fX, vPos.fY, vPos.fZ, 1.0f};
     }
 
     enum EMatrixAxes

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2020, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,25 +18,17 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
+ * SPDX-License-Identifier: curl
+ *
  ***************************************************************************/
-
 #include "curl_setup.h"
 
 #if defined(USE_WINDOWS_SSPI) && defined(USE_NTLM)
 
-#include <curl/curl.h>
-
 #include "vauth/vauth.h"
-#include "urldata.h"
-#include "curl_base64.h"
 #include "curl_ntlm_core.h"
-#include "warnless.h"
-#include "curl_multibyte.h"
-#include "sendf.h"
-
-/* The last #include files should be: */
-#include "curl_memory.h"
-#include "memdebug.h"
+#include "curl_trc.h"
+#include "curlx/strdup.h"
 
 /*
  * Curl_auth_is_ntlm_supported()
@@ -53,15 +45,16 @@ bool Curl_auth_is_ntlm_supported(void)
   SECURITY_STATUS status;
 
   /* Query the security package for NTLM */
-  status = s_pSecFn->QuerySecurityPackageInfo((TCHAR *) TEXT(SP_NAME_NTLM),
-                                              &SecurityPackage);
+  status = Curl_pSecFn->QuerySecurityPackageInfo(
+                                     (TCHAR *)CURL_UNCONST(TEXT(SP_NAME_NTLM)),
+                                     &SecurityPackage);
 
   /* Release the package buffer as it is not required anymore */
   if(status == SEC_E_OK) {
-    s_pSecFn->FreeContextBuffer(SecurityPackage);
+    Curl_pSecFn->FreeContextBuffer(SecurityPackage);
   }
 
-  return (status == SEC_E_OK ? TRUE : FALSE);
+  return status == SEC_E_OK;
 }
 
 /*
@@ -73,14 +66,12 @@ bool Curl_auth_is_ntlm_supported(void)
  * Parameters:
  *
  * data    [in]     - The session handle.
- * userp   [in]     - The user name in the format User or Domain\User.
+ * userp   [in]     - The username in the format User or Domain\User.
  * passwdp [in]     - The user's password.
  * service [in]     - The service type such as http, smtp, pop or imap.
- * host    [in]     - The host name.
+ * host    [in]     - The hostname.
  * ntlm    [in/out] - The NTLM data struct being used and modified.
- * outptr  [in/out] - The address where a pointer to newly allocated memory
- *                    holding the result will be stored upon completion.
- * outlen  [out]    - The length of the output message.
+ * out     [out]    - The result storage.
  *
  * Returns CURLE_OK on success.
  */
@@ -90,33 +81,33 @@ CURLcode Curl_auth_create_ntlm_type1_message(struct Curl_easy *data,
                                              const char *service,
                                              const char *host,
                                              struct ntlmdata *ntlm,
-                                             char **outptr, size_t *outlen)
+                                             struct bufref *out)
 {
   PSecPkgInfo SecurityPackage;
   SecBuffer type_1_buf;
   SecBufferDesc type_1_desc;
   SECURITY_STATUS status;
   unsigned long attrs;
-  TimeStamp expiry; /* For Windows 9x compatibility of SSPI calls */
 
   /* Clean up any former leftovers and initialise to defaults */
   Curl_auth_cleanup_ntlm(ntlm);
 
   /* Query the security package for NTLM */
-  status = s_pSecFn->QuerySecurityPackageInfo((TCHAR *) TEXT(SP_NAME_NTLM),
-                                              &SecurityPackage);
+  status = Curl_pSecFn->QuerySecurityPackageInfo(
+                                     (TCHAR *)CURL_UNCONST(TEXT(SP_NAME_NTLM)),
+                                     &SecurityPackage);
   if(status != SEC_E_OK) {
-    failf(data, "SSPI: couldn't get auth info");
+    failf(data, "SSPI: could not get auth info");
     return CURLE_AUTH_ERROR;
   }
 
   ntlm->token_max = SecurityPackage->cbMaxToken;
 
   /* Release the package buffer as it is not required anymore */
-  s_pSecFn->FreeContextBuffer(SecurityPackage);
+  Curl_pSecFn->FreeContextBuffer(SecurityPackage);
 
   /* Allocate our output buffer */
-  ntlm->output_token = malloc(ntlm->token_max);
+  ntlm->output_token = curlx_malloc(ntlm->token_max);
   if(!ntlm->output_token)
     return CURLE_OUT_OF_MEMORY;
 
@@ -136,21 +127,21 @@ CURLcode Curl_auth_create_ntlm_type1_message(struct Curl_easy *data,
     ntlm->p_identity = NULL;
 
   /* Allocate our credentials handle */
-  ntlm->credentials = calloc(1, sizeof(CredHandle));
+  ntlm->credentials = curlx_calloc(1, sizeof(CredHandle));
   if(!ntlm->credentials)
     return CURLE_OUT_OF_MEMORY;
 
   /* Acquire our credentials handle */
-  status = s_pSecFn->AcquireCredentialsHandle(NULL,
-                                              (TCHAR *) TEXT(SP_NAME_NTLM),
-                                              SECPKG_CRED_OUTBOUND, NULL,
-                                              ntlm->p_identity, NULL, NULL,
-                                              ntlm->credentials, &expiry);
+  status = Curl_pSecFn->AcquireCredentialsHandle(NULL,
+                                     (TCHAR *)CURL_UNCONST(TEXT(SP_NAME_NTLM)),
+                                     SECPKG_CRED_OUTBOUND, NULL,
+                                     ntlm->p_identity, NULL, NULL,
+                                     ntlm->credentials, NULL);
   if(status != SEC_E_OK)
     return CURLE_LOGIN_DENIED;
 
   /* Allocate our new context handle */
-  ntlm->context = calloc(1, sizeof(CtxtHandle));
+  ntlm->context = curlx_calloc(1, sizeof(CtxtHandle));
   if(!ntlm->context)
     return CURLE_OUT_OF_MEMORY;
 
@@ -167,23 +158,23 @@ CURLcode Curl_auth_create_ntlm_type1_message(struct Curl_easy *data,
   type_1_buf.cbBuffer   = curlx_uztoul(ntlm->token_max);
 
   /* Generate our type-1 message */
-  status = s_pSecFn->InitializeSecurityContext(ntlm->credentials, NULL,
-                                               ntlm->spn,
-                                               0, 0, SECURITY_NETWORK_DREP,
-                                               NULL, 0,
-                                               ntlm->context, &type_1_desc,
-                                               &attrs, &expiry);
+  status = Curl_pSecFn->InitializeSecurityContext(ntlm->credentials, NULL,
+                                                  ntlm->spn,
+                                                  0, 0, SECURITY_NETWORK_DREP,
+                                                  NULL, 0,
+                                                  ntlm->context, &type_1_desc,
+                                                  &attrs, NULL);
   if(status == SEC_I_COMPLETE_NEEDED ||
-    status == SEC_I_COMPLETE_AND_CONTINUE)
-    s_pSecFn->CompleteAuthToken(ntlm->context, &type_1_desc);
+     status == SEC_I_COMPLETE_AND_CONTINUE)
+    Curl_pSecFn->CompleteAuthToken(ntlm->context, &type_1_desc);
   else if(status == SEC_E_INSUFFICIENT_MEMORY)
     return CURLE_OUT_OF_MEMORY;
   else if(status != SEC_E_OK && status != SEC_I_CONTINUE_NEEDED)
     return CURLE_AUTH_ERROR;
 
-  /* Base64 encode the response */
-  return Curl_base64_encode(data, (char *) ntlm->output_token,
-                            type_1_buf.cbBuffer, outptr, outlen);
+  /* Return the response. */
+  Curl_bufref_set(out, ntlm->output_token, type_1_buf.cbBuffer, NULL);
+  return CURLE_OK;
 }
 
 /*
@@ -194,46 +185,32 @@ CURLcode Curl_auth_create_ntlm_type1_message(struct Curl_easy *data,
  * Parameters:
  *
  * data     [in]     - The session handle.
- * type2msg [in]     - The base64 encoded type-2 message.
+ * type2    [in]     - The type-2 message.
  * ntlm     [in/out] - The NTLM data struct being used and modified.
  *
  * Returns CURLE_OK on success.
  */
 CURLcode Curl_auth_decode_ntlm_type2_message(struct Curl_easy *data,
-                                             const char *type2msg,
+                                             const struct bufref *type2ref,
                                              struct ntlmdata *ntlm)
 {
-  CURLcode result = CURLE_OK;
-  unsigned char *type2 = NULL;
-  size_t type2_len = 0;
-
-#if defined(CURL_DISABLE_VERBOSE_STRINGS)
-  (void) data;
-#endif
-
-  /* Decode the base-64 encoded type-2 message */
-  if(strlen(type2msg) && *type2msg != '=') {
-    result = Curl_base64_decode(type2msg, &type2, &type2_len);
-    if(result)
-      return result;
-  }
-
   /* Ensure we have a valid type-2 message */
-  if(!type2) {
-    infof(data, "NTLM handshake failure (empty type-2 message)\n");
-
+  if(!Curl_bufref_len(type2ref)) {
+    infof(data, "NTLM handshake failure (empty type-2 message)");
     return CURLE_BAD_CONTENT_ENCODING;
   }
 
-  /* Simply store the challenge for use later */
-  ntlm->input_token = type2;
-  ntlm->input_token_len = type2_len;
+  /* Store the challenge for later use */
+  ntlm->input_token = curlx_memdup0(Curl_bufref_ptr(type2ref),
+                                    Curl_bufref_len(type2ref));
+  if(!ntlm->input_token)
+    return CURLE_OUT_OF_MEMORY;
+  ntlm->input_token_len = Curl_bufref_len(type2ref);
 
-  return result;
+  return CURLE_OK;
 }
 
 /*
-* Curl_auth_create_ntlm_type3_message()
  * Curl_auth_create_ntlm_type3_message()
  *
  * This is used to generate an already encoded NTLM type-3 message ready for
@@ -242,12 +219,10 @@ CURLcode Curl_auth_decode_ntlm_type2_message(struct Curl_easy *data,
  * Parameters:
  *
  * data    [in]     - The session handle.
- * userp   [in]     - The user name in the format User or Domain\User.
+ * userp   [in]     - The username in the format User or Domain\User.
  * passwdp [in]     - The user's password.
  * ntlm    [in/out] - The NTLM data struct being used and modified.
- * outptr  [in/out] - The address where a pointer to newly allocated memory
- *                    holding the result will be stored upon completion.
- * outlen  [out]    - The length of the output message.
+ * out     [out]    - The result storage.
  *
  * Returns CURLE_OK on success.
  */
@@ -255,7 +230,7 @@ CURLcode Curl_auth_create_ntlm_type3_message(struct Curl_easy *data,
                                              const char *userp,
                                              const char *passwdp,
                                              struct ntlmdata *ntlm,
-                                             char **outptr, size_t *outlen)
+                                             struct bufref *out)
 {
   CURLcode result = CURLE_OK;
   SecBuffer type_2_bufs[2];
@@ -264,10 +239,9 @@ CURLcode Curl_auth_create_ntlm_type3_message(struct Curl_easy *data,
   SecBufferDesc type_3_desc;
   SECURITY_STATUS status;
   unsigned long attrs;
-  TimeStamp expiry; /* For Windows 9x compatibility of SSPI calls */
 
-  (void) passwdp;
-  (void) userp;
+  (void)passwdp;
+  (void)userp;
 
   /* Setup the type-2 "input" security buffer */
   type_2_desc.ulVersion     = SECBUFFER_VERSION;
@@ -279,18 +253,17 @@ CURLcode Curl_auth_create_ntlm_type3_message(struct Curl_easy *data,
 
 #ifdef SECPKG_ATTR_ENDPOINT_BINDINGS
   /* ssl context comes from schannel.
-  * When extended protection is used in IIS server,
-  * we have to pass a second SecBuffer to the SecBufferDesc
-  * otherwise IIS will not pass the authentication (401 response).
-  * Minimum supported version is Windows 7.
-  * https://docs.microsoft.com/en-us/security-updates
-  * /SecurityAdvisories/2009/973811
-  */
+   * When extended protection is used in IIS server,
+   * we have to pass a second SecBuffer to the SecBufferDesc
+   * otherwise IIS does not pass the authentication (401 response).
+   * Minimum supported version is Windows 7.
+   * https://learn.microsoft.com/security-updates/SecurityAdvisories/2009/973811
+   */
   if(ntlm->sslContext) {
     SEC_CHANNEL_BINDINGS channelBindings;
     SecPkgContext_Bindings pkgBindings;
     pkgBindings.Bindings = &channelBindings;
-    status = s_pSecFn->QueryContextAttributes(
+    status = Curl_pSecFn->QueryContextAttributes(
       ntlm->sslContext,
       SECPKG_ATTR_ENDPOINT_BINDINGS,
       &pkgBindings
@@ -313,16 +286,16 @@ CURLcode Curl_auth_create_ntlm_type3_message(struct Curl_easy *data,
   type_3_buf.cbBuffer   = curlx_uztoul(ntlm->token_max);
 
   /* Generate our type-3 message */
-  status = s_pSecFn->InitializeSecurityContext(ntlm->credentials,
-                                               ntlm->context,
-                                               ntlm->spn,
-                                               0, 0, SECURITY_NETWORK_DREP,
-                                               &type_2_desc,
-                                               0, ntlm->context,
-                                               &type_3_desc,
-                                               &attrs, &expiry);
+  status = Curl_pSecFn->InitializeSecurityContext(ntlm->credentials,
+                                                  ntlm->context,
+                                                  ntlm->spn,
+                                                  0, 0, SECURITY_NETWORK_DREP,
+                                                  &type_2_desc,
+                                                  0, ntlm->context,
+                                                  &type_3_desc,
+                                                  &attrs, NULL);
   if(status != SEC_E_OK) {
-    infof(data, "NTLM handshake failure (type-3 message): Status=%x\n",
+    infof(data, "NTLM handshake failure (type-3 message): Status=0x%08lx",
           status);
 
     if(status == SEC_E_INSUFFICIENT_MEMORY)
@@ -331,12 +304,9 @@ CURLcode Curl_auth_create_ntlm_type3_message(struct Curl_easy *data,
     return CURLE_AUTH_ERROR;
   }
 
-  /* Base64 encode the response */
-  result = Curl_base64_encode(data, (char *) ntlm->output_token,
-                              type_3_buf.cbBuffer, outptr, outlen);
-
+  /* Return the response. */
+  result = Curl_bufref_memdup0(out, ntlm->output_token, type_3_buf.cbBuffer);
   Curl_auth_cleanup_ntlm(ntlm);
-
   return result;
 }
 
@@ -354,15 +324,15 @@ void Curl_auth_cleanup_ntlm(struct ntlmdata *ntlm)
 {
   /* Free our security context */
   if(ntlm->context) {
-    s_pSecFn->DeleteSecurityContext(ntlm->context);
-    free(ntlm->context);
+    Curl_pSecFn->DeleteSecurityContext(ntlm->context);
+    curlx_free(ntlm->context);
     ntlm->context = NULL;
   }
 
   /* Free our credentials handle */
   if(ntlm->credentials) {
-    s_pSecFn->FreeCredentialsHandle(ntlm->credentials);
-    free(ntlm->credentials);
+    Curl_pSecFn->FreeCredentialsHandle(ntlm->credentials);
+    curlx_free(ntlm->credentials);
     ntlm->credentials = NULL;
   }
 
@@ -371,13 +341,13 @@ void Curl_auth_cleanup_ntlm(struct ntlmdata *ntlm)
   ntlm->p_identity = NULL;
 
   /* Free the input and output tokens */
-  Curl_safefree(ntlm->input_token);
-  Curl_safefree(ntlm->output_token);
+  curlx_safefree(ntlm->input_token);
+  curlx_safefree(ntlm->output_token);
 
   /* Reset any variables */
   ntlm->token_max = 0;
 
-  Curl_safefree(ntlm->spn);
+  curlx_safefree(ntlm->spn);
 }
 
 #endif /* USE_WINDOWS_SSPI && USE_NTLM */

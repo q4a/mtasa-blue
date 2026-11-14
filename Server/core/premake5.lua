@@ -3,10 +3,12 @@ project "Core"
 	kind "SharedLib"
 	targetname "core"
 	targetdir(buildpath("server"))
+	clangtidy "On"
 
 	filter "system:windows"
 		includedirs { "../../vendor/sparsehash/current/src/windows" }
-		linkoptions { "/SAFESEH:NO" }
+		-- Server requires Windows 10+ (cpp-httplib)
+		defines { "_WIN32_WINNT=0x0A00" }
 
 	filter {}
 		includedirs {
@@ -31,19 +33,14 @@ project "Core"
 		"*.cpp"
 	}
 
-	filter { "system:windows", "platforms:x86" }
-		includedirs {
-			"../../vendor/detours/4.0.1/src"
-		}
-		links { "detours", "Imagehlp" }
-
 	filter "system:not windows"
 		excludes { "CExceptionInformation_Impl.cpp" }
 
 	filter "system:linux"
-		links { "ncursesw", "breakpad", "rt" }
+		links { "breakpad", "rt" }
 		buildoptions { "-pthread" }
 		linkoptions { "-pthread" }
+		linkoptions { "-l:libncursesw.so.6" }
 
 	filter "system:macosx"
 		links { "ncurses", "breakpad", "CoreFoundation.framework" }
@@ -55,3 +52,13 @@ project "Core"
 
 	filter "platforms:x64"
 		targetdir(buildpath("server/x64"))
+
+	filter "platforms:arm"
+		targetdir(buildpath("server/arm"))
+
+	filter "platforms:arm64"
+		targetdir(buildpath("server/arm64"))
+
+	-- 32-bit Windows server is no longer supported
+	filter { "system:windows", "platforms:x86" }
+		flags { "ExcludeFromBuild" }

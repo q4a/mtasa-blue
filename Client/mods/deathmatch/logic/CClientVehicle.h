@@ -15,6 +15,8 @@ class CClientVehicle;
 
 #include <game/CPlane.h>
 #include <game/CVehicle.h>
+#include <game/CModelInfo.h>
+#include <game/CVehicleAudioSettingsEntry.h>
 
 #include "CClientCommon.h"
 #include "CClientCamera.h"
@@ -25,9 +27,13 @@ class CClientVehicle;
 #include "CVehicleUpgrades.h"
 #include "CClientModel.h"
 
+class CBikeHandlingEntry;
+class CBoatHandlingEntry;
+class CClientProjectile;
+
 #define INVALID_PASSENGER_SEAT 0xFF
 #define DEFAULT_VEHICLE_HEALTH 1000
-#define MAX_VEHICLE_HEALTH 10000
+#define MAX_VEHICLE_HEALTH     10000
 
 enum eClientVehicleType
 {
@@ -43,6 +49,8 @@ enum eClientVehicleType
     CLIENTVEHICLE_BMX,
     CLIENTVEHICLE_TRAILER
 };
+
+static constexpr int NUM_VEHICLE_TYPES = 11;
 
 enum eDelayedSyncVehicleData
 {
@@ -62,6 +70,21 @@ enum eWindow
     WINDOW_LEFT_BACK,
     WINDOW_WINDSHIELD,
     MAX_WINDOWS
+};
+
+enum class VehicleBlowState : unsigned char
+{
+    INTACT,
+    AWAITING_EXPLOSION_SYNC,
+    BLOWN,
+};
+
+struct VehicleBlowFlags
+{
+    bool withMovement : 1;
+    bool withExplosion : 1;
+
+    constexpr VehicleBlowFlags() : withMovement(true), withExplosion(true) {}
 };
 
 namespace EComponentBase
@@ -113,18 +136,19 @@ struct SVehicleComponentData
         m_bVisible = true;
     }
     SString m_strParentName;
-    CVector m_vecComponentPosition;                    // Parent relative
-    CVector m_vecComponentRotation;                    // Parent relative radians
-    CVector m_vecComponentScale;                       // Parent relative
-    CVector m_vecOriginalComponentPosition;            // Parent relative
-    CVector m_vecOriginalComponentRotation;            // Parent relative radians
-    CVector m_vecOriginalComponentScale;               // Parent relative
+    CVector m_vecComponentPosition;          // Parent relative
+    CVector m_vecComponentRotation;          // Parent relative radians
+    CVector m_vecComponentScale;             // Parent relative
+    CVector m_vecOriginalComponentPosition;  // Parent relative
+    CVector m_vecOriginalComponentRotation;  // Parent relative radians
+    CVector m_vecOriginalComponentScale;     // Parent relative
     bool    m_bPositionChanged;
     bool    m_bRotationChanged;
     bool    m_bScaleChanged;
     bool    m_bVisible;
 };
-class CClientProjectile;
+
+static std::array<std::string, NUM_VEHICLE_TYPES> g_vehicleTypePrefixes;
 
 class CClientVehicle : public CClientStreamElement
 {
@@ -132,10 +156,10 @@ class CClientVehicle : public CClientStreamElement
     friend class CClientCamera;
     friend class CClientPed;
     friend class CClientVehicleManager;
-    friend class CClientGame;            // TEMP HACK
+    friend class CClientGame;  // TEMP HACK
 
-protected:            // Use CDeathmatchVehicle constructor for now. Will get removed later when this class is
-                      // cleaned up.
+protected:  // Use CDeathmatchVehicle constructor for now. Will get removed later when this class is
+            // cleaned up.
     CClientVehicle(CClientManager* pManager, ElementID ID, unsigned short usModel, unsigned char ucVariation, unsigned char ucVariation2);
 
 public:
@@ -168,7 +192,6 @@ public:
     virtual CSphere GetWorldBoundingSphere();
 
     void GetMoveSpeed(CVector& vecMoveSpeed) const;
-    void GetMoveSpeedMeters(CVector& vecMoveSpeed) const;
     void SetMoveSpeed(const CVector& vecMoveSpeed);
     void GetTurnSpeed(CVector& vecTurnSpeed) const;
     void SetTurnSpeed(const CVector& vecTurnSpeed);
@@ -195,10 +218,13 @@ public:
     void SetDoorsUndamageable(bool bUndamageable);
 
     float GetHealth() const;
-    void  SetHealth(float fHealth);
+    void  SetHealth(float health);
     void  Fix();
-    void  Blow(bool bAllowMovement = false);
-    bool  IsVehicleBlown() const noexcept { return m_bBlown; };
+
+    void             Blow(VehicleBlowFlags blow);
+    bool             IsBlown() const noexcept { return m_blowState != VehicleBlowState::INTACT; }
+    void             SetBlowState(VehicleBlowState state) { m_blowState = state; }
+    VehicleBlowState GetBlowState() const noexcept { return m_blowState; }
 
     CVehicleColor& GetColor();
     void           SetColor(const CVehicleColor& color);
@@ -235,7 +261,6 @@ public:
     bool IsDrowning() const;
     bool IsDriven() const;
     bool IsUpsideDown() const;
-    bool IsBlown() const;
 
     bool IsSirenOrAlarmActive();
     void SetSirenOrAlarmActive(bool bActive);
@@ -262,19 +287,27 @@ public:
     int           GetWheelFrictionState(unsigned char ucWheel);
     unsigned char GetPanelStatus(unsigned char ucPanel);
     unsigned char GetLightStatus(unsigned char ucLight);
+    SString       GetComponentNameForWheel(unsigned char ucWheel) const noexcept;
 
     bool AreLightsOn();
 
     void SetDoorStatus(unsigned char ucDoor, unsigned char ucStatus, bool spawnFlyingComponent);
     void SetWheelStatus(unsigned char ucWheel, unsigned char ucStatus, bool bSilent = true);
-    void SetPanelStatus(unsigned char ucPanel, unsigned char ucStatus);
+    void SetPanelStatus(unsigned char ucPanel, unsigned char ucStatus, bool spawnFlyingComponent = true, bool breakGlass = false);
     void SetLightStatus(unsigned char ucLight, unsigned char ucStatus);
     bool GetWheelMissing(unsigned char ucWheel, const SString& strWheelName = "");
 
     // TODO: Make the class remember on virtualization
     float GetHeliRotorSpeed();
-    void  SetHeliRotorSpeed(float fSpeed);
+    float GetPlaneRotorSpeed();
+    bool  GetVehicleRotorState() const noexcept;
 
+    bool GetRotorSpeed(float&);
+    bool SetRotorSpeed(float);
+    bool SetWheelsRotation(float fRot1, float fRot2, float fRot3, float fRot4) noexcept;
+    void SetVehicleRotorState(bool state, bool stopRotor) noexcept;
+    void SetHeliRotorSpeed(float fSpeed);
+    void SetPlaneRotorSpeed(float fSpeed);
     bool IsHeliSearchLightVisible();
     void SetHeliSearchLightVisible(bool bVisible);
 
@@ -300,9 +333,7 @@ public:
 
     void FuckCarCompletely(bool bKeepWheels);
 
-    unsigned long GetMemoryValue(unsigned long ulOffset);
-    unsigned long GetGameBaseAddress();
-    void          WorldIgnore(bool bWorldIgnore);
+    void WorldIgnore(bool bWorldIgnore);
 
     bool IsVirtual() { return m_pVehicle == NULL; };
 
@@ -398,7 +429,6 @@ public:
     void ResetInterpolation();
 
     void Interpolate();
-    void UpdateKeysync();
 
     void GetInitialDoorStates(SFixedArray<unsigned char, MAX_DOORS>& ucOutDoorStates);
 
@@ -428,7 +458,7 @@ public:
 
     int GetCurrentGear();
 
-    bool IsEnterable();
+    bool IsEnterable(bool localEntity = false);
     bool HasRadio();
     bool HasPoliceRadio();
 
@@ -443,6 +473,7 @@ public:
     //          error or something if it does return true.
     void Create();
     void Destroy();
+    void InvalidateComponentData();
 
     void                                    AddProjectile(CClientProjectile* pProjectile) { m_Projectiles.push_back(pProjectile); }
     void                                    RemoveProjectile(CClientProjectile* pProjectile) { m_Projectiles.remove(pProjectile); }
@@ -509,11 +540,23 @@ public:
     void  SetWheelScale(float fWheelScale);
     void  ResetWheelScale();
 
-    bool OnVehicleFallThroughMap();
+    bool                              OnVehicleFallThroughMap();
+    const CVehicleAudioSettingsEntry& GetAudioSettings() const noexcept;
+    CVehicleAudioSettingsEntry&       GetOrCreateAudioSettings();
 
-    bool GetDummyPosition(eVehicleDummies dummy, CVector& position) const;
-    bool SetDummyPosition(eVehicleDummies dummy, const CVector& position);
+    void ApplyAudioSettings();
+    void ResetAudioSettings();
+
+    bool GetDummyPosition(VehicleDummies::Enum dummy, CVector& position) const;
+    bool SetDummyPosition(VehicleDummies::Enum dummy, const CVector& position);
     bool ResetDummyPositions();
+
+    bool SpawnFlyingComponent(const eCarNodes& nodeID, const eCarComponentCollisionTypes& collisionType, std::int32_t removalTime);
+
+    CVector GetEntryPoint(std::uint32_t entryPointIndex);
+
+    bool IsOnFire() override { return m_pVehicle ? m_pVehicle->IsOnFire() : false; }
+    bool SetOnFire(bool onFire) override { return m_pVehicle ? m_pVehicle->SetOnFire(onFire) : false; }
 
 protected:
     void ConvertComponentRotationBase(const SString& vehicleComponent, CVector& vecInOutRotation, EComponentBaseType inputBase, EComponentBaseType outputBase);
@@ -553,10 +596,6 @@ protected:
     CClientVehiclePtr            m_pPreviousLink;
     CClientVehiclePtr            m_pNextLink;
     CMatrix                      m_Matrix;
-    CMatrix                      m_MatrixLast;
-    CMatrix                      m_MatrixPure;
-    CVector                      m_vecMoveSpeedInterpolate;
-    CVector                      m_vecMoveSpeedMeters;
     CVector                      m_vecMoveSpeed;
     CVector                      m_vecTurnSpeed;
     float                        m_fHealth;
@@ -581,59 +620,61 @@ protected:
         SFixedArray<unsigned long, 6> ulStartTime;
         SFixedArray<unsigned long, 6> ulTargetTime;
     } m_doorInterp;
-    bool                                   m_bSwingingDoorsAllowed;
-    bool                                   m_bDoorsLocked;
-    bool                                   m_bDoorsUndamageable;
-    bool                                   m_bCanShootPetrolTank;
-    bool                                   m_bCanBeTargettedByHeatSeekingMissiles;
-    bool                                   m_bCanBeDamaged;
-    bool                                   m_bScriptCanBeDamaged;
-    bool                                   m_bSyncUnoccupiedDamage;
-    bool                                   m_bTyresCanBurst;
-    SFixedArray<unsigned char, MAX_DOORS>  m_ucDoorStates;
-    SFixedArray<unsigned char, MAX_WHEELS> m_ucWheelStates;
-    SFixedArray<unsigned char, MAX_PANELS> m_ucPanelStates;
-    SFixedArray<unsigned char, MAX_LIGHTS> m_ucLightStates;
-    bool                                   m_bJustBlewUp;
-    eEntityStatus                          m_NormalStatus;
-    bool                                   m_bColorSaved;
-    CVehicleColor                          m_Color;
-    bool                                   m_bIsFrozen;
-    bool                                   m_bScriptFrozen;
-    bool                                   m_bFrozenWaitingForGroundToLoad;
-    float                                  m_fGroundCheckTolerance;
-    float                                  m_fObjectsAroundTolerance;
-    CVector                                m_vecWaitingForGroundSavedMoveSpeed;
-    CVector                                m_vecWaitingForGroundSavedTurnSpeed;
-    CMatrix                                m_matFrozen;
-    CVehicleUpgrades*                      m_pUpgrades;
-    unsigned char                          m_ucOverrideLights;
-    CClientVehiclePtr                      m_pTowedVehicle;
-    CClientVehiclePtr                      m_pTowedByVehicle;
-    eWinchType                             m_eWinchType;
-    CClientEntityPtr                       m_pPickedUpWinchEntity;
-    SString                                m_strRegPlate;
-    unsigned char                          m_ucPaintjob;
-    float                                  m_fDirtLevel;
-    bool                                   m_bSmokeTrail;
-    unsigned char                          m_ucAlpha;
-    bool                                   m_bAlphaChanged;
-    double                                 m_dLastRotationTime;
-    bool                                   m_bBlowNextFrame;
-    bool                                   m_bIsOnGround;
-    bool                                   m_bHeliSearchLightVisible;
-    float                                  m_fHeliRotorSpeed;
-    const CHandlingEntry*                  m_pOriginalHandlingEntry = nullptr;
-    CHandlingEntry*                        m_pHandlingEntry = nullptr;
-    const CFlyingHandlingEntry*            m_pOriginalFlyingHandlingEntry = nullptr;
-    CFlyingHandlingEntry*                  m_pFlyingHandlingEntry = nullptr;
-    const CBoatHandlingEntry*              m_pOriginalBoatHandlingEntry = nullptr;
-    CBoatHandlingEntry*                    m_pBoatHandlingEntry = nullptr;
-    const CBikeHandlingEntry*              m_pOriginalBikeHandlingEntry = nullptr;
-    CBikeHandlingEntry*                    m_pBikeHandlingEntry = nullptr;
-    float                                  m_fNitroLevel;
-    char                                   m_cNitroCount;
-    float                                  m_fWheelScale;
+    bool                                        m_bSwingingDoorsAllowed;
+    bool                                        m_bDoorsLocked;
+    bool                                        m_bDoorsUndamageable;
+    bool                                        m_bCanShootPetrolTank;
+    bool                                        m_bCanBeTargettedByHeatSeekingMissiles;
+    bool                                        m_bCanBeDamaged;
+    bool                                        m_bScriptCanBeDamaged;
+    bool                                        m_bSyncUnoccupiedDamage;
+    bool                                        m_bTyresCanBurst;
+    SFixedArray<unsigned char, MAX_DOORS>       m_ucDoorStates;
+    SFixedArray<unsigned char, MAX_WHEELS>      m_ucWheelStates;
+    SFixedArray<unsigned char, MAX_PANELS>      m_ucPanelStates;
+    SFixedArray<unsigned char, MAX_LIGHTS>      m_ucLightStates;
+    bool                                        m_bJustBlewUp;
+    eEntityStatus                               m_NormalStatus;
+    bool                                        m_bColorSaved;
+    CVehicleColor                               m_Color;
+    bool                                        m_bIsFrozen;
+    bool                                        m_bScriptFrozen;
+    bool                                        m_bFrozenWaitingForGroundToLoad;
+    float                                       m_fGroundCheckTolerance;
+    float                                       m_fObjectsAroundTolerance;
+    CVector                                     m_vecWaitingForGroundSavedMoveSpeed;
+    CVector                                     m_vecWaitingForGroundSavedTurnSpeed;
+    CMatrix                                     m_matFrozen;
+    CVehicleUpgrades*                           m_pUpgrades;
+    unsigned char                               m_ucOverrideLights;
+    CClientVehiclePtr                           m_pTowedVehicle;
+    CClientVehiclePtr                           m_pTowedByVehicle;
+    eWinchType                                  m_eWinchType;
+    CClientEntityPtr                            m_pPickedUpWinchEntity;
+    SString                                     m_strRegPlate;
+    unsigned char                               m_ucPaintjob;
+    float                                       m_fDirtLevel;
+    bool                                        m_bSmokeTrail;
+    unsigned char                               m_ucAlpha;
+    bool                                        m_bAlphaChanged;
+    double                                      m_dLastRotationTime;
+    bool                                        m_blowAfterStreamIn;
+    bool                                        m_bIsOnGround;
+    bool                                        m_bHeliSearchLightVisible;
+    float                                       m_fHeliRotorSpeed;
+    float                                       m_fPlaneRotorSpeed;
+    const CHandlingEntry*                       m_pOriginalHandlingEntry = nullptr;
+    std::unique_ptr<CHandlingEntry>             m_HandlingEntry = nullptr;
+    const CFlyingHandlingEntry*                 m_pOriginalFlyingHandlingEntry = nullptr;
+    std::unique_ptr<CFlyingHandlingEntry>       m_FlyingHandlingEntry = nullptr;
+    const CBoatHandlingEntry*                   m_pOriginalBoatHandlingEntry = nullptr;
+    std::unique_ptr<CBoatHandlingEntry>         m_BoatHandlingEntry = nullptr;
+    const CBikeHandlingEntry*                   m_pOriginalBikeHandlingEntry = nullptr;
+    std::unique_ptr<CBikeHandlingEntry>         m_BikeHandlingEntry = nullptr;
+    float                                       m_fNitroLevel;
+    char                                        m_cNitroCount;
+    float                                       m_fWheelScale;
+    std::unique_ptr<CVehicleAudioSettingsEntry> m_pSoundSettingsEntry;
 
     bool  m_bChainEngine;
     bool  m_bIsDerailed;
@@ -644,6 +685,7 @@ protected:
     uchar m_ucTrackID;
     bool  m_bJustStreamedIn;
     bool  m_bWheelScaleChanged;
+    bool  m_rotorState{true};
 
     // Time dependent error compensation interpolation
     struct
@@ -658,7 +700,7 @@ protected:
             float         fLastAlpha;
             unsigned long ulStartTime;
             unsigned long ulFinishTime;
-        } pos;
+        } pos{};
 
         struct
         {
@@ -670,13 +712,14 @@ protected:
             float         fLastAlpha;
             unsigned long ulStartTime;
             unsigned long ulFinishTime;
-        } rot;
-    } m_interp;
+        } rot{};
+    } m_interp{};
 
     unsigned long m_ulIllegalTowBreakTime;
 
-    bool m_bBlown;
     bool m_bHasDamageModel;
+
+    VehicleBlowState m_blowState = VehicleBlowState::INTACT;
 
     bool                          m_bTaxiLightOn;
     std::list<CClientProjectile*> m_Projectiles;
@@ -711,8 +754,10 @@ public:
     SLastSyncedVehData*                      m_LastSyncedData;
     SSirenInfo                               m_tSirenBeaconInfo;
     std::map<SString, SVehicleComponentData> m_ComponentData;
-    bool                                     m_bAsyncLoadingDisabled;
+    // Store visibility state when the component map is regenerated
+    std::map<SString, bool> m_ComponentVisibilityBackup;
+    bool                    m_bAsyncLoadingDisabled;
 
-    std::array<CVector, VEHICLE_DUMMY_COUNT> m_dummyPositions;
-    bool                                     m_copyDummyPositions = true;
+    std::array<CVector, static_cast<std::size_t>(VehicleDummies::VEHICLE_DUMMY_COUNT)> m_dummyPositions;
+    bool                                                                               m_copyDummyPositions = true;
 };

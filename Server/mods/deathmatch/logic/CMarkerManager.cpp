@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/CMarkerManager.cpp
  *  PURPOSE:     Marker entity manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CMarkerManager.h"
+#include "Utils.h"
 
 CMarkerManager::CMarkerManager(CColManager* pColManager)
 {

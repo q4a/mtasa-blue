@@ -5,14 +5,13 @@
  *  FILE:        game_sa/CAnimBlendStaticAssociationSA.h
  *  PURPOSE:     Header file for animation blend static association class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #include <game/CAnimBlendStaticAssociation.h>
-#include "Common.h"
 
 #define FUNC_CAnimBlendStaticAssociation_Initialize 0x4CEC20
 
@@ -31,7 +30,7 @@ public:
     short                           sAnimGroup;
     short                           sFlags;
     int*                            pAnimBlendNodesSequenceArray;
-    CAnimBlendHierarchySAInterface* pAnimHeirarchy;
+    CAnimBlendHierarchySAInterface* pAnimHierarchy;
 };
 
 class CAnimBlendStaticAssociationSA : public CAnimBlendStaticAssociation
@@ -48,7 +47,7 @@ public:
     short                                   GetAnimID() { return m_pInterface->sAnimID; }
     short                                   GetAnimGroup() { return m_pInterface->sAnimGroup; }
     short                                   GetFlags() { return m_pInterface->sFlags; }
-    CAnimBlendHierarchySAInterface*         GetAnimHierachyInterface() { return m_pInterface->pAnimHeirarchy; }
+    CAnimBlendHierarchySAInterface*         GetAnimHierarchyInterface() { return m_pInterface->pAnimHierarchy; }
     CAnimBlendStaticAssociationSAInterface* GetInterface() { return m_pInterface; }
 
 protected:

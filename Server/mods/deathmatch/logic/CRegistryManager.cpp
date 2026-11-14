@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/CRegistryManager.cpp
  *  PURPOSE:     Track registry objects
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CRegistryManager.h"
+#include "CRegistry.h"
 
 CRegistryManager::~CRegistryManager()
 {

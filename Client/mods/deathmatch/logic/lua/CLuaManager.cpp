@@ -5,13 +5,15 @@
  *  FILE:        mods/shared_logic/logic/lua/CLuaManager.cpp
  *  PURPOSE:     Lua virtual machine manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
 #include "../luadefs/CLuaFireDefs.h"
 #include "../luadefs/CLuaClientDefs.h"
+#include "../luadefs/CLuaVectorGraphicDefs.h"
+#include "../luadefs/CLuaPostfxDefs.h"
 
 using std::list;
 
@@ -27,10 +29,10 @@ CLuaManager::CLuaManager(CClientGame* pClientGame)
     m_pGUIManager = pClientGame->GetGUIManager();
     m_pRegisteredCommands = pClientGame->GetRegisteredCommands();
 
-    // Ensure lua was compiled with apichecks
-    #ifdef NDEBUG
-        #error "NDEBUG should not be defined"
-    #endif
+// Ensure lua was compiled with apichecks
+#ifdef NDEBUG
+    #error "NDEBUG should not be defined"
+#endif
     assert(luaX_is_apicheck_enabled());
 
     // Load the C functions
@@ -141,7 +143,7 @@ CLuaMain* CLuaManager::GetVirtualMachine(lua_State* luaVM)
     {
         if (luaVM == (*iter)->GetVirtualMachine())
         {
-            dassert(0);            // Why not in map?
+            dassert(0);  // Why not in map?
             return *iter;
         }
     }
@@ -170,8 +172,6 @@ void CLuaManager::LoadCFunctions()
         // Output funcs
         {"outputConsole", CLuaFunctionDefs::OutputConsole},
         {"outputChatBox", CLuaFunctionDefs::OutputChatBox},
-        {"showChat", CLuaFunctionDefs::ShowChat},
-        {"isChatVisible", CLuaFunctionDefs::IsChatVisible},
         {"outputDebugString", CLuaFunctionDefs::OutputClientDebugString},
         {"setClipboard", CLuaFunctionDefs::SetClipboard},
         {"setWindowFlashing", CLuaFunctionDefs::SetWindowFlashing},
@@ -180,12 +180,6 @@ void CLuaManager::LoadCFunctions()
         // Notification funcs
         {"createTrayNotification", CLuaFunctionDefs::CreateTrayNotification},
         {"isTrayNotificationEnabled", CLuaFunctionDefs::IsTrayNotificationEnabled},
-
-        // Clothes and body functions
-        {"getBodyPartName", CLuaFunctionDefs::GetBodyPartName},
-        {"getClothesByTypeIndex", CLuaFunctionDefs::GetClothesByTypeIndex},
-        {"getTypeIndexFromClothes", CLuaFunctionDefs::GetTypeIndexFromClothes},
-        {"getClothesTypeName", CLuaFunctionDefs::GetClothesTypeName},
 
         // Cursor funcs
         {"getCursorPosition", CLuaFunctionDefs::GetCursorPosition},
@@ -248,6 +242,7 @@ void CLuaManager::LoadCFunctions()
     // Luadef definitions
     CLuaAudioDefs::LoadFunctions();
     CLuaBlipDefs::LoadFunctions();
+    CLuaBodyClothesDefs::LoadFunctions();
     CLuaBrowserDefs::LoadFunctions();
     CLuaCameraDefs::LoadFunctions();
     CLuaColShapeDefs::LoadFunctions();
@@ -273,10 +268,14 @@ void CLuaManager::LoadCFunctions()
     CLuaTaskDefs::LoadFunctions();
     CLuaTeamDefs::LoadFunctions();
     CLuaTimerDefs::LoadFunctions();
+    CLuaVectorGraphicDefs::LoadFunctions();
     CLuaVehicleDefs::LoadFunctions();
     CLuaWaterDefs::LoadFunctions();
     CLuaWeaponDefs::LoadFunctions();
     CLuaWorldDefs::LoadFunctions();
     CLuaXMLDefs::LoadFunctions();
     CLuaClientDefs::LoadFunctions();
+    CLuaDiscordDefs::LoadFunctions();
+    CLuaBuildingDefs::LoadFunctions();
+    CLuaPostfxDefs::LoadFunctions();
 }

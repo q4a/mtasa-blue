@@ -4,13 +4,36 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        Shared/mods/deathmatch/logic/luadefs/CLuaFileDefs.cpp
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
 
+#ifndef MTA_CLIENT
+    // NOTE: Must be included before ILuaModuleManager.h which defines its own CChecksum type.
+    #include "CChecksum.h"
+#endif
+
+#include "CLuaFileDefs.h"
+#include "CScriptFile.h"
+#include "CScriptArgReader.h"
+#include <lua/CLuaFunctionParser.h>
+
 #define DEFAULT_MAX_FILESIZE 52428800
+
+static auto getResourceFilePath(CResource* thisResource, CResource* fileResource, const SString& relativePath) -> SString
+{
+    if (thisResource == fileResource)
+        return relativePath;
+
+    // If the current resource is not the resource the file resides in, then we must prepend :resourceName to the path.
+#ifdef MTA_CLIENT
+    return SString(":%s/%s", fileResource->GetName(), relativePath.c_str());
+#else
+    return SString(":%s/%s", fileResource->GetName().c_str(), relativePath.c_str());
+#endif
+};
 
 void CLuaFileDefs::LoadFunctions()
 {
@@ -21,18 +44,17 @@ void CLuaFileDefs::LoadFunctions()
         {"fileCopy", fileCopy},
         {"fileRename", fileRename},
         {"fileDelete", fileDelete},
-
         {"fileClose", fileClose},
         {"fileFlush", fileFlush},
         {"fileRead", fileRead},
         {"fileWrite", fileWrite},
-
         {"fileGetPos", fileGetPos},
         {"fileGetSize", fileGetSize},
         {"fileGetPath", fileGetPath},
         {"fileIsEOF", fileIsEOF},
-
         {"fileSetPos", fileSetPos},
+        {"fileGetContents", ArgumentParser<fileGetContents>},
+        {"fileGetHash", ArgumentParser<fileGetHash>},
     };
 
     // Add functions
@@ -67,6 +89,8 @@ void CLuaFileDefs::AddClass(lua_State* luaVM)
     lua_classfunction(luaVM, "getPos", "fileGetPos");
     lua_classfunction(luaVM, "getSize", "fileGetSize");
     lua_classfunction(luaVM, "getPath", "fileGetPath");
+    lua_classfunction(luaVM, "getContents", "fileGetContents");
+    lua_classfunction(luaVM, "getHash", "fileGetHash");
     lua_classfunction(luaVM, "isEOF", "fileIsEOF");
 
     lua_classfunction(luaVM, "setPos", "fileSetPos");
@@ -99,8 +123,8 @@ int CLuaFileDefs::File(lua_State* luaVM)
 
             if (CResourceManager::ParseResourcePathInput(strInputPath, pResource, &strAbsPath, &strMetaPath))
             {
-                CheckCanModifyOtherResource(argStream, pResource, pResource);
-                CheckCanAccessOtherResourceFile(argStream, pResource, pResource, strAbsPath);
+                CheckCanModifyOtherResource(argStream, pThisResource, pResource);
+                CheckCanAccessOtherResourceFile(argStream, pThisResource, pResource, strAbsPath);
 
                 if (!argStream.HasErrors())
                 {
@@ -203,7 +227,7 @@ int CLuaFileDefs::fileOpen(lua_State* luaVM)
                 CheckCanAccessOtherResourceFile(argStream, pThisResource, pResource, strAbsPath, &bReadOnly);
                 if (!argStream.HasErrors())
                 {
-#ifndef MTA_CLIENT // IF SERVER
+#ifndef MTA_CLIENT  // IF SERVER
                     // Create the file to create
                     CScriptFile* pFile = new CScriptFile(pThisResource->GetScriptID(), strMetaPath, DEFAULT_MAX_FILESIZE);
 #else
@@ -289,7 +313,7 @@ int CLuaFileDefs::fileCreate(lua_State* luaVM)
             lua_pushboolean(luaVM, false);
             return 1;
         }
-#endif // MTA_CLIENT
+#endif  // MTA_CLIENT
 
         SString    strAbsPath;
         SString    strMetaPath;
@@ -378,8 +402,6 @@ int CLuaFileDefs::fileExists(lua_State* luaVM)
             CResource* pResource = pLuaMain->GetResource();
             if (CResourceManager::ParseResourcePathInput(strInputPath, pResource, &strAbsPath))
             {
-                SString strFilePath;
-
                 // Does file exist?
                 bool bResult = FileExists(strAbsPath);
                 lua_pushboolean(luaVM, bResult);
@@ -440,7 +462,7 @@ int CLuaFileDefs::fileCopy(lua_State* luaVM)
         if (CResourceManager::ParseResourcePathInput(strInputSrcPath, pSrcResource, &strSrcAbsPath) &&
             CResourceManager::ParseResourcePathInput(strInputDestPath, pDestResource, &strDestAbsPath))
         {
-            CheckCanModifyOtherResources(argStream, pThisResource, { pSrcResource, pDestResource });
+            CheckCanModifyOtherResources(argStream, pThisResource, {pSrcResource, pDestResource});
             CheckCanAccessOtherResourceFile(argStream, pThisResource, pSrcResource, strSrcAbsPath);
             CheckCanAccessOtherResourceFile(argStream, pThisResource, pDestResource, strDestAbsPath);
             if (!argStream.HasErrors())
@@ -531,7 +553,7 @@ int CLuaFileDefs::fileRename(lua_State* luaVM)
         if (CResourceManager::ParseResourcePathInput(strInputSrcPath, pSrcResource, &strSrcAbsPath) &&
             CResourceManager::ParseResourcePathInput(strInputDestPath, pDestResource, &strDestAbsPath))
         {
-            CheckCanModifyOtherResources(argStream, pThisResource, { pSrcResource, pDestResource });
+            CheckCanModifyOtherResources(argStream, pThisResource, {pSrcResource, pDestResource});
             CheckCanAccessOtherResourceFile(argStream, pThisResource, pSrcResource, strSrcAbsPath);
             CheckCanAccessOtherResourceFile(argStream, pThisResource, pDestResource, strDestAbsPath);
             if (!argStream.HasErrors())
@@ -703,7 +725,7 @@ int CLuaFileDefs::fileRead(lua_State* luaVM)
 
         // Allocate a buffer to read the stuff into and read some :~ into it
         SString buffer;
-        long lBytesRead = pFile->Read(ulCount, buffer);
+        long    lBytesRead = pFile->Read(ulCount, buffer);
 
         if (lBytesRead >= 0)
         {
@@ -743,7 +765,7 @@ int CLuaFileDefs::fileWrite(lua_State* luaVM)
 
     if (!argStream.HasErrors())
     {
-        long lBytesWritten = 0;            // Total bytes written
+        long lBytesWritten = 0;  // Total bytes written
 
         // While we're not out of string arguments
         // (we will always have at least one string because we validated it above)
@@ -787,6 +809,191 @@ int CLuaFileDefs::fileWrite(lua_State* luaVM)
     // Error
     lua_pushnil(luaVM);
     return 1;
+}
+
+std::optional<std::string> CLuaFileDefs::fileGetContents(lua_State* L, CScriptFile* scriptFile, std::optional<bool> maybeVerifyContents)
+{
+    // string fileGetContents ( file target [, bool verifyContents = true ] )
+
+    std::string buffer;
+    const long  bytesRead = scriptFile->GetContents(buffer);
+
+    if (bytesRead == -2)
+    {
+        m_pScriptDebugging->LogWarning(L, "out of memory");
+        return {};
+    }
+    else if (bytesRead < 0)
+    {
+        m_pScriptDebugging->LogBadPointer(L, "file", 1);
+        return {};
+    }
+
+    if (maybeVerifyContents.value_or(true) == false)
+        return buffer;
+
+    CResource& thisResource = lua_getownerresource(L);
+
+    if (CResourceFile* resourceFile = scriptFile->GetResourceFile(); resourceFile != nullptr)
+    {
+        const CChecksum current = CChecksum::GenerateChecksumFromBuffer(buffer.data(), static_cast<unsigned long>(buffer.size()));
+
+#ifdef MTA_CLIENT
+        const CChecksum expected = resourceFile->GetServerChecksum();
+#else
+        const CChecksum expected = resourceFile->GetLastChecksum();
+#endif
+
+        if (current == expected)
+            return buffer;
+
+        const SString warningFilePath = getResourceFilePath(&thisResource, scriptFile->GetResource(), scriptFile->GetFilePath());
+        m_pScriptDebugging->LogWarning(L, "verification failed: checksum mismatch for resource file '%s' (expected %08X, got %08X)", warningFilePath.c_str(),
+                                       expected.ulCRC, current.ulCRC);
+    }
+    else
+    {
+        const SString warningFilePath = getResourceFilePath(&thisResource, scriptFile->GetResource(), scriptFile->GetFilePath());
+        m_pScriptDebugging->LogWarning(L, "verification failed: resource file not found '%s'", warningFilePath.c_str());
+    }
+
+    return {};
+}
+
+template <typename, typename = std::void_t<>>
+struct HasSetKeyMethod : std::false_type
+{
+};
+
+template <typename T>
+struct HasSetKeyMethod<T, std::void_t<decltype(std::declval<T>().SetKey(std::declval<const CryptoPP::byte*>(), std::declval<size_t>()))>> : std::true_type
+{
+};
+
+template <typename HashAlgorithmT>
+static std::string ComputeScriptFileHash(CScriptFile* scriptFile, std::string_view key = {})
+{
+    HashAlgorithmT hash{};
+
+    if constexpr (HasSetKeyMethod<HashAlgorithmT>::value)
+    {
+        if (!key.empty())
+            hash.SetKey(reinterpret_cast<const CryptoPP::byte*>(key.data()), key.size());
+    }
+
+    std::array<unsigned char, 4096> buffer{};
+
+    while (!scriptFile->IsEOF())
+    {
+        const long bytesRead = scriptFile->ReadToBuffer(buffer.data(), static_cast<unsigned long>(buffer.size()));
+
+        if (bytesRead < 1)
+            break;
+
+        hash.Update(buffer.data(), static_cast<size_t>(bytesRead));
+    }
+
+    std::string digest;
+    digest.resize(hash.DigestSize());
+    hash.Final(reinterpret_cast<CryptoPP::byte*>(digest.data()));
+
+    SString                result;
+    CryptoPP::StringSource source(digest, true, new CryptoPP::HexEncoder(new CryptoPP::StringSink(result)));
+
+    return result.ToLower();
+}
+
+std::optional<std::string> CLuaFileDefs::fileGetHash(lua_State* const luaVM, CScriptFile* scriptFile, HashFunctionType hashFunction,
+                                                     std::optional<std::unordered_map<std::string, std::string>> options)
+{
+    // string|nil fileGetHash ( file theFile, string algorithm [, table options ] )
+
+    std::string result;
+
+    const long oldPosition = scriptFile->GetPointer();
+    scriptFile->SetPointer(0);
+
+    try
+    {
+        switch (hashFunction)
+        {
+            case HashFunctionType::MD5:
+                result = ComputeScriptFileHash<CryptoPP::Weak::MD5>(scriptFile);
+                break;
+            case HashFunctionType::SHA1:
+                result = ComputeScriptFileHash<CryptoPP::SHA1>(scriptFile);
+                break;
+            case HashFunctionType::SHA224:
+                result = ComputeScriptFileHash<CryptoPP::SHA224>(scriptFile);
+                break;
+            case HashFunctionType::SHA256:
+                result = ComputeScriptFileHash<CryptoPP::SHA256>(scriptFile);
+                break;
+            case HashFunctionType::SHA384:
+                result = ComputeScriptFileHash<CryptoPP::SHA384>(scriptFile);
+                break;
+            case HashFunctionType::SHA512:
+                result = ComputeScriptFileHash<CryptoPP::SHA512>(scriptFile);
+                break;
+            case HashFunctionType::HMAC:
+            {
+                if (!options.has_value())
+                    throw std::invalid_argument("Invalid value for fields 'key' and 'algorithm'");
+
+                std::unordered_map<std::string, std::string>& optionsMap = options.value();
+
+                std::string&  key = optionsMap["key"];
+                std::string&  algorithm = optionsMap["algorithm"];
+                HmacAlgorithm hmacAlgorithm;
+
+                if (key.empty())
+                    throw std::invalid_argument("Invalid value for field 'key'");
+
+                if (algorithm.empty() || !StringToEnum(algorithm, hmacAlgorithm))
+                    throw std::invalid_argument("Invalid value for field 'algorithm'");
+
+                switch (hmacAlgorithm)
+                {
+                    case HmacAlgorithm::MD5:
+                        result = ComputeScriptFileHash<CryptoPP::HMAC<CryptoPP::Weak::MD5>>(scriptFile, key);
+                        break;
+                    case HmacAlgorithm::SHA1:
+                        result = ComputeScriptFileHash<CryptoPP::HMAC<CryptoPP::SHA1>>(scriptFile, key);
+                        break;
+                    case HmacAlgorithm::SHA224:
+                        result = ComputeScriptFileHash<CryptoPP::HMAC<CryptoPP::SHA224>>(scriptFile, key);
+                        break;
+                    case HmacAlgorithm::SHA256:
+                        result = ComputeScriptFileHash<CryptoPP::HMAC<CryptoPP::SHA256>>(scriptFile, key);
+                        break;
+                    case HmacAlgorithm::SHA384:
+                        result = ComputeScriptFileHash<CryptoPP::HMAC<CryptoPP::SHA384>>(scriptFile, key);
+                        break;
+                    case HmacAlgorithm::SHA512:
+                        result = ComputeScriptFileHash<CryptoPP::HMAC<CryptoPP::SHA512>>(scriptFile, key);
+                        break;
+                    default:
+                        throw std::invalid_argument("Invalid hmac algorithm");
+                }
+
+                break;
+            }
+            default:
+                throw std::invalid_argument("Unknown hash algorithm");
+        }
+    }
+    catch (std::exception& ex)
+    {
+        m_pScriptDebugging->LogWarning(luaVM, ex.what());
+        result.clear();
+    }
+
+    scriptFile->SetPointer(oldPosition);
+
+    if (result.empty())
+        return {};
+
+    return result;
 }
 
 int CLuaFileDefs::fileGetPos(lua_State* luaVM)
@@ -859,23 +1066,10 @@ int CLuaFileDefs::fileGetPath(lua_State* luaVM)
         CLuaMain* pLuaMain = m_pLuaManager->GetVirtualMachine(luaVM);
         if (pLuaMain)
         {
-            CResource* pThisResource = pLuaMain->GetResource();
-            CResource* pFileResource = pFile->GetResource();
-
-            SString strFilePath = pFile->GetFilePath();
-
-            // If the calling resource is not the resource the file resides in
-            // we need to prepend :resourceName to the path
-            if (pThisResource != pFileResource)
-            {
-#ifdef MTA_CLIENT
-                strFilePath = SString(":%s/%s", pFileResource->GetName(), *strFilePath);
-#else
-                strFilePath = SString(":%s/%s", *pFileResource->GetName(), *strFilePath);
-#endif
-            }
-
-            lua_pushlstring(luaVM, strFilePath, strFilePath.length());
+            CResource* const thisResource = pLuaMain->GetResource();
+            CResource* const fileResource = pFile->GetResource();
+            const SString    filePath = getResourceFilePath(thisResource, fileResource, pFile->GetFilePath());
+            lua_pushlstring(luaVM, filePath, filePath.length());
             return 1;
         }
     }
@@ -950,7 +1144,8 @@ int CLuaFileDefs::fileCloseGC(lua_State* luaVM)
     {
         // This file wasn't closed, so we should warn
         // the scripter that they forgot to close it.
-        m_pScriptDebugging->LogWarning(pFile->GetLuaDebugInfo(), "Unclosed file (%s) was garbage collected. Check your resource for dereferenced files.", *pFile->GetFilePath());
+        m_pScriptDebugging->LogWarning(pFile->GetLuaDebugInfo(), "Unclosed file (%s) was garbage collected. Check your resource for dereferenced files.",
+                                       *pFile->GetFilePath());
 
         // Close the file and delete it from elements
         pFile->Unload();

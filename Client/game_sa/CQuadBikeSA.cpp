@@ -5,19 +5,15 @@
  *  FILE:        game_sa/CQuadBikeSA.cpp
  *  PURPOSE:     Quad bike vehicle entity
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CQuadBikeSA.h"
 
-CQuadBikeSA::CQuadBikeSA(CQuadBikeSAInterface* quadbike) : CAutomobileSA(quadbike)
+CQuadBikeSA::CQuadBikeSA(CQuadBikeSAInterface* pInterface)
 {
-    DEBUG_TRACE("CQuadBikeSA::CQuadBikeSA( CQuadBikeSAInterface * quadbike )");
-    this->m_pInterface = quadbike;
-}
-
-CQuadBikeSA::CQuadBikeSA(eVehicleTypes dwModelID, unsigned char ucVariation, unsigned char ucVariation2) : CAutomobileSA(dwModelID, ucVariation, ucVariation2)
-{
-    DEBUG_TRACE("CQuadBikeSA::CQuadBikeSA( eVehicleTypes dwModelID ):CVehicleSA( dwModelID )");
+    SetInterface(pInterface);
+    Init();
 }

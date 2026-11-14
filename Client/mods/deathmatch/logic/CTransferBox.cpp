@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CTransferBox.cpp
  *  PURPOSE:     Transfer box GUI
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -40,7 +40,7 @@ void CTransferBox::CreateTransferWindow()
 {
     // Find our largest piece of text, so we can size accordingly
     std::string largeTextSample = m_titleProgressPrefix + " " + SString(_("%s of %s"), "999.99 kB", "999.99 kB");
-    float fTransferBoxWidth = m_GUI->GetTextExtent(largeTextSample.c_str(), "default-bold-small");
+    float       fTransferBoxWidth = m_GUI->GetTextExtent(largeTextSample.c_str(), "default-bold-small");
     fTransferBoxWidth = std::max<float>(fTransferBoxWidth, m_GUI->GetTextExtent(_("Disconnect to cancel download"), "default-normal"));
 
     // Add some padding to our text for the size of the window
@@ -56,7 +56,7 @@ void CTransferBox::CreateTransferWindow()
     m_window->SetCloseButtonEnabled(false);
     m_window->SetSizingEnabled(false);
     m_window->SetPosition(CVector2D(screenSize.fX * 0.5f - fTransferBoxWidth * 0.5f, screenSize.fY * 0.85f - TRANSFERBOX_HEIGHT * 0.5f));
-    m_window->SetSize(CVector2D(fTransferBoxWidth, TRANSFERBOX_HEIGHT));            // relative 0.35, 0.225
+    m_window->SetSize(CVector2D(fTransferBoxWidth, TRANSFERBOX_HEIGHT));  // relative 0.35, 0.225
 
     m_progressBar.reset(m_GUI->CreateProgressBar(m_window.get()));
     m_progressBar->SetPosition(CVector2D(0, TRANSFERBOX_YSTART));

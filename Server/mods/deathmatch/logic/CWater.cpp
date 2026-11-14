@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/CWater.cpp
  *  PURPOSE:     Water entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CWater.h"
+#include "CWaterManager.h"
+#include "CLogger.h"
 
 CWater::CWater(CWaterManager* pWaterManager, CElement* pParent, EWaterType waterType, bool bShallow) : CElement(pParent)
 {
@@ -141,6 +144,30 @@ bool CWater::ReadSpecialData(const int iLine)
         return false;
     }
     return true;
+}
+
+void CWater::WriteSpecialData(CXMLNode* pNode)
+{
+    CElement::WriteSpecialData(pNode);
+
+    CXMLAttributes& attributes = pNode->GetAttributes();
+
+    for (int i = 0; i < GetNumVertices(); i++)
+    {
+        CVector vecVertex;
+        if (!GetVertex(i, vecVertex))
+            continue;
+
+        SString strNameX("posX%d", i + 1);
+        SString strNameY("posY%d", i + 1);
+        SString strNameZ("posZ%d", i + 1);
+
+        attributes.Create(strNameX.c_str())->SetValue(vecVertex.fX);
+        attributes.Create(strNameY.c_str())->SetValue(vecVertex.fY);
+        attributes.Create(strNameZ.c_str())->SetValue(vecVertex.fZ);
+    }
+
+    attributes.Create("shallow")->SetValue(m_bShallow);
 }
 
 bool CWater::GetVertex(int index, CVector& vecPosition) const

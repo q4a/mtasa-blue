@@ -5,11 +5,12 @@
  *  FILE:        game_sa/TaskCarAccessoriesSA.cpp
  *  PURPOSE:     Car accessories game tasks
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "TaskCarAccessoriesSA.h"
 
 // ##############################################################################
 // ## Name:    CTaskSimpleCarSetPedInAsDriver
@@ -18,49 +19,42 @@
 
 CTaskSimpleCarSetPedInAsDriverSA::CTaskSimpleCarSetPedInAsDriverSA(CVehicle* pTargetVehicle, CTaskUtilityLineUpPedWithCar* pUtility)
 {
-    DEBUG_TRACE("CTaskSimpleCarSetPedInAsDriverSA::CTaskSimpleCarSetPedInAsDriverSA(CVehicle* pTargetVehicle, CTaskUtilityLineUpPedWithCar* pUtility)");
-
     CVehicleSA* pTargetVehicleSA = dynamic_cast<CVehicleSA*>(pTargetVehicle);
 
     if (pTargetVehicleSA)
     {
-        this->CreateTaskInterface(sizeof(CTaskSimpleCarSetPedInAsDriverSAInterface));
+        CreateTaskInterface(sizeof(CTaskSimpleCarSetPedInAsDriverSAInterface));
         if (!IsValid())
             return;
         DWORD dwFunc = FUNC_CTaskSimpleCarSetPedInAsDriver__Constructor;
         DWORD dwVehiclePtr = (DWORD)pTargetVehicleSA->GetInterface();
-        DWORD dwThisInterface = (DWORD)this->GetInterface();
+        DWORD dwThisInterface = (DWORD)GetInterface();
 
-        _asm
+        // clang-format off
+        __asm
         {
             mov     ecx, dwThisInterface
             push    pUtility
             push    dwVehiclePtr
             call    dwFunc
         }
-    }
-    else
-    {
-        DEBUG_TRACE("pTargetVehicleSA was invalid!");
+        // clang-format on
     }
 }
 
 void CTaskSimpleCarSetPedInAsDriverSA::SetIsWarpingPedIntoCar()
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedInAsDriverSA::SetIsWarpingPedIntoCar()");
-    ((CTaskSimpleCarSetPedInAsDriverSAInterface*)this->GetInterface())->m_bWarpingInToCar = true;
+    ((CTaskSimpleCarSetPedInAsDriverSAInterface*)GetInterface())->m_bWarpingInToCar = true;
 }
 
 void CTaskSimpleCarSetPedInAsDriverSA::SetDoorFlagsToClear(const unsigned char nDoorFlagsToClear)
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedInAsDriverSA::SetDoorFlagsToClear(const unsigned char nDoorFlagsToClear) ");
-    ((CTaskSimpleCarSetPedInAsDriverSAInterface*)this->GetInterface())->m_nDoorFlagsToClear = nDoorFlagsToClear;
+    ((CTaskSimpleCarSetPedInAsDriverSAInterface*)GetInterface())->m_nDoorFlagsToClear = nDoorFlagsToClear;
 }
 
 void CTaskSimpleCarSetPedInAsDriverSA::SetNumGettingInToClear(const unsigned char nNumGettingInToClear)
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedInAsDriverSA::SetNumGettingInToClear(const unsigned char nNumGettingInToClear) ");
-    ((CTaskSimpleCarSetPedInAsDriverSAInterface*)this->GetInterface())->m_nNumGettingInToClear = nNumGettingInToClear;
+    ((CTaskSimpleCarSetPedInAsDriverSAInterface*)GetInterface())->m_nNumGettingInToClear = nNumGettingInToClear;
 }
 
 // ##############################################################################
@@ -70,21 +64,18 @@ void CTaskSimpleCarSetPedInAsDriverSA::SetNumGettingInToClear(const unsigned cha
 
 CTaskSimpleCarSetPedInAsPassengerSA::CTaskSimpleCarSetPedInAsPassengerSA(CVehicle* pTargetVehicle, int iTargetDoor, CTaskUtilityLineUpPedWithCar* pUtility)
 {
-    DEBUG_TRACE(
-        "CTaskSimpleCarSetPedInAsPassengerSA::CTaskSimpleCarSetPedInAsPassengerSA(CVehicle* pTargetVehicle, int iTargetDoor, CTaskUtilityLineUpPedWithCar* "
-        "pUtility)");
-
     CVehicleSA* pTargetVehicleSA = dynamic_cast<CVehicleSA*>(pTargetVehicle);
 
     if (pTargetVehicleSA)
     {
-        this->CreateTaskInterface(sizeof(CTaskSimpleCarSetPedInAsPassengerSAInterface));
+        CreateTaskInterface(sizeof(CTaskSimpleCarSetPedInAsPassengerSAInterface));
         if (!IsValid())
             return;
         DWORD dwFunc = FUNC_CTaskSimpleCarSetPedInAsPassenger__Constructor;
         DWORD dwVehiclePtr = (DWORD)pTargetVehicleSA->GetInterface();
-        DWORD dwThisInterface = (DWORD)this->GetInterface();
-        _asm
+        DWORD dwThisInterface = (DWORD)GetInterface();
+        // clang-format off
+        __asm
         {
             mov     ecx, dwThisInterface
             push    pUtility
@@ -92,29 +83,23 @@ CTaskSimpleCarSetPedInAsPassengerSA::CTaskSimpleCarSetPedInAsPassengerSA(CVehicl
             push    dwVehiclePtr
             call    dwFunc
         }
-    }
-    else
-    {
-        DEBUG_TRACE("pTargetVehicleSA was invalid!");
+        // clang-format on
     }
 }
 
 void CTaskSimpleCarSetPedInAsPassengerSA::SetIsWarpingPedIntoCar()
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedInAsPassengerSA::SetIsWarpingPedIntoCar()");
-    ((CTaskSimpleCarSetPedInAsPassengerSAInterface*)this->GetInterface())->m_bWarpingInToCar = true;
+    ((CTaskSimpleCarSetPedInAsPassengerSAInterface*)GetInterface())->m_bWarpingInToCar = true;
 }
 
 void CTaskSimpleCarSetPedInAsPassengerSA::SetDoorFlagsToClear(const unsigned char nDoorFlagsToClear)
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedInAsPassengerSA::SetDoorFlagsToClear(const unsigned char nDoorFlagsToClear) ");
-    ((CTaskSimpleCarSetPedInAsPassengerSAInterface*)this->GetInterface())->m_nDoorFlagsToClear = nDoorFlagsToClear;
+    ((CTaskSimpleCarSetPedInAsPassengerSAInterface*)GetInterface())->m_nDoorFlagsToClear = nDoorFlagsToClear;
 }
 
 void CTaskSimpleCarSetPedInAsPassengerSA::SetNumGettingInToClear(const unsigned char nNumGettingInToClear)
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedInAsPassengerSA::SetNumGettingInToClear(const unsigned char nNumGettingInToClear) ");
-    ((CTaskSimpleCarSetPedInAsPassengerSAInterface*)this->GetInterface())->m_nNumGettingInToClear = nNumGettingInToClear;
+    ((CTaskSimpleCarSetPedInAsPassengerSAInterface*)GetInterface())->m_nNumGettingInToClear = nNumGettingInToClear;
 }
 
 // ##############################################################################
@@ -124,19 +109,18 @@ void CTaskSimpleCarSetPedInAsPassengerSA::SetNumGettingInToClear(const unsigned 
 
 CTaskSimpleCarSetPedOutSA::CTaskSimpleCarSetPedOutSA(CVehicle* pTargetVehicle, int iTargetDoor, bool bSwitchOffEngine)
 {
-    DEBUG_TRACE("CTaskSimpleCarSetPedOutSA::CTaskSimpleCarSetPedOutSA(CVehicle* pTargetVehicle, int iTargetDoor, bool bSwitchOffEngine)");
-
     CVehicleSA* pTargetVehicleSA = dynamic_cast<CVehicleSA*>(pTargetVehicle);
 
     if (pTargetVehicleSA)
     {
-        this->CreateTaskInterface(sizeof(CTaskSimpleCarSetPedOutSAInterface));
+        CreateTaskInterface(sizeof(CTaskSimpleCarSetPedOutSAInterface));
         if (!IsValid())
             return;
         DWORD dwFunc = FUNC_CTaskSimpleCarSetPedOut__Constructor;
         DWORD dwVehiclePtr = (DWORD)pTargetVehicleSA->GetInterface();
-        DWORD dwThisInterface = (DWORD)this->GetInterface();
-        _asm
+        DWORD dwThisInterface = (DWORD)GetInterface();
+        // clang-format off
+        __asm
         {
             mov     ecx, dwThisInterface
             xor     eax, eax
@@ -146,49 +130,43 @@ CTaskSimpleCarSetPedOutSA::CTaskSimpleCarSetPedOutSA(CVehicle* pTargetVehicle, i
             push    dwVehiclePtr
             call    dwFunc
         }
-    }
-    else
-    {
-        DEBUG_TRACE("pTargetVehicleSA was invalid!");
+        // clang-format on
     }
 }
 
 void CTaskSimpleCarSetPedOutSA::SetIsWarpingPedOutOfCar()
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedOutSA::SetIsWarpingPedOutOfCar()");
-    ((CTaskSimpleCarSetPedOutSAInterface*)this->GetInterface())->m_bWarpingOutOfCar = true;
+    ((CTaskSimpleCarSetPedOutSAInterface*)GetInterface())->m_bWarpingOutOfCar = true;
 }
 
 void CTaskSimpleCarSetPedOutSA::SetKnockedOffBike()
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedOutSA::SetKnockedOffBike() ");
-    ((CTaskSimpleCarSetPedOutSAInterface*)this->GetInterface())->m_bKnockedOffBike = true;
-    ((CTaskSimpleCarSetPedOutSAInterface*)this->GetInterface())->m_bSwitchOffEngine = false;
+    ((CTaskSimpleCarSetPedOutSAInterface*)GetInterface())->m_bKnockedOffBike = true;
+    ((CTaskSimpleCarSetPedOutSAInterface*)GetInterface())->m_bSwitchOffEngine = false;
 }
 
 void CTaskSimpleCarSetPedOutSA::SetDoorFlagsToClear(const unsigned char nDoorFlagsToClear)
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedOutSA::SetDoorFlagsToClear(const unsigned char nDoorFlagsToClear) ");
-    ((CTaskSimpleCarSetPedOutSAInterface*)this->GetInterface())->m_nDoorFlagsToClear = nDoorFlagsToClear;
+    ((CTaskSimpleCarSetPedOutSAInterface*)GetInterface())->m_nDoorFlagsToClear = nDoorFlagsToClear;
 }
 
 void CTaskSimpleCarSetPedOutSA::SetNumGettingInToClear(const unsigned char nNumGettingInToClear)
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedOutSA::SetNumGettingInToClear(const unsigned char nNumGettingInToClear) ");
-    ((CTaskSimpleCarSetPedOutSAInterface*)this->GetInterface())->m_nNumGettingInToClear = nNumGettingInToClear;
+    ((CTaskSimpleCarSetPedOutSAInterface*)GetInterface())->m_nNumGettingInToClear = nNumGettingInToClear;
 }
 
 void CTaskSimpleCarSetPedOutSA::PositionPedOutOfCollision(CPed* ped, CVehicle* vehicle, int nDoor)
 {
-    DEBUG_TRACE("void CTaskSimpleCarSetPedOutSA::PositionPedOutOfCollision(CPed * ped, CVehicle * vehicle, int nDoor)");
     DWORD dwFunc = FUNC_CTaskSimpleCarSetPedOut__PositionPedOutOfCollision;
     DWORD dwVehiclePtr = (DWORD)((CEntitySA*)vehicle)->GetInterface();
     DWORD dwPedPtr = (DWORD)((CEntitySA*)ped)->GetInterface();
-    _asm
+    // clang-format off
+    __asm
     {
         push    nDoor
         push    dwVehiclePtr
         push    dwPedPtr
         call    dwFunc
     }
+    // clang-format on
 }

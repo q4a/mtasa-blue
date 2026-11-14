@@ -5,16 +5,17 @@
  *  FILE:        mods/deathmatch/logic/CObjectSync.cpp
  *  PURPOSE:     Object sync class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CObjectSync.h"
 
 #ifdef WITH_OBJECT_SYNC
 
-#define SYNC_RATE 500
-#define MAX_PLAYER_SYNC_DISTANCE 100.0f
+    #define SYNC_RATE                500
+    #define MAX_PLAYER_SYNC_DISTANCE 100.0f
 
 CObjectSync::CObjectSync(CPlayerManager* pPlayerManager, CObjectManager* pObjectManager)
 {
@@ -43,20 +44,30 @@ bool CObjectSync::ProcessPacket(CPacket& Packet)
     return false;
 }
 
-void CObjectSync::OverrideSyncer(CObject* pObject, CPlayer* pPlayer)
+void CObjectSync::OverrideSyncer(CObject* pObject, CPlayer* pPlayer, bool bPersist)
 {
     // If the object already has a syncer, tell him not to sync it anymore
     CPlayer* pSyncer = pObject->GetSyncer();
     if (pSyncer)
     {
         if (pSyncer == pPlayer)
+        {
+            if (bPersist == false)
+            {
+                SetSyncerAsPersistent(false);
+            }
+
             return;
+        }
 
         StopSync(pObject);
     }
 
     if (pPlayer)
+    {
         StartSync(pPlayer, pObject);
+        SetSyncerAsPersistent(bPersist);
+    }
 }
 
 void CObjectSync::Update()
@@ -89,7 +100,7 @@ void CObjectSync::UpdateObject(CObject* pObject)
     if (pSyncer)
     {
         // Does the syncer still near the object?
-        if (!IsPointNearPoint3D(pSyncer->GetPosition(), pObject->GetPosition(), MAX_PLAYER_SYNC_DISTANCE) ||
+        if (!IsSyncerPersistent() && !IsPointNearPoint3D(pSyncer->GetPosition(), pObject->GetPosition(), MAX_PLAYER_SYNC_DISTANCE) ||
             (pObject->GetDimension() != pSyncer->GetDimension()))
         {
             // Stop him from syncing it
@@ -130,7 +141,7 @@ void CObjectSync::StartSync(CPlayer* pPlayer, CObject* pObject)
 
     // Call the onElementStartSync event
     CLuaArguments Arguments;
-    Arguments.PushElement(pPlayer);            // New syncer
+    Arguments.PushElement(pPlayer);  // New syncer
     pObject->CallEvent("onElementStartSync", Arguments);
 }
 
@@ -143,9 +154,11 @@ void CObjectSync::StopSync(CObject* pObject)
     // Unmark him as the syncing player
     pObject->SetSyncer(NULL);
 
+    SetSyncerAsPersistent(false);
+
     // Call the onElementStopSync event
     CLuaArguments Arguments;
-    Arguments.PushElement(pSyncer);            // Old syncer
+    Arguments.PushElement(pSyncer);  // Old syncer
     pObject->CallEvent("onElementStopSync", Arguments);
 }
 

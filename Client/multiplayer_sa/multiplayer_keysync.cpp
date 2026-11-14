@@ -5,35 +5,24 @@
  *  FILE:        multiplayer_sa/multiplayer_keysync.cpp
  *  PURPOSE:     Multiplayer module keysync methods
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
-#define MULTIPLAYER_STATS
 
-// These includes have to be fixed!
-#include "../game_sa/CPlayerInfoSA.h"
-#include "../game_sa/CPedSA.h"
-#include "../game_sa/CVehicleSA.h"
-#include "../game_sa/CPadSA.h"
+#include <game/CWeaponStatManager.h>
+#include <cstdint>
 
 extern CMultiplayerSA* pMultiplayer;
 
-DWORD dwCurrentPlayerPed = 0;            // stores the player ped temporarily during hooks
-DWORD dwCurrentVehicle = 0;              // stores the current vehicle during the hooks
+DWORD dwCurrentPlayerPed = 0;  // stores the player ped temporarily during hooks
+DWORD dwCurrentVehicle = 0;    // stores the current vehicle during the hooks
 
 DWORD dwParameter = 0;
 
 BOOL bRadioHackInstalled = FALSE;
 bool b1stPersonWeaponModeHackInPlace = false;
-
-/*
-GTA_CONTROLSET RemotePlayerKeys[MAX_PEDS];
-GTA_CONTROLSET SavedLocalPlayerKeys;
-GTA_CONTROLSET *LocalPlayerKeys = (GTA_CONTROLSET *)VAR_Keystates;
-*/
-
 bool bNotInLocalContext = false;
 bool bMouseLookEnabled = true;
 bool bInfraredVisionEnabled = false;
@@ -49,9 +38,74 @@ extern float      fLocalPlayerGravity;
 extern PreContextSwitchHandler*  m_pPreContextSwitchHandler;
 extern PostContextSwitchHandler* m_pPostContextSwitchHandler;
 
+#define NUM_FirstStreamEngineSlot     7
+#define NUM_LastStreamEngineSlot      16
+#define NUM_LocalVehicleAudioContext  0x0
+#define NUM_RemoteVehicleAudioContext 0x1
+#define VAR_VehicleAudioContext       0x50230C
+
+namespace
+{
+    bool HasValidVehicleAudioContext(const CAEVehicleAudioEntitySAInterface* pAudioInterface) noexcept
+    {
+        if (!pAudioInterface)
+            return false;
+
+        if (pAudioInterface->m_wEngineBankSlotId >= NUM_FirstStreamEngineSlot && pAudioInterface->m_wEngineBankSlotId <= NUM_LastStreamEngineSlot)
+            return true;
+
+        return pAudioInterface->m_wEngineAccelerateSoundBankId >= 0 || pAudioInterface->m_wEngineDecelerateSoundBankId >= 0;
+    }
+
+    void SetVehicleAudioContext(CVehicleSA* pVehicleSA, BYTE ucContext)
+    {
+        if (ucContext == NUM_LocalVehicleAudioContext && pVehicleSA)
+        {
+            auto* pVehicleAudioEntity = pVehicleSA->GetVehicleAudioEntity();
+            auto* pAudioInterface = pVehicleAudioEntity ? pVehicleAudioEntity->GetInterface() : nullptr;
+            if (!HasValidVehicleAudioContext(pAudioInterface))
+                return;
+        }
+
+        if (*reinterpret_cast<BYTE*>(VAR_VehicleAudioContext) == ucContext)
+            return;
+
+        MemPutFast<BYTE>(VAR_VehicleAudioContext, ucContext);
+    }
+}
+
+// Fight strafing needs mouse look, but CTaskSimpleFight::ProcessPed then uses
+// the observer's camera front vector to turn remote fighters. Skip only that
+// heading write remotely; local and native target-entity turning stay intact.
+#define HOOKPOS_CTaskSimpleFight_ProcessPed_CameraHeading   0x62A054
+#define HOOKSIZE_CTaskSimpleFight_ProcessPed_CameraHeading  5
+#define HOOKCHECK_CTaskSimpleFight_ProcessPed_CameraHeading 0xA1
+constexpr std::uintptr_t RETURN_CTaskSimpleFight_ProcessPed_CameraHeading = 0x62A059;
+constexpr std::uintptr_t SKIP_CTaskSimpleFight_ProcessPed_CameraHeading = 0x62A083;
+
+static void __declspec(naked) HOOK_CTaskSimpleFight_ProcessPed_CameraHeading()
+{
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // The replaced instruction only loads EAX. Neither continuation consumes
+    // integer flags before the epilogue overwrites them, so no save is needed.
+    // clang-format off
+    __asm
+    {
+        cmp     byte ptr [bNotInLocalContext], 0
+        jne     remote
+        mov     eax, dword ptr ds:[0xB6F32C]  // Original load of Cams[0].Front.x
+        jmp     dword ptr [RETURN_CTaskSimpleFight_ProcessPed_CameraHeading]
+    remote:
+        jmp     dword ptr [SKIP_CTaskSimpleFight_ProcessPed_CameraHeading]
+    }
+    // clang-format on
+}
+
 VOID InitKeysyncHooks()
 {
     // OutputDebugString("InitKeysyncHooks");
+    EZHookInstallChecked(CTaskSimpleFight_ProcessPed_CameraHeading);
     HookInstallMethod(VTBL_CPlayerPed__ProcessControl, (DWORD)HOOK_CPlayerPed__ProcessControl);
     HookInstallMethod(VTBL_CAutomobile__ProcessControl, (DWORD)HOOK_CAutomobile__ProcessControl);
     HookInstallMethod(VTBL_CMonsterTruck__ProcessControl, (DWORD)HOOK_CMonsterTruck__ProcessControl);
@@ -62,7 +116,6 @@ VOID InitKeysyncHooks()
     HookInstallMethod(VTBL_CTrain__ProcessControl, (DWORD)HOOK_CTrain__ProcessControl);
     HookInstallMethod(VTBL_CBoat__ProcessControl, (DWORD)HOOK_CBoat__ProcessControl);
     HookInstallMethod(VTBL_CBike__ProcessControl, (DWORD)HOOK_CBike__ProcessControl);
-    HookInstallMethod(VTBL_CHeli__ProcessControl, (DWORD)HOOK_CHeli__ProcessControl);
     HookInstallMethod(VTBL_CHeli__ProcessControl, (DWORD)HOOK_CHeli__ProcessControl);
 
     // not strictly for keysync, to make CPlayerPed::GetPlayerInfoForThisPlayerPed always return the local playerinfo
@@ -94,7 +147,7 @@ void         PostContextSwitch()
     MemPutFast<BYTE>(0x50BFB1, 0x8B);
     MemPutFast<BYTE>(0x50BFB2, 0x44);
 
-    // This is so weapon clicks and similar don't play for us when done remotly
+    // This is so weapon clicks and similar don't play for us when done remotely
     MemPutFast<BYTE>(0x60F273, 0x75);
     MemPutFast<BYTE>(0x60F260, 0x74);
     MemPutFast<BYTE>(0x60F261, 0x13);
@@ -161,7 +214,7 @@ void         PostContextSwitch()
 
         // Prevent the game making remote players vehicle's audio behave like locals (and deleting
         // radio etc when they are removed) - issue #95
-        MemPutFast<BYTE>(0x50230C, 0x1);
+        SetVehicleAudioContext(nullptr, NUM_RemoteVehicleAudioContext);
 
         bRadioHackInstalled = FALSE;
     }
@@ -214,7 +267,7 @@ VOID ReturnContextToLocalPlayer()
 
         bNotInLocalContext = false;
 
-        CPed*   pLocalPlayerPed = pGameInterface->GetPools()->GetPedFromRef((DWORD)1);            // the player
+        CPed*   pLocalPlayerPed = pGameInterface->GetPools()->GetPedFromRef((DWORD)1);  // the player
         CPedSA* pLocalPlayerPedSA = dynamic_cast<CPedSA*>(pLocalPlayerPed);
         if (pLocalPlayerPedSA)
         {
@@ -235,7 +288,7 @@ VOID ReturnContextToLocalPlayer()
         // Store any changes to the local-players stats?
         if (!bLocalStatsStatic)
         {
-            assert(0);            // bLocalStatsStatic is always true
+            assert(0);  // bLocalStatsStatic is always true
             MemCpyFast(&localStatsData.StatTypesFloat, (void*)0xb79380, sizeof(float) * MAX_FLOAT_STATS);
             MemCpyFast(&localStatsData.StatTypesInt, (void*)0xb79000, sizeof(int) * MAX_INT_STATS);
             MemCpyFast(&localStatsData.StatReactionValue, (void*)0xb78f10, sizeof(float) * MAX_REACTION_STATS);
@@ -258,7 +311,7 @@ void SwitchContext(CPed* thePed)
     if (thePed && !bNotInLocalContext)
     {
         // Grab the local ped and the local pad
-        CPed*            pLocalPlayerPed = pGameInterface->GetPools()->GetPedFromRef((DWORD)1);            // the player
+        CPed*            pLocalPlayerPed = pGameInterface->GetPools()->GetPedFromRef((DWORD)1);  // the player
         CPad*            pLocalPad = pGameInterface->GetPad();
         CPadSAInterface* pLocalPadInterface = ((CPadSA*)pLocalPad)->GetInterface();
 
@@ -266,7 +319,7 @@ void SwitchContext(CPed* thePed)
         if (thePed != pLocalPlayerPed)
         {
             // Store the local pad
-            pLocalPad->Store();            // store a copy of the local pad internally
+            pLocalPad->Store();  // store a copy of the local pad internally
 
             // Grab the remote data storage for the player we're context switching to
             CPlayerPed* thePlayerPed = dynamic_cast<CPlayerPed*>(thePed);
@@ -314,8 +367,7 @@ void SwitchContext(CPed* thePed)
                     pGameInterface->SetGravity(data->m_fGravity);
 
                     // Disable mouselook for remote players (so the mouse doesn't affect them)
-                    // Only disable mouselook if they're not holding a 1st-person weapon
-                    // And if they're not under-water
+                    // Disable mouselook if they're not holding a 1st-person weapon
                     bool bDisableMouseLook = true;
                     if (pWeapon)
                     {
@@ -325,6 +377,16 @@ void SwitchContext(CPed* thePed)
                             bDisableMouseLook = false;
                         }
                     }
+
+                    // Fight strafing needs mouse-look movement for every melee weapon,
+                    // including weapons outside the unarmed slot (GitHub Issue #395).
+                    if (pWeaponStat && pWeaponStat->GetFireType() == FIRETYPE_MELEE && data->m_pad.NewState.RightShoulder1 != 0 &&
+                        thePed->GetPedIntelligence()->GetFightTask())
+                        bDisableMouseLook = false;
+
+                    // Disable mouse look if they're not underwater (Ped vertical rotation when diving)
+                    // TODO - After merge PR #4401
+
                     bMouseLookEnabled = *(bool*)0xB6EC2E;
                     if (bDisableMouseLook)
                         *(bool*)0xB6EC2E = false;
@@ -346,7 +408,7 @@ void SwitchContext(CPed* thePed)
                     //*(BYTE *)0x73811C = 0x90;
                     //*(BYTE *)0x73811D = 0xE9;
 
-                    // This is so weapon clicks and similar don't play for us when done remotly
+                    // This is so weapon clicks and similar don't play for us when done remotely
                     MemPutFast<BYTE>(0x60F273, 0xEB);
                     MemPutFast<BYTE>(0x60F260, 0x90);
                     MemPutFast<BYTE>(0x60F261, 0x90);
@@ -455,7 +517,7 @@ void SwitchContext(CVehicle* pVehicle)
         {
             // Prevent the game making remote players vehicle's audio behave like locals (and deleting
             // radio etc when they are removed) - issue #95
-            MemPutFast<BYTE>(0x50230C, 0x0);
+            SetVehicleAudioContext(pVehicleSA, NUM_LocalVehicleAudioContext);
 
             // For tanks, to prevent our mouse movement affecting remote tanks
             // 006AEA25   0F85 60010000    JNZ gta_sa.006AEB8B
@@ -514,10 +576,35 @@ struct CSavedRegs
 };
 static CSavedRegs PlayerPed__ProcessControl_Saved;
 
-VOID _declspec(naked) HOOK_CPlayerPed__ProcessControl()
+static void ConsumeRemoteMeleeSpecialPress()
 {
+    if (!bNotInLocalContext || !pContextSwitchedPed)
+        return;
+
+    auto* pPad = static_cast<CPadSA*>(pGameInterface->GetPad())->GetInterface();
+    if ((!pPad->NewState.RightShoulder1 && !pPad->OldState.RightShoulder1) || (!pPad->NewState.ButtonTriangle && !pPad->OldState.ButtonTriangle))
+        return;
+
+    CWeapon*     pWeapon = pContextSwitchedPed->GetWeapon(pContextSwitchedPed->GetCurrentWeaponSlot());
+    CWeaponStat* pWeaponInfo = pWeapon ? pGameInterface->GetWeaponStatManager()->GetWeaponStats(pWeapon->GetType()) : nullptr;
+    if (!pWeaponInfo || pWeaponInfo->GetFireType() != FIRETYPE_MELEE)
+        return;
+
+    // GTA's MeleeAttackJustDown treats F as an edge, but remote OldState is
+    // otherwise advanced only by incoming packets. Consume this combat edge
+    // after one simulation step so a held packet cannot requeue command 12 on
+    // every frame. Preserve the held state and other controls (including normal
+    // vehicle entry); ReturnContextToLocalPlayer stores this history in the pad.
+    pPad->OldState.ButtonTriangle = pPad->NewState.ButtonTriangle;
+}
+
+static void __declspec(naked) HOOK_CPlayerPed__ProcessControl()
+{
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
     // Assumes no reentrancy
-    _asm
+    // clang-format off
+    __asm
     {
         mov     dwCurrentPlayerPed, ecx
 
@@ -532,29 +619,38 @@ VOID _declspec(naked) HOOK_CPlayerPed__ProcessControl()
         mov     PlayerPed__ProcessControl_Saved.edi, edi
         pushad
     }
+    // clang-format on
 
     SwitchContext((CPedSAInterface*)dwCurrentPlayerPed);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CPlayerPed__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
+    ConsumeRemoteMeleeSpecialPress();
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
-void _declspec(naked) CPlayerPed__ProcessControl_Abort()
+static void __declspec(naked) CPlayerPed__ProcessControl_Abort()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         // restore stuff
         mov     eax, PlayerPed__ProcessControl_Saved.eax
@@ -567,302 +663,385 @@ void _declspec(naked) CPlayerPed__ProcessControl_Abort()
         mov     edi, PlayerPed__ProcessControl_Saved.edi
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
 //--------------------------------------------------------------------------------------------
 
-VOID _declspec(naked) HOOK_CAutomobile__ProcessControl()
+static void __declspec(naked) HOOK_CAutomobile__ProcessControl()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwCurrentVehicle, ecx
         pushad
     }
+    // clang-format on
 
     SwitchContext((CVehicleSAInterface*)dwCurrentVehicle);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CAutomobile__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
 //--------------------------------------------------------------------------------------------
 
-VOID _declspec(naked) HOOK_CMonsterTruck__ProcessControl()
+static void __declspec(naked) HOOK_CMonsterTruck__ProcessControl()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwCurrentVehicle, ecx
         pushad
     }
+    // clang-format on
 
     SwitchContext((CVehicleSAInterface*)dwCurrentVehicle);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CMonsterTruck__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
 //--------------------------------------------------------------------------------------------
 
-VOID _declspec(naked) HOOK_CTrailer__ProcessControl()
+static void __declspec(naked) HOOK_CTrailer__ProcessControl()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwCurrentVehicle, ecx
         pushad
     }
+    // clang-format on
 
     SwitchContext((CVehicleSAInterface*)dwCurrentVehicle);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CTrailer__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
 //--------------------------------------------------------------------------------------------
 
-VOID _declspec(naked) HOOK_CQuadBike__ProcessControl()
+static void __declspec(naked) HOOK_CQuadBike__ProcessControl()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwCurrentVehicle, ecx
         pushad
     }
+    // clang-format on
 
     SwitchContext((CVehicleSAInterface*)dwCurrentVehicle);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CQuadBike__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
 //--------------------------------------------------------------------------------------------
 
-VOID _declspec(naked) HOOK_CPlane__ProcessControl()
+static void __declspec(naked) HOOK_CPlane__ProcessControl()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwCurrentVehicle, ecx
         pushad
     }
+    // clang-format on
 
     SwitchContext((CVehicleSAInterface*)dwCurrentVehicle);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CPlane__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
 //--------------------------------------------------------------------------------------------
 
-VOID _declspec(naked) HOOK_CBmx__ProcessControl()
+static void __declspec(naked) HOOK_CBmx__ProcessControl()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwCurrentVehicle, ecx
         pushad
     }
+    // clang-format on
 
     SwitchContext((CVehicleSAInterface*)dwCurrentVehicle);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CBmx__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
 //--------------------------------------------------------------------------------------------
 
-VOID _declspec(naked) HOOK_CTrain__ProcessControl()
+static void __declspec(naked) HOOK_CTrain__ProcessControl()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwCurrentVehicle, ecx
         pushad
     }
+    // clang-format on
 
     SwitchContext((CVehicleSAInterface*)dwCurrentVehicle);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CTrain__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
 //--------------------------------------------------------------------------------------------
 
-VOID _declspec(naked) HOOK_CBoat__ProcessControl()
+static void __declspec(naked) HOOK_CBoat__ProcessControl()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwCurrentVehicle, ecx
         pushad
     }
+    // clang-format on
 
     SwitchContext((CVehicleSAInterface*)dwCurrentVehicle);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CBoat__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
 //--------------------------------------------------------------------------------------------
 
-VOID _declspec(naked) HOOK_CBike__ProcessControl()
+static void __declspec(naked) HOOK_CBike__ProcessControl()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwCurrentVehicle, ecx
         pushad
     }
+    // clang-format on
 
     SwitchContext((CVehicleSAInterface*)dwCurrentVehicle);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CBike__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }
 
 //--------------------------------------------------------------------------------------------
 
-VOID _declspec(naked) HOOK_CHeli__ProcessControl()
+static void __declspec(naked) HOOK_CHeli__ProcessControl()
 {
-    _asm
+    MTA_VERIFY_HOOK_LOCAL_SIZE;
+
+    // clang-format off
+    __asm
     {
         mov     dwCurrentVehicle, ecx
         pushad
     }
+    // clang-format on
 
     SwitchContext((CVehicleSAInterface*)dwCurrentVehicle);
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         mov     edx, FUNC_CHeli__ProcessControl
         call    edx
         pushad
     }
+    // clang-format on
 
     ReturnContextToLocalPlayer();
 
-    _asm
+    // clang-format off
+    __asm
     {
         popad
         retn
     }
+    // clang-format on
 }

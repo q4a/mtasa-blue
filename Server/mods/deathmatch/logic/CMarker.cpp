@@ -5,11 +5,22 @@
  *  FILE:        mods/deathmatch/logic/CMarker.cpp
  *  PURPOSE:     Marker entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CMarker.h"
+#include "CMarkerManager.h"
+#include "CColCircle.h"
+#include "CColSphere.h"
+#include "CColTube.h"
+#include "CResource.h"
+#include "CLogger.h"
+#include "Utils.h"
+#include "CGame.h"
+#include "packets/CElementRPCPacket.h"
+#include <net/rpc_enums.h>
 
 CMarker::CMarker(CMarkerManager* pMarkerManager, CColManager* pColManager, CElement* pParent) : CPerPlayerEntity(pParent)
 {
@@ -23,6 +34,9 @@ CMarker::CMarker(CMarkerManager* pMarkerManager, CColManager* pColManager, CElem
     m_Color = SColorRGBA(255, 255, 255, 255);
     m_bHasTarget = false;
     m_ucIcon = ICON_NONE;
+    m_ignoreAlphaLimits = false;
+    m_TargetArrowColor = SColorRGBA(255, 64, 64, 255);
+    m_TargetArrowSize = m_fSize * 0.625f;
 
     // Create our collision object
     m_pCollision = new CColCircle(pColManager, nullptr, m_vecPosition, m_fSize, true);
@@ -142,6 +156,27 @@ bool CMarker::ReadSpecialData(const int iLine)
     return true;
 }
 
+void CMarker::WriteSpecialData(CXMLNode* pNode)
+{
+    CElement::WriteSpecialData(pNode);
+
+    CXMLAttributes& attributes = pNode->GetAttributes();
+
+    attributes.Create("posX")->SetValue(m_vecPosition.fX);
+    attributes.Create("posY")->SetValue(m_vecPosition.fY);
+    attributes.Create("posZ")->SetValue(m_vecPosition.fZ);
+
+    char szType[64];
+    if (CMarkerManager::TypeToString(m_ucType, szType))
+        attributes.Create("type")->SetValue(szType);
+
+    attributes.Create("color")->SetValue(XMLColorFromInt(m_Color.R, m_Color.G, m_Color.B, m_Color.A).c_str());
+    attributes.Create("size")->SetValue(m_fSize);
+
+    attributes.Create("interior")->SetValue(static_cast<int>(m_ucInterior));
+    attributes.Create("dimension")->SetValue(static_cast<int>(m_usDimension));
+}
+
 void CMarker::SetPosition(const CVector& vecPosition)
 {
     // Different from our current position?
@@ -251,6 +286,8 @@ void CMarker::SetSize(float fSize)
     {
         // Set the new size and update the col object
         m_fSize = fSize;
+        m_TargetArrowSize = fSize * 0.625f;
+
         UpdateCollisionObject(m_ucType);
 
         // Tell all players
@@ -268,12 +305,20 @@ void CMarker::SetColor(const SColor color)
         // Set the new color
         m_Color = color;
 
+        if (!m_ignoreAlphaLimits)
+        {
+            if (m_ucType == CMarker::TYPE_CHECKPOINT)
+                m_Color.A = 128;
+            else if (m_ucType == CMarker::TYPE_ARROW)
+                m_Color.A = 255;
+        }
+
         // Tell all the players
         CBitStream BitStream;
-        BitStream.pBitStream->Write(color.B);
-        BitStream.pBitStream->Write(color.G);
-        BitStream.pBitStream->Write(color.R);
-        BitStream.pBitStream->Write(color.A);
+        BitStream.pBitStream->Write(m_Color.B);
+        BitStream.pBitStream->Write(m_Color.G);
+        BitStream.pBitStream->Write(m_Color.R);
+        BitStream.pBitStream->Write(m_Color.A);
         BroadcastOnlyVisible(CElementRPCPacket(this, SET_MARKER_COLOR, *BitStream.pBitStream));
     }
 }
@@ -291,50 +336,64 @@ void CMarker::SetIcon(unsigned char ucIcon)
     }
 }
 
-void CMarker::Callback_OnCollision(CColShape& Shape, CElement& Element)
+void CMarker::SetTargetArrowProperties(const SColor color, float size) noexcept
 {
-    // Do not call on ourselves #7359
-    if (this == &Element)
+    if (m_TargetArrowColor == color && m_TargetArrowSize == size)
         return;
 
-    // Matching interior?
-    if (GetInterior() == Element.GetInterior())
-    {
-        // Call the marker hit event
-        CLuaArguments Arguments;
-        Arguments.PushElement(&Element);                                            // Hit element
-        Arguments.PushBoolean(GetDimension() == Element.GetDimension());            // Matching dimension?
-        CallEvent("onMarkerHit", Arguments);
+    m_TargetArrowColor = color;
+    m_TargetArrowSize = size;
 
-        if (IS_PLAYER(&Element))
-        {
-            CLuaArguments Arguments2;
-            Arguments2.PushElement(this);                                                // marker
-            Arguments2.PushBoolean(GetDimension() == Element.GetDimension());            // Matching dimension?
-            Element.CallEvent("onPlayerMarkerHit", Arguments2);
-        }
+    CBitStream BitStream;
+    BitStream.pBitStream->Write(color.R);
+    BitStream.pBitStream->Write(color.G);
+    BitStream.pBitStream->Write(color.B);
+    BitStream.pBitStream->Write(color.A);
+    BitStream.pBitStream->Write(size);
+    BroadcastOnlyVisible(CElementRPCPacket(this, SET_MARKER_TARGET_ARROW_PROPERTIES, *BitStream.pBitStream));
+}
+
+void CMarker::Callback_OnCollision(CColShape& Shape, CElement& Element)
+{
+    // Call the marker hit event
+    CLuaArguments Arguments;
+    Arguments.PushElement(&Element);                                  // Hit element
+    Arguments.PushBoolean(GetDimension() == Element.GetDimension());  // Matching dimension?
+    CallEvent("onMarkerHit", Arguments);
+
+    if (IS_PLAYER(&Element))
+    {
+        CLuaArguments Arguments2;
+        Arguments2.PushElement(this);                                      // marker
+        Arguments2.PushBoolean(GetDimension() == Element.GetDimension());  // Matching dimension?
+        Element.CallEvent("onPlayerMarkerHit", Arguments2);
     }
 }
 
 void CMarker::Callback_OnLeave(CColShape& Shape, CElement& Element)
 {
-    // Matching interior?
-    if (GetInterior() == Element.GetInterior())
-    {
-        // Call the marker hit event
-        CLuaArguments Arguments;
-        Arguments.PushElement(&Element);                                            // Hit element
-        Arguments.PushBoolean(GetDimension() == Element.GetDimension());            // Matching dimension?
-        CallEvent("onMarkerLeave", Arguments);
+    // Call the marker leave event
+    CLuaArguments Arguments;
+    Arguments.PushElement(&Element);                                  // Hit element
+    Arguments.PushBoolean(GetDimension() == Element.GetDimension());  // Matching dimension?
+    CallEvent("onMarkerLeave", Arguments);
 
-        if (IS_PLAYER(&Element))
-        {
-            CLuaArguments Arguments2;
-            Arguments2.PushElement(this);                                                // marker
-            Arguments2.PushBoolean(GetDimension() == Element.GetDimension());            // Matching dimension?
-            Element.CallEvent("onPlayerMarkerLeave", Arguments2);
-        }
+    if (IS_PLAYER(&Element))
+    {
+        CLuaArguments Arguments2;
+        Arguments2.PushElement(this);                                      // marker
+        Arguments2.PushBoolean(GetDimension() == Element.GetDimension());  // Matching dimension?
+        Element.CallEvent("onPlayerMarkerLeave", Arguments2);
     }
+}
+
+bool CMarker::ShouldTrackCollision(CColShape& Shape, CElement& Element)
+{
+    // Do not call on ourselves #7359
+    if (this == &Element)
+        return false;
+
+    return GetInterior() == Element.GetInterior();
 }
 
 void CMarker::Callback_OnCollisionDestroy(CColShape* pCollision)
@@ -358,6 +417,13 @@ void CMarker::UpdateCollisionObject(unsigned char ucOldType)
 
             m_pCollision = new CColCircle(m_pColManager, nullptr, m_vecPosition, m_fSize, true);
         }
+        else if (m_ucType == CMarker::TYPE_CYLINDER)
+        {
+            if (m_pCollision)
+                g_pGame->GetElementDeleter()->Delete(m_pCollision);
+
+            m_pCollision = new CColTube(m_pColManager, nullptr, m_vecPosition, m_fSize, m_fSize);
+        }
         else if (ucOldType == CMarker::TYPE_CHECKPOINT)
         {
             if (m_pCollision)
@@ -375,6 +441,12 @@ void CMarker::UpdateCollisionObject(unsigned char ucOldType)
     if (m_ucType == CMarker::TYPE_CHECKPOINT)
     {
         static_cast<CColCircle*>(m_pCollision)->SetRadius(m_fSize);
+    }
+    else if (m_ucType == CMarker::TYPE_CYLINDER)
+    {
+        CColTube* pShape = static_cast<CColTube*>(m_pCollision);
+        pShape->SetRadius(m_fSize);
+        pShape->SetHeight(m_fSize <= 1.5 ? m_fSize + 1 : m_fSize);
     }
     else
     {

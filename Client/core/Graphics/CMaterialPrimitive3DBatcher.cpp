@@ -6,11 +6,12 @@
  *  FILE:        CMaterialPrimitive3DBatcher.cpp
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 #include <StdInc.h>
 #include "CMaterialPrimitive3DBatcher.h"
+#include "DXHook/CProxyDirect3DDevice9.h"
 ////////////////////////////////////////////////////////////////
 //
 // CMaterialPrimitive3DBatcher::CMaterialPrimitive3DBatcher
@@ -18,9 +19,13 @@
 //
 //
 ////////////////////////////////////////////////////////////////
-CMaterialPrimitive3DBatcher::CMaterialPrimitive3DBatcher(bool bPreGUI, CGraphics* pGraphics)
-    : m_bPreGUI(bPreGUI), m_pGraphics(pGraphics)
+CMaterialPrimitive3DBatcher::CMaterialPrimitive3DBatcher(bool bPreGUI, CGraphics* pGraphics) : m_bPreGUI(bPreGUI), m_pGraphics(pGraphics)
 {
+}
+
+CMaterialPrimitive3DBatcher::~CMaterialPrimitive3DBatcher()
+{
+    ClearQueue();
 }
 ////////////////////////////////////////////////////////////////
 //
@@ -60,7 +65,6 @@ void CMaterialPrimitive3DBatcher::Flush()
     m_pDevice->SetTransform(D3DTS_WORLD, &matWorld);
     m_pDevice->SetTransform(D3DTS_VIEW, &matView);
     m_pDevice->SetTransform(D3DTS_PROJECTION, &matProjection);
-
 
     IDirect3DStateBlock9* pSavedStateBlock = nullptr;
     m_pDevice->CreateStateBlock(D3DSBT_ALL, &pSavedStateBlock);
@@ -102,9 +106,10 @@ void CMaterialPrimitive3DBatcher::Flush()
 
     uint uiVertexStreamZeroStride = sizeof(PrimitiveMaterialVertice);
 
-    for (auto& primitive : m_primitiveList) {
+    for (auto& primitive : m_primitiveList)
+    {
         const void* pVertexStreamZeroData = &primitive.pVecVertices->at(0);
-        size_t iCollectionSize = primitive.pVecVertices->size();
+        size_t      iCollectionSize = primitive.pVecVertices->size();
 
         CMaterialItem* pMaterial = primitive.pMaterial;
         if (pMaterial != pLastMaterial)
@@ -119,6 +124,20 @@ void CMaterialPrimitive3DBatcher::Flush()
 
         if (CTextureItem* pTextureItem = DynamicCast<CTextureItem>(pMaterial))
         {
+            if (CRenderTargetItem* pRenderTarget = DynamicCast<CRenderTargetItem>(pTextureItem))
+            {
+                if (!pRenderTarget->TryEnsureValid())
+                    continue;
+            }
+            else if (CScreenSourceItem* pScreenSource = DynamicCast<CScreenSourceItem>(pTextureItem))
+            {
+                if (!pScreenSource->TryEnsureValid())
+                    continue;
+            }
+
+            if (!pTextureItem->m_pD3DTexture)
+                continue;
+
             m_pDevice->SetTexture(0, pTextureItem->m_pD3DTexture);
             DrawPrimitive(primitive.eType, primitive.pVecVertices->size(), pVertexStreamZeroData, uiVertexStreamZeroStride);
         }
@@ -159,6 +178,7 @@ void CMaterialPrimitive3DBatcher::Flush()
         }
         pLastMaterial = pMaterial;
         pMaterial->Release();
+        primitive.pMaterial = nullptr;
     }
 
     // Clean up
@@ -176,7 +196,9 @@ void CMaterialPrimitive3DBatcher::ClearQueue()
     // Clean up
     for (auto& primitive : m_primitiveList)
     {
+        SAFE_RELEASE(primitive.pMaterial);
         delete primitive.pVecVertices;
+        primitive.pVecVertices = nullptr;
     }
 
     m_primitiveList.clear();
@@ -193,22 +215,22 @@ void CMaterialPrimitive3DBatcher::DrawPrimitive(D3DPRIMITIVETYPE eType, size_t i
     int iSize = 1;
     switch (eType)
     {
-    case D3DPT_POINTLIST:
-        iSize = iCollectionSize;
-        break;
-    case D3DPT_LINELIST:
-        iSize = iCollectionSize / 2;
-        break;
-    case D3DPT_LINESTRIP:
-        iSize = iCollectionSize - 1;
-        break;
-    case D3DPT_TRIANGLEFAN:
-    case D3DPT_TRIANGLESTRIP:
-        iSize = iCollectionSize - 2;
-        break;
-    case D3DPT_TRIANGLELIST:
-        iSize = iCollectionSize / 3;
-        break;
+        case D3DPT_POINTLIST:
+            iSize = iCollectionSize;
+            break;
+        case D3DPT_LINELIST:
+            iSize = iCollectionSize / 2;
+            break;
+        case D3DPT_LINESTRIP:
+            iSize = iCollectionSize - 1;
+            break;
+        case D3DPT_TRIANGLEFAN:
+        case D3DPT_TRIANGLESTRIP:
+            iSize = iCollectionSize - 2;
+            break;
+        case D3DPT_TRIANGLELIST:
+            iSize = iCollectionSize / 3;
+            break;
     }
     m_pDevice->DrawPrimitiveUP(eType, iSize, pDataAddr, uiVertexStride);
 }

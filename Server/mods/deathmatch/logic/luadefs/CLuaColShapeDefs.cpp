@@ -5,11 +5,19 @@
  *  FILE:        mods/deathmatch/logic/luadefs/CLuaColShapeDefs.cpp
  *  PURPOSE:     Lua function definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CLuaColShapeDefs.h"
+#include "CStaticFunctionDefinitions.h"
+#include "CScriptArgReader.h"
+#include "CColCircle.h"
+#include "CColCuboid.h"
+#include "CColRectangle.h"
+#include "CColPolygon.h"
+#include "CColTube.h"
 
 void CLuaColShapeDefs::LoadFunctions()
 {
@@ -74,6 +82,7 @@ void CLuaColShapeDefs::AddClass(lua_State* luaVM)
     lua_classvariable(luaVM, "radius", "setColShapeRadius", "getColShapeRadius", SetColShapeRadius, GetColShapeRadius);
     lua_classvariable(luaVM, "size", "setColShapeSize", "getColShapeSize", SetColShapeSize, OOP_GetColShapeSize);
     lua_classvariable(luaVM, "points", nullptr, "getColPolygonPoints", nullptr, OOP_GetColPolygonPoints);
+    lua_classvariable(luaVM, "elementsWithin", nullptr, "getElementsWithinColShape");
 
     lua_registerclass(luaVM, "ColShape", "Element");
 }
@@ -283,7 +292,7 @@ int CLuaColShapeDefs::CreateColPolygon(lua_State* luaVM)
     std::vector<CVector2D> vecPointList;
 
     CScriptArgReader argStream(luaVM);
-    for (uint i = 0; i < 4 || argStream.NextIsVector2D(); i++)
+    for (uint i = 0; !argStream.HasErrors() && (i < 4 || argStream.NextIsVector2D()); i++)
     {
         CVector2D vecPoint;
         argStream.ReadVector2D(vecPoint);
@@ -641,7 +650,7 @@ int CLuaColShapeDefs::GetColPolygonPointPosition(lua_State* luaVM)
     if (pColShape->GetShapeType() == COLSHAPE_POLYGON)
     {
         CColPolygon* pColPolygon = static_cast<CColPolygon*>(pColShape);
-        CVector2D          vecPoint;
+        CVector2D    vecPoint;
         if (uiPointIndex > 0 && CStaticFunctionDefinitions::GetColPolygonPointPosition(pColPolygon, uiPointIndex - 1, vecPoint))
         {
             lua_pushnumber(luaVM, vecPoint.fX);
@@ -796,30 +805,39 @@ int CLuaColShapeDefs::RemoveColPolygonPoint(lua_State* luaVM)
     return luaL_error(luaVM, argStream.GetFullErrorMessage());
 }
 
-std::tuple<float, float> CLuaColShapeDefs::GetColPolygonHeight(CColPolygon* pColPolygon)
+CLuaMultiReturn<float, float> CLuaColShapeDefs::GetColPolygonHeight(CColShape* shape)
 {
-    float fFloor, fCeil;
-    pColPolygon->GetHeight(fFloor, fCeil);
-    return std::make_tuple(fFloor, fCeil);
+    if (shape->GetShapeType() != COLSHAPE_POLYGON)
+    {
+        throw std::invalid_argument("Shape must be a polygon");
+    }
+
+    auto* polygon = static_cast<CColPolygon*>(shape);
+
+    float floor;
+    float ceil;
+
+    polygon->GetHeight(floor, ceil);
+
+    return {floor, ceil};
 }
 
-bool CLuaColShapeDefs::SetColPolygonHeight(CColPolygon* pColPolygon, std::variant<bool, float> floor, std::variant<bool, float> ceil)
+bool CLuaColShapeDefs::SetColPolygonHeight(CColShape* shape, std::variant<bool, float> floor, std::variant<bool, float> ceil)
 {
-    //  bool SetColPolygonHeight ( colshape theColShape, float floor, float ceil )
-    float fFloor, fCeil;
+    if (shape->GetShapeType() != COLSHAPE_POLYGON)
+    {
+        throw std::invalid_argument("Shape must be a polygon");
+    }
 
-    if (std::holds_alternative<bool>(floor))
-        fFloor = std::numeric_limits<float>::lowest();
-    else
-        fFloor = std::get<float>(floor);
+    auto* polygon = static_cast<CColPolygon*>(shape);
 
-    if (std::holds_alternative<bool>(ceil))
-        fCeil = std::numeric_limits<float>::max();
-    else
-        fCeil = std::get<float>(ceil);
+    float lowest = std::holds_alternative<bool>(floor) ? std::numeric_limits<float>::lowest() : std::get<float>(floor);
+    float highest = std::holds_alternative<bool>(ceil) ? std::numeric_limits<float>::max() : std::get<float>(ceil);
 
-    if (fFloor > fCeil)
-        std::swap(fFloor, fCeil);
+    if (lowest > highest)
+    {
+        std::swap(lowest, highest);
+    }
 
-    return CStaticFunctionDefinitions::SetColPolygonHeight(pColPolygon, fFloor, fCeil);
+    return CStaticFunctionDefinitions::SetColPolygonHeight(polygon, lowest, highest);
 }

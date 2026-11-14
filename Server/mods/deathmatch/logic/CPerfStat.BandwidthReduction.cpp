@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/CPerfStat.BandwidthReduction.cpp
  *  PURPOSE:     Performance stats manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPerfStatManager.h"
+#include "CBandwidthSettings.h"
 
 ///////////////////////////////////////////////////////////////
 //

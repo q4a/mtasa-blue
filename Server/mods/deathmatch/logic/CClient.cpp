@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/CClient.cpp
  *  PURPOSE:     Connected client class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CClient.h"
+#include "CGame.h"
+#include "CAccountManager.h"
 
 extern CGame* g_pGame;
 

@@ -5,17 +5,16 @@
  *  FILE:        game_sa/CPedIKSA.h
  *  PURPOSE:     Header file for ped entity inverse kinematics class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #include <game/CPedIK.h>
-#include "Common.h"
-#include <CVector.h>
 
 class CPedSAInterface;
+struct RwV3d;
 
 /**** STRAIGHT FROM R* *****/
 // Ped IK flags
@@ -50,7 +49,7 @@ typedef struct
 class CPedIKSAInterface
 {
 public:
-    CPedSAInterface* ThisPed;            // 528
+    CPedSAInterface* ThisPed;  // 528
     LimbOrientation  m_torsoOrien;
     float            m_fSlopePitch;
     float            m_fSlopePitchLimitMult;
@@ -69,13 +68,12 @@ private:
     CPedIKSAInterface* internalInterface;
 
 public:
-    // constructor
     CPedIKSA(CPedIKSAInterface* ikInterface) { internalInterface = ikInterface; };
 
     // r*'s functions
-    void SetFlag(DWORD flag) { this->internalInterface->m_flags |= flag; }
-    void ClearFlag(DWORD flag) { this->internalInterface->m_flags &= ~flag; }
-    bool IsFlagSet(DWORD flag) { return ((this->internalInterface->m_flags & flag) > 0 ? 1 : 0); }
+    void SetFlag(DWORD flag) { internalInterface->m_flags |= flag; }
+    void ClearFlag(DWORD flag) { internalInterface->m_flags &= ~flag; }
+    bool IsFlagSet(DWORD flag) { return ((internalInterface->m_flags & flag) > 0 ? 1 : 0); }
 
     void RotateTorso(void* bone, LimbOrientation* orientation, bool flag);
 };

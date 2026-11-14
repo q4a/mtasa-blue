@@ -26,18 +26,20 @@ CWebsiteRequests::CWebsiteRequests()
 
     m_pLabel1 = reinterpret_cast<CGUILabel*>(pManager->CreateLabel(m_pWindow, _("The server requests the following websites in order to load them (later):")));
     m_pLabel1->SetPosition(CVector2D(10, 26), false);
-    m_pLabel1->SetSize(CVector2D(456, 25), false);
+    m_pLabel1->SetSize(CVector2D(456, 30), false);
     m_pLabel1->SetFont("default-bold");
+    m_pLabel1->SetProperty("HorzFormatting", "WordWrapLeftAligned");
 
     m_pLabel2 = reinterpret_cast<CGUILabel*>(pManager->CreateLabel(m_pWindow, _("NEVER ENTER SENSITIVE DATA TO PROTECT THEM FROM BEING STOLEN")));
-    m_pLabel2->SetPosition(CVector2D(10, 45), false);
-    m_pLabel2->SetSize(CVector2D(456, 25), false);
+    m_pLabel2->SetPosition(CVector2D(10, 55), false);
+    m_pLabel2->SetSize(CVector2D(456, 30), false);
     m_pLabel2->SetFont("default-bold");
     m_pLabel2->SetTextColor(255, 0, 0);
+    m_pLabel2->SetProperty("HorzFormatting", "WordWrapLeftAligned");
 
     m_pAddressMemo = reinterpret_cast<CGUIMemo*>(pManager->CreateMemo(m_pWindow, ""));
-    m_pAddressMemo->SetPosition(CVector2D(10, 71), false);
-    m_pAddressMemo->SetSize(CVector2D(456, 160), false);
+    m_pAddressMemo->SetPosition(CVector2D(10, 85), false);
+    m_pAddressMemo->SetSize(CVector2D(456, 146), false);
     m_pAddressMemo->SetFont("default-bold");
     m_pAddressMemo->SetReadOnly(true);
 
@@ -61,13 +63,8 @@ CWebsiteRequests::CWebsiteRequests()
 
 CWebsiteRequests::~CWebsiteRequests()
 {
-    delete m_pLabel1;
-    delete m_pLabel2;
-    delete m_pAddressMemo;
-    delete m_pCheckRemember;
-    delete m_pButtonAllow;
-    delete m_pButtonDeny;
-    delete m_pWindow;
+    if (m_pWindow)
+        g_pCore->GetGUI()->DestroyElementRecursive(m_pWindow);
 }
 
 void CWebsiteRequests::Show()
@@ -124,7 +121,11 @@ void CWebsiteRequests::Callback(bool bAllow, const std::unordered_set<SString>& 
 bool CWebsiteRequests::OnAllowButtonClick(CGUIElement* pElement)
 {
     Hide();
-    auto requests = g_pCore->GetWebCore()->AllowPendingPages(m_pCheckRemember->GetSelected());
+    std::unordered_set<SString> requests;
+    if (auto pWebCore = g_pCore->GetWebCore(); pWebCore)
+    {
+        requests = pWebCore->AllowPendingPages(m_pCheckRemember->GetSelected());
+    }
     Callback(true, requests);
 
     return true;
@@ -133,7 +134,11 @@ bool CWebsiteRequests::OnAllowButtonClick(CGUIElement* pElement)
 bool CWebsiteRequests::OnDenyButtonClick(CGUIElement* pElement)
 {
     Hide();
-    auto requests = g_pCore->GetWebCore()->DenyPendingPages();
+    std::unordered_set<SString> requests;
+    if (auto pWebCore = g_pCore->GetWebCore(); pWebCore)
+    {
+        requests = pWebCore->DenyPendingPages();
+    }
     Callback(false, requests);
 
     return true;

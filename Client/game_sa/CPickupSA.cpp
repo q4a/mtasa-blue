@@ -5,26 +5,28 @@
  *  FILE:        game_sa/CPickupSA.cpp
  *  PURPOSE:     Pickup entity
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CGameSA.h"
+#include "CPickupSA.h"
+#include "CWorldSA.h"
+
+extern CGameSA* pGame;
 
 CPickupSA::CPickupSA(CPickupSAInterface* pickupInterface)
 {
-    DEBUG_TRACE("CPickupSA::CPickupSA(CPickupSAInterface * pickupInterface)");
-    this->internalInterface = pickupInterface;
-    this->callback = 0;
-    this->object = 0;
+    internalInterface = pickupInterface;
+    object = 0;
 }
 
-VOID CPickupSA::SetPosition(CVector* vecPosition)
+void CPickupSA::SetPosition(CVector* vecPosition)
 {
-    DEBUG_TRACE("VOID CPickupSA::SetPosition(CVector * vecPosition)");
-    this->GetInterface()->bIsPickupNearby = 0;
+    GetInterface()->bIsPickupNearby = 0;
 
-    CPickupSAInterface* iPickup = this->GetInterface();
+    CPickupSAInterface* iPickup = GetInterface();
     iPickup->CoorsX = (short)(vecPosition->fX * 8);
     iPickup->CoorsY = (short)(vecPosition->fY * 8);
     iPickup->CoorsZ = (short)(vecPosition->fZ * 8);
@@ -32,164 +34,153 @@ VOID CPickupSA::SetPosition(CVector* vecPosition)
 
 CVector* CPickupSA::GetPosition(CVector* vecPosition)
 {
-    DEBUG_TRACE("CVector * CPickupSA::GetPosition(CVector * vecPosition)");
-    CPickupSAInterface* iPickup = this->GetInterface();
+    CPickupSAInterface* iPickup = GetInterface();
     vecPosition->fX = iPickup->CoorsX / 8.0f;
     vecPosition->fY = iPickup->CoorsY / 8.0f;
     vecPosition->fZ = iPickup->CoorsZ / 8.0f;
     return vecPosition;
 }
 
-ePickupType CPickupSA::GetType()
+PickupType::Enum CPickupSA::GetType()
 {
-    DEBUG_TRACE("ePickupType CPickupSA::GetType()");
-    return (ePickupType)this->GetInterface()->Type;
+    return (PickupType::Enum)GetInterface()->Type;
 }
 
-VOID CPickupSA::SetType(ePickupType type)
+void CPickupSA::SetType(PickupType::Enum type)
 {
-    DEBUG_TRACE("VOID CPickupSA::SetType(ePickupType type)");
-    this->GetInterface()->Type = type;
+    GetInterface()->Type = (BYTE)type;
 }
 
-FLOAT CPickupSA::GetCurrentValue()
+float CPickupSA::GetCurrentValue()
 {
-    DEBUG_TRACE("FLOAT CPickupSA::GetCurrentValue()");
-    return this->GetInterface()->CurrentValue;
+    return GetInterface()->CurrentValue;
 }
 
-VOID CPickupSA::SetCurrentValue(FLOAT fCurrentValue)
+void CPickupSA::SetCurrentValue(float fCurrentValue)
 {
-    DEBUG_TRACE("VOID CPickupSA::SetCurrentValue(FLOAT fCurrentValue)");
-    this->GetInterface()->CurrentValue = fCurrentValue;
+    GetInterface()->CurrentValue = fCurrentValue;
 }
 
-VOID CPickupSA::SetRegenerationTime(DWORD dwTime)
+void CPickupSA::SetRegenerationTime(DWORD dwTime)
 {
-    DEBUG_TRACE("VOID CPickupSA::SetRegenerationTime(DWORD dwTime)");
-    this->GetInterface()->RegenerationTime = dwTime;
+    GetInterface()->RegenerationTime = dwTime;
 }
 
-VOID CPickupSA::SetMoneyPerDay(WORD wMoneyPerDay)
+void CPickupSA::SetMoneyPerDay(WORD wMoneyPerDay)
 {
-    DEBUG_TRACE("VOID CPickupSA::SetMoneyPerDay(WORD wMoneyPerDay)");
-    this->GetInterface()->MoneyPerDay = wMoneyPerDay;
+    GetInterface()->MoneyPerDay = wMoneyPerDay;
 }
 
 WORD CPickupSA::GetMoneyPerDay()
 {
-    DEBUG_TRACE("WORD CPickupSA::GetMoneyPerDay()");
-    return this->GetInterface()->MoneyPerDay;
+    return GetInterface()->MoneyPerDay;
 }
 
 WORD CPickupSA::GetModel()
 {
-    DEBUG_TRACE("WORD CPickupSA::GetModel()");
-    return this->GetInterface()->MI;
+    return GetInterface()->MI;
 }
 
-VOID CPickupSA::SetModel(WORD wModelIndex)
+void CPickupSA::SetModel(WORD wModelIndex)
 {
-    DEBUG_TRACE("VOID CPickupSA::SetModel(WORD wModelIndex)");
-    this->GetInterface()->MI = wModelIndex;
+    GetInterface()->MI = wModelIndex;
 }
 
-ePickupState CPickupSA::GetState()
+PickupState::Enum CPickupSA::GetState()
 {
-    DEBUG_TRACE("ePickupState CPickupSA::GetState()");
-    return (ePickupState)this->GetInterface()->State;
+    return (PickupState::Enum)GetInterface()->State;
 }
 
-VOID CPickupSA::SetState(ePickupState bState)
+void CPickupSA::SetState(PickupState::Enum bState)
 {
-    DEBUG_TRACE("VOID CPickupSA::SetState(ePickupState bState)");
-    this->GetInterface()->State = (BYTE)bState;
+    GetInterface()->State = (BYTE)bState;
 }
 
 BYTE CPickupSA::GetAmmo()
 {
-    DEBUG_TRACE("BYTE CPickupSA::GetAmmo()");
-    return this->GetInterface()->bNoAmmo;
+    return GetInterface()->bNoAmmo;
 }
 
-VOID CPickupSA::SetAmmo(BYTE bAmmo)
+void CPickupSA::SetAmmo(BYTE bAmmo)
 {
-    DEBUG_TRACE("VOID CPickupSA::SetAmmo(BYTE bAmmo)");
-    this->GetInterface()->bNoAmmo = bAmmo;
+    GetInterface()->bNoAmmo = bAmmo;
 }
 
 long CPickupSA::GetMonetaryValue()
 {
-    DEBUG_TRACE("long CPickupSA::GetMonetaryValue()");
-    return this->GetInterface()->MonetaryValue;
+    return GetInterface()->MonetaryValue;
 }
 
-VOID CPickupSA::SetMonetaryValue(long lMonetaryValue)
+void CPickupSA::SetMonetaryValue(long lMonetaryValue)
 {
-    DEBUG_TRACE("VOID CPickupSA::SetMonetaryValue(long lMonetaryValue)");
-    this->GetInterface()->MonetaryValue = lMonetaryValue;
+    GetInterface()->MonetaryValue = lMonetaryValue;
 }
 
 BYTE CPickupSA::IsNearby()
 {
-    DEBUG_TRACE("BYTE CPickupSA::IsNearby()");
-    return this->GetInterface()->bIsPickupNearby;
+    return GetInterface()->bIsPickupNearby;
 }
 
-VOID CPickupSA::GiveUsAPickUpObject(int ForcedObjectIndex)
+bool CPickupSA::GiveUsAPickUpObject(int ForcedObjectIndex)
 {
-    DEBUG_TRACE("VOID CPickupSA::GiveUsAPickUpObject(int ForcedObjectIndex)");
     DWORD GiveUsAPickUpObject = FUNC_GIVEUSAPICKUP;
-    DWORD dwObject = (DWORD) & (this->GetInterface()->pObject);
-    DWORD dwThis = (DWORD)this->GetInterface();
-    _asm
+    DWORD dwObject = (DWORD) & (GetInterface()->pObject);
+    DWORD dwThis = (DWORD)GetInterface();
+    // clang-format off
+    __asm
     {
         push    ForcedObjectIndex
         push    dwObject
         mov     ecx, dwThis
         call    GiveUsAPickUpObject
     }
-    if (this->GetInterface()->pObject)
+    // clang-format on
+
+    if (GetInterface()->pObject)
     {
-        if (this->object)
+        if (object)
         {
-            ((CEntitySA*)this->object)->DoNotRemoveFromGame = true;
-            delete this->object;
+            ((CEntitySA*)object)->DoNotRemoveFromGame = true;
+            delete object;
         }
-
-        this->object = new CObjectSA(this->GetInterface()->pObject);
+        object = new CObjectSA(GetInterface()->pObject);
+        return true;
     }
+    return false;
 }
 
-VOID CPickupSA::GetRidOfObjects()
+void CPickupSA::GetRidOfObjects()
 {
-    DEBUG_TRACE("VOID CPickupSA::GetRidOfObjects()");
-    if (this->GetInterface()->pObject)
-        ((CWorldSA*)pGame->GetWorld())->Remove(this->GetInterface()->pObject, CPickup_Destructor);
+    if (GetInterface()->pObject)
+        ((CWorldSA*)pGame->GetWorld())->Remove(GetInterface()->pObject, CPickup_Destructor);
 
-    if (this->object)
+    if (object)
     {
-        ((CEntitySA*)this->object)->DoNotRemoveFromGame = true;
-        delete this->object;
-        this->object = NULL;
+        ((CEntitySA*)object)->DoNotRemoveFromGame = true;
+        delete object;
+        object = nullptr;
     }
+
+    GetInterface()->pObject = nullptr;
 }
 
-VOID CPickupSA::Remove()
+void CPickupSA::Remove()
 {
     DWORD dwFunc = FUNC_CPickup_Remove;
-    DWORD dwThis = (DWORD)this->GetInterface();
-    _asm
+    DWORD dwThis = (DWORD)GetInterface();
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThis
         call    dwFunc
     }
+    // clang-format on
 
     // CPickup::Remove also destroys the owned object, so we need to delete our CObjectSA class
-    if (this->object)
+    if (object)
     {
-        ((CEntitySA*)this->object)->DoNotRemoveFromGame = true;
-        delete this->object;
-        this->object = NULL;
+        ((CEntitySA*)object)->DoNotRemoveFromGame = true;
+        delete object;
+        object = nullptr;
     }
 }

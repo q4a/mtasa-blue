@@ -16,27 +16,28 @@ class CClientEntity;
 #include "CClientCommon.h"
 #include <core/CClientEntityBase.h>
 #include "logic/CClientEntityRefManager.h"
+#include "CStringName.h"
 class CLuaFunctionRef;
 
 // Used to check fast version of getElementsByType
-//#define CHECK_ENTITIES_FROM_ROOT  MTA_DEBUG
+// #define CHECK_ENTITIES_FROM_ROOT  MTA_DEBUG
 
 class CClientManager;
 
-#define IS_PED(entity) ((entity)->GetType()==CCLIENTPLAYER||(entity)->GetType()==CCLIENTPED)
-#define IS_PLAYER(entity) ((entity)->GetType()==CCLIENTPLAYER)
-#define IS_REMOTE_PLAYER(player) (IS_PLAYER(player)&&!(player)->IsLocalPlayer())
-#define IS_RADARMARKER(entity) ((entity)->GetType()==CCLIENTRADARMARKER)
-#define IS_VEHICLE(entity) ((entity)->GetType()==CCLIENTVEHICLE)
-#define IS_OBJECT(entity) ((entity)->GetType()==CCLIENTOBJECT)
-#define IS_MARKER(entity) ((entity)->GetType()==CCLIENTMARKER)
-#define IS_PICKUP(entity) ((entity)->GetType()==CCLIENTPICKUP)
-#define IS_RADAR_AREA(entity) ((entity)->GetType()==CCLIENTRADARAREA)
-#define IS_COLSHAPE(entity) ((entity)->GetType()==CCLIENTCOLSHAPE)
-#define IS_PROJECTILE(entity) ((entity)->GetType()==CCLIENTPROJECTILE)
-#define IS_GUI(entity) ((entity)->GetType()==CCLIENTGUI)
-#define IS_IFP(entity) ((entity)->GetType()==CCLIENTIFP)
-#define CHECK_CGUI(entity,type) (((CClientGUIElement*)entity)->GetCGUIElement()->GetType()==(type))
+#define IS_PED(entity)           ((entity)->GetType() == CCLIENTPLAYER || (entity)->GetType() == CCLIENTPED)
+#define IS_PLAYER(entity)        ((entity)->GetType() == CCLIENTPLAYER)
+#define IS_REMOTE_PLAYER(player) (IS_PLAYER(player) && !(player)->IsLocalPlayer())
+#define IS_RADARMARKER(entity)   ((entity)->GetType() == CCLIENTRADARMARKER)
+#define IS_VEHICLE(entity)       ((entity)->GetType() == CCLIENTVEHICLE)
+#define IS_OBJECT(entity)        ((entity)->GetType() == CCLIENTOBJECT)
+#define IS_MARKER(entity)        ((entity)->GetType() == CCLIENTMARKER)
+#define IS_PICKUP(entity)        ((entity)->GetType() == CCLIENTPICKUP)
+#define IS_RADAR_AREA(entity)    ((entity)->GetType() == CCLIENTRADARAREA)
+#define IS_COLSHAPE(entity)      ((entity)->GetType() == CCLIENTCOLSHAPE)
+#define IS_PROJECTILE(entity)    ((entity)->GetType() == CCLIENTPROJECTILE)
+#define IS_GUI(entity)           ((entity)->GetType() == CCLIENTGUI)
+#define IS_IFP(entity)           ((entity)->GetType() == CCLIENTIFP)
+#define CHECK_CGUI(entity, type) (((CClientGUIElement*)entity)->GetCGUIElement()->GetType() == (type))
 
 enum eClientEntityType
 {
@@ -46,7 +47,6 @@ enum eClientEntityType
     CCLIENTVEHICLE,
     CCLIENTRADARMARKER,
     CCLIENTOBJECT,
-    CCLIENTCIVILIAN,
     CCLIENTPICKUP,
     CCLIENTRADARAREA,
     CCLIENTMARKER,
@@ -58,7 +58,7 @@ enum eClientEntityType
     CCLIENTGUI,
     CCLIENTSPAWNPOINT_DEPRECATED,
     CCLIENTCOLSHAPE,
-    CCLIENTDUMMY,            // anything user-defined
+    CCLIENTDUMMY,  // anything user-defined
     SCRIPTFILE,
     CCLIENTDFF,
     CCLIENTCOL,
@@ -77,9 +77,13 @@ enum eClientEntityType
     CCLIENTBROWSER,
     CCLIENTSEARCHLIGHT,
     CCLIENTIFP,
+    CCLIENTVECTORGRAPHIC,
     CCLIENTUNKNOWN,
+    CCLIENTIMG,
+    CCLIENTBUILDING,
 };
 
+class CEntity;
 class CClientColShape;
 class CClientPed;
 class CCustomData;
@@ -90,16 +94,13 @@ class CLuaMain;
 class CMapEventManager;
 typedef CFastList<CClientEntity*> CChildListType;
 
-// List of elements which is auto deleted when the last user calls Release()
-class CElementListSnapshot : public std::vector<CClientEntity*>, public CRefCountableST
-{
-};
+typedef std::vector<CClientEntity*>           CElementListSnapshot;
+typedef std::shared_ptr<CElementListSnapshot> CElementListSnapshotRef;
 
 enum eCClientEntityClassTypes
 {
     CLASS_CClientEntity,
     CLASS_CClientCamera,
-    CLASS_CClientCivilian,
     CLASS_CClientColModel,
     CLASS_CClientDFF,
     CLASS_CClientGUIElement,
@@ -138,10 +139,13 @@ enum eCClientEntityClassTypes
     CLASS_CClientRenderTarget,
     CLASS_CClientScreenSource,
     CLASS_CClientWebBrowser,
+    CLASS_CClientVectorGraphic,
     CLASS_CClientWeapon,
     CLASS_CClientEffect,
     CLASS_CClientPointLights,
-    CLASS_CClientSearchLight
+    CLASS_CClientSearchLight,
+    CLASS_CClientIMG,
+    CLASS_CClientBuilding,
 };
 
 class CClientEntity : public CClientEntityBase
@@ -192,19 +196,20 @@ public:
 
     CChildListType ::const_iterator IterBegin() { return m_Children.begin(); }
     CChildListType ::const_iterator IterEnd() { return m_Children.end(); }
-    CElementListSnapshot*           GetChildrenListSnapshot();
+    CElementListSnapshotRef         GetChildrenListSnapshot();
 
     ElementID GetID() { return m_ID; };
     void      SetID(ElementID ID);
 
-    CCustomData*  GetCustomDataPointer() { return m_pCustomData; }
-    CLuaArgument* GetCustomData(const char* szName, bool bInheritData, bool* pbIsSynced = nullptr);
-    bool          GetCustomDataString(const char* szKey, SString& strOut, bool bInheritData);
-    bool          GetCustomDataFloat(const char* szKey, float& fOut, bool bInheritData);
-    bool          GetCustomDataInt(const char* szKey, int& iOut, bool bInheritData);
-    bool          GetCustomDataBool(const char* szKey, bool& bOut, bool bInheritData);
-    void          SetCustomData(const char* szName, const CLuaArgument& Variable, bool bSynchronized = true);
-    void          DeleteCustomData(const char* szName);
+    CCustomData*   GetCustomDataPointer() { return m_pCustomData; }
+    CLuaArgument*  GetCustomData(const CStringName& name, bool bInheritData, bool* pbIsSynced = nullptr);
+    CLuaArguments* GetAllCustomData(CLuaArguments* table);
+    bool           GetCustomDataString(const CStringName& name, SString& strOut, bool bInheritData);
+    bool           GetCustomDataFloat(const CStringName& name, float& fOut, bool bInheritData);
+    bool           GetCustomDataInt(const CStringName& name, int& iOut, bool bInheritData);
+    bool           GetCustomDataBool(const CStringName& name, bool& bOut, bool bInheritData);
+    void           SetCustomData(const CStringName& name, const CLuaArgument& Variable, bool bSynchronized = true);
+    void           DeleteCustomData(const CStringName& name);
 
     virtual bool GetMatrix(CMatrix& matrix) const;
     virtual bool SetMatrix(const CMatrix& matrix);
@@ -224,7 +229,7 @@ public:
     virtual inline unsigned short GetDimension() { return m_usDimension; }
     virtual void                  SetDimension(unsigned short usDimension);
 
-    virtual void ModelRequestCallback(CModelInfo* pModelInfo){};
+    virtual void ModelRequestCallback(CModelInfo* pModelInfo) {};
 
     virtual bool IsOutOfBounds();
     CModelInfo*  GetModelInfo() { return m_pModelInfo; };
@@ -244,9 +249,9 @@ public:
 
     bool AddEvent(CLuaMain* pLuaMain, const char* szName, const CLuaFunctionRef& iLuaFunction, bool bPropagated, EEventPriorityType eventPriority,
                   float fPriorityMod);
-    bool CallEvent(const char* szName, const CLuaArguments& Arguments, bool bCallOnChildren);
-    void CallEventNoParent(const char* szName, const CLuaArguments& Arguments, CClientEntity* pSource);
-    void CallParentEvent(const char* szName, const CLuaArguments& Arguments, CClientEntity* pSource);
+    bool CallEvent(const char* szName, const CLuaArguments& Arguments, bool bCallOnChildren, const char* minClientVersion = nullptr);
+    void CallEventNoParent(const char* szName, const CLuaArguments& Arguments, CClientEntity* pSource, const char* minClientVersion = nullptr);
+    void CallParentEvent(const char* szName, const CLuaArguments& Arguments, CClientEntity* pSource, const char* minClientVersion = nullptr);
     bool DeleteEvent(CLuaMain* pLuaMain, const char* szName, const CLuaFunctionRef& iLuaFunction);
     void DeleteEvents(CLuaMain* pLuaMain, bool bRecursive);
     void DeleteAllEvents();
@@ -327,21 +332,21 @@ public:
     bool CanBeDestroyedByScript() { return m_canBeDestroyedByScript; }
     void SetCanBeDestroyedByScript(bool canBeDestroyedByScript) { m_canBeDestroyedByScript = canBeDestroyedByScript; }
 
+    virtual bool IsOnFire() { return false; }
+    virtual bool SetOnFire(bool onFire) { return false; }
+
 protected:
-    CClientManager*       m_pManager;
-    CClientEntity*        m_pParent;
-    CChildListType        m_Children;
-    CElementListSnapshot* m_pChildrenListSnapshot;
-    uint                  m_uiChildrenListSnapshotRevision;
+    CClientManager*         m_pManager;
+    CClientEntity*          m_pParent;
+    CChildListType          m_Children;
+    CElementListSnapshotRef m_pChildrenListSnapshot;
+    uint                    m_uiChildrenListSnapshotRevision;
 
     CCustomData* m_pCustomData;
 
     ElementID m_ID;
-    CVector   m_vecRelativePosition;
 
     unsigned short m_usDimension;
-
-    unsigned int m_uiLine;
 
 private:
     unsigned int m_uiTypeHash;
@@ -356,7 +361,7 @@ protected:
     CVector                     m_vecAttachedPosition;
     CVector                     m_vecAttachedRotation;
     std::vector<CClientEntity*> m_AttachedEntities;
-    bool                        m_bDisallowAttaching;            // Protect against attaching in destructor
+    bool                        m_bDisallowAttaching;  // Protect against attaching in destructor
 
     bool                              m_bBeingDeleted;
     bool                              m_bSystemEntity;
@@ -373,8 +378,8 @@ protected:
     bool                              m_bWorldIgnored;
     bool                              m_bCallPropagationEnabled;
     bool                              m_bDisallowCollisions;
-    bool                              m_canBeDestroyedByScript = true;            // If true, destroyElement function will
-                                                                                  // have no effect on this element
+    bool                              m_canBeDestroyedByScript = true;  // If true, destroyElement function will
+                                                                        // have no effect on this element
 public:
     // Optimization for getElementsByType starting at root
     static void StartupEntitiesFromRoot();

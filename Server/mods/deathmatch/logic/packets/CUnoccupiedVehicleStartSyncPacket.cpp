@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CUnoccupiedVehicleStartSyncPacket.cpp
  *  PURPOSE:     Unoccupied vehicle start synchronization packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CUnoccupiedVehicleStartSyncPacket.h"
+#include "CVehicle.h"
 
 bool CUnoccupiedVehicleStartSyncPacket::Write(NetBitStreamInterface& BitStream) const
 {

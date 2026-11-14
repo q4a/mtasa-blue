@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/lua/CLuaMain.cpp
  *  PURPOSE:     Lua main
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -21,7 +21,7 @@ static CLuaManager* m_pLuaManager;
 SString             CLuaMain::ms_strExpectedUndumpHash;
 
 #define HOOK_INSTRUCTION_COUNT 1000000
-#define HOOK_MAXIMUM_TIME 5000
+#define HOOK_MAXIMUM_TIME      5000
 
 #include "luascripts/coroutine_debug.lua.h"
 #include "luascripts/exports.lua.h"
@@ -75,17 +75,10 @@ void CLuaMain::ResetInstructionCount()
 void CLuaMain::InitSecurity()
 {
     // Disable dangerous Lua Os library functions
-    static const luaL_reg osfuncs[] =
-    {
-        { "execute", CLuaUtilDefs::DisabledFunction },
-        { "rename", CLuaUtilDefs::DisabledFunction },
-        { "remove", CLuaUtilDefs::DisabledFunction },
-        { "exit", CLuaUtilDefs::DisabledFunction },
-        { "getenv", CLuaUtilDefs::DisabledFunction },
-        { "tmpname", CLuaUtilDefs::DisabledFunction },
-        { "setlocale", CLuaUtilDefs::DisabledFunction },
-        { NULL, NULL }
-    };
+    static const luaL_reg osfuncs[] = {{"execute", CLuaUtilDefs::DisabledFunction},   {"rename", CLuaUtilDefs::DisabledFunction},
+                                       {"remove", CLuaUtilDefs::DisabledFunction},    {"exit", CLuaUtilDefs::DisabledFunction},
+                                       {"getenv", CLuaUtilDefs::DisabledFunction},    {"tmpname", CLuaUtilDefs::DisabledFunction},
+                                       {"setlocale", CLuaUtilDefs::DisabledFunction}, {NULL, NULL}};
     luaL_register(m_luaVM, "os", osfuncs);
 
     lua_register(m_luaVM, "dofile", CLuaUtilDefs::DisabledFunction);
@@ -118,7 +111,7 @@ void CLuaMain::InitClasses(lua_State* luaVM)
     CLuaEngineDefs::AddClass(luaVM);
     CLuaEffectDefs::AddClass(luaVM);
     CLuaGUIDefs::AddClass(luaVM);
-    CLuaBrowserDefs::AddClass(luaVM);            // browser must be after drawing/gui, since it extends DxTexture/GUIElement
+    CLuaBrowserDefs::AddClass(luaVM);  // browser must be after drawing/gui, since it extends DxTexture/GUIElement
     CLuaMarkerDefs::AddClass(luaVM);
     CLuaObjectDefs::AddClass(luaVM);
     CLuaPedDefs::AddClass(luaVM);
@@ -134,6 +127,7 @@ void CLuaMain::InitClasses(lua_State* luaVM)
     CLuaVehicleDefs::AddClass(luaVM);
     CLuaWaterDefs::AddClass(luaVM);
     CLuaWeaponDefs::AddClass(luaVM);
+    CLuaBuildingDefs::AddClass(luaVM);
 
     CLuaShared::AddClasses(luaVM);
 }
@@ -176,6 +170,9 @@ void CLuaMain::InitVM()
 
     lua_pushelement(m_luaVM, m_pResource->GetResourceEntity());
     lua_setglobal(m_luaVM, "resourceRoot");
+
+    lua_pushstring(m_luaVM, m_pResource->GetName());
+    lua_setglobal(m_luaVM, "resourceName");
 
     lua_pushelement(m_luaVM, m_pResource->GetResourceGUIEntity());
     lua_setglobal(m_luaVM, "guiRoot");
@@ -223,7 +220,7 @@ bool CLuaMain::LoadScriptFromBuffer(const char* cpInBuffer, unsigned int uiInSiz
     uint        uiSize;
     if (!g_pNet->DeobfuscateScript(cpInBuffer, uiInSize, &cpBuffer, &uiSize, strNiceFilename))
     {
-        SString strMessage("%s is invalid. Please re-compile at http://luac.mtasa.com/", *strNiceFilename);
+        SString strMessage("%s is invalid. Please re-compile at https://luac.multitheftauto.com/", *strNiceFilename);
         g_pClientGame->GetScriptDebugging()->LogError(m_luaVM, "Loading script failed: %s", *strMessage);
         g_pClientGame->TellServerSomethingImportant(1003, SString("CLIENT SCRIPT ERROR: %s", *strMessage));
         return false;
@@ -249,10 +246,17 @@ bool CLuaMain::LoadScriptFromBuffer(const char* cpInBuffer, unsigned int uiInSiz
             }
         }
         else
+        {
             strUTFScript = std::string(cpBuffer, uiSize);
+        }
 
         // Run the script
-        if (CLuaMain::LuaLoadBuffer(m_luaVM, bUTF8 ? cpBuffer : strUTFScript.c_str(), uiSize, SString("@%s", *strNiceFilename)))
+        const bool loadFailed = CLuaMain::LuaLoadBuffer(m_luaVM, bUTF8 ? cpBuffer : strUTFScript.c_str(), uiSize, SString("@%s", *strNiceFilename));
+
+        // Clear raw script from memory
+        std::fill(strUTFScript.begin(), strUTFScript.end(), 0);
+
+        if (loadFailed)
         {
             // Print the error
             std::string strRes = lua_tostring(m_luaVM, -1);
@@ -266,6 +270,8 @@ bool CLuaMain::LoadScriptFromBuffer(const char* cpInBuffer, unsigned int uiInSiz
                 CLogger::LogPrint("SCRIPT ERROR: Unknown\n");
                 g_pClientGame->GetScriptDebugging()->LogError(m_luaVM, "Loading script failed for unknown reason");
             }
+
+            return false;
         }
         else
         {
@@ -280,19 +286,22 @@ bool CLuaMain::LoadScriptFromBuffer(const char* cpInBuffer, unsigned int uiInSiz
             // Cleanup any return values
             if (lua_gettop(m_luaVM) > luaSavedTop)
                 lua_settop(m_luaVM, luaSavedTop);
+
             return true;
         }
     }
 
+    std::fill_n(const_cast<char*>(cpBuffer), uiSize, 0);
     return false;
 }
 
 bool CLuaMain::LoadScript(const char* szLUAScript)
 {
-    if (m_luaVM && !IsLuaCompiledScript(szLUAScript, strlen(szLUAScript)))
+    const auto sz = strlen(szLUAScript);
+    if (m_luaVM && !IsLuaCompiledScript(szLUAScript, sz))
     {
         // Run the script
-        if (!CLuaMain::LuaLoadBuffer(m_luaVM, szLUAScript, strlen(szLUAScript), NULL))
+        if (!CLuaMain::LuaLoadBuffer(m_luaVM, szLUAScript, sz, NULL))
         {
             ResetInstructionCount();
             int luaSavedTop = lua_gettop(m_luaVM);
@@ -486,14 +495,14 @@ const SString& CLuaMain::GetFunctionTag(int iLuaFunction)
             strText = SString("@func_%d NULL", iLuaFunction);
         }
 
-    #ifdef CHECK_FUNCTION_TAG
+#ifdef CHECK_FUNCTION_TAG
         if (pTag)
         {
             // Check tag remains unchanged
             assert(strText == *pTag);
             return *pTag;
         }
-    #endif
+#endif
 
         MapSet(m_FunctionTagMap, iLuaFunction, strText);
         pTag = MapFind(m_FunctionTagMap, iLuaFunction);

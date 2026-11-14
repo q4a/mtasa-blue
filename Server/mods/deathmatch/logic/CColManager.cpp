@@ -5,11 +5,15 @@
  *  FILE:        mods/deathmatch/logic/CColManager.cpp
  *  PURPOSE:     Collision entity manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CColCallback.h"
+#include "CColManager.h"
+#include "CSpatialDatabase.h"
+#include "Utils.h"
 
 CColManager::CColManager()
 {
@@ -68,7 +72,7 @@ void CColManager::DoHitDetectionForColShape(CColShape* pShape)
     }
 
     // Add existing colliders, so they can be disconnected if required
-    for (list<CElement*>::const_iterator it = pShape->CollidersBegin(); it != pShape->CollidersEnd(); ++it)
+    for (std::list<CElement*>::const_iterator it = pShape->CollidersBegin(); it != pShape->CollidersEnd(); ++it)
     {
         entityList[*it] = 1;
     }
@@ -102,7 +106,7 @@ void CColManager::DoHitDetectionForEntity(const CVector& vecNowPosition, CElemen
             shortList[(CColShape*)*it] = 1;
 
     // Add existing collisions, so they can be disconnected if required
-    for (list<CColShape*>::const_iterator it = pEntity->CollisionsBegin(); it != pEntity->CollisionsEnd(); ++it)
+    for (std::list<CColShape*>::const_iterator it = pEntity->CollisionsBegin(); it != pEntity->CollisionsEnd(); ++it)
         shortList[*it] = 1;
 
     // Test each colshape against the entity
@@ -125,7 +129,15 @@ void CColManager::DoHitDetectionForEntity(const CVector& vecNowPosition, CElemen
 //
 void CColManager::HandleHitDetectionResult(bool bHit, CColShape* pShape, CElement* pEntity)
 {
+    bool bShouldTrack = bHit;
     if (bHit)
+    {
+        CColCallback* pCallback = pShape->GetCallback();
+        if (pCallback)
+            bShouldTrack = pCallback->ShouldTrackCollision(*pShape, *pEntity);
+    }
+
+    if (bShouldTrack)
     {
         // If they havn't collided yet
         if (!pEntity->CollisionExists(pShape))
@@ -135,7 +147,7 @@ void CColManager::HandleHitDetectionResult(bool bHit, CColShape* pShape, CElemen
             pEntity->AddCollision(pShape);
 
             // Can we call the event?
-            if (pShape->GetAutoCallEvent())
+            if (pShape->GetAutoCallEvent() && !pEntity->IsBeingDeleted())
             {
                 // Call the event
                 CLuaArguments Arguments;
@@ -153,15 +165,15 @@ void CColManager::HandleHitDetectionResult(bool bHit, CColShape* pShape, CElemen
             pShape->CallHitCallback(*pEntity);
         }
     }
-    else
+    else if (pEntity->CollisionExists(pShape))
     {
-        // If they collided before
-        if (pEntity->CollisionExists(pShape))
-        {
-            // Remove the collision and the collider
-            pShape->RemoveCollider(pEntity);
-            pEntity->RemoveCollision(pShape);
+        // Remove the collision and the collider
+        pShape->RemoveCollider(pEntity);
+        pEntity->RemoveCollision(pShape);
 
+        // Can we call the event?
+        if (!pEntity->IsBeingDeleted())
+        {
             // Call the event
             CLuaArguments Arguments;
             Arguments.PushElement(pEntity);
@@ -172,9 +184,9 @@ void CColManager::HandleHitDetectionResult(bool bHit, CColShape* pShape, CElemen
             Arguments2.PushElement(pShape);
             Arguments2.PushBoolean((pShape->GetDimension() == pEntity->GetDimension()));
             pEntity->CallEvent("onElementColShapeLeave", Arguments2);
-
-            pShape->CallLeaveCallback(*pEntity);
         }
+
+        pShape->CallLeaveCallback(*pEntity);
     }
 }
 
@@ -207,7 +219,7 @@ void CColManager::RemoveFromList(CColShape* pShape)
 
 void CColManager::TakeOutTheTrash()
 {
-    vector<CColShape*>::const_iterator iter = m_TrashCan.begin();
+    std::vector<CColShape*>::const_iterator iter = m_TrashCan.begin();
     for (; iter != m_TrashCan.end(); iter++)
     {
         ListRemove(m_List, *iter);

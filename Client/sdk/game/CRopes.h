@@ -5,18 +5,18 @@
  *  FILE:        sdk/game/CRopes.h
  *  PURPOSE:     Rope entity interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-typedef unsigned long DWORD;
 class CVector;
+class CEntitySAInterface;
 
 class CRopes
 {
 public:
-    virtual int CreateRopeForSwatPed(const CVector& vecPosition, DWORD dwDuration = 4000) = 0;
+    virtual int  CreateRopeForSwatPed(const CVector& vecPosition, DWORD dwDuration = 4000) = 0;
     virtual void RemoveEntityRope(CEntitySAInterface* pObjectSA) = 0;
 };

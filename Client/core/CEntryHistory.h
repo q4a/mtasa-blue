@@ -5,7 +5,7 @@
  *  FILE:        core/CEntryHistory.h
  *  PURPOSE:     Header file for the entry history class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -64,8 +64,9 @@ public:
     bool Empty() const { return m_entries.empty(); }
 
     // Return a specific entry from history
-    CEntryHistoryItem* Get(unsigned int index) {
-        auto& iter = std::next(m_entries.begin(), index);
+    CEntryHistoryItem* Get(unsigned int index)
+    {
+        auto iter = std::next(m_entries.begin(), index);
         if (iter != m_entries.end())
             return &(*iter);
         return nullptr;

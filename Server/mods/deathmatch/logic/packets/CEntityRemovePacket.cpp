@@ -5,16 +5,18 @@
  *  FILE:        mods/deathmatch/logic/packets/CEntityRemovePacket.cpp
  *  PURPOSE:     Entity remove packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CEntityRemovePacket.h"
+#include "CElement.h"
 
 bool CEntityRemovePacket::Write(NetBitStreamInterface& BitStream) const
 {
     // Write each entity type then id to it
-    vector<CElement*>::const_iterator iter = m_List.begin();
+    std::vector<CElement*>::const_iterator iter = m_List.begin();
     for (; iter != m_List.end(); ++iter)
     {
         BitStream.Write((*iter)->GetID());

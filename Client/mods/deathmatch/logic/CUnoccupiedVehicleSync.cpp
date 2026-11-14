@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CUnoccupiedVehicleSync.cpp
  *  PURPOSE:     Unoccupied vehicle sync manager
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -16,7 +16,7 @@ using std::list;
 
 extern CClientGame* g_pClientGame;
 
-#define UNOCCUPIED_VEHICLE_SYNC_RATE   ( g_TickRateSettings.iUnoccupiedVehicle )
+#define UNOCCUPIED_VEHICLE_SYNC_RATE (g_TickRateSettings.iUnoccupiedVehicle)
 
 CUnoccupiedVehicleSync::CUnoccupiedVehicleSync(CClientVehicleManager* pVehicleManager)
 {
@@ -220,7 +220,7 @@ void CUnoccupiedVehicleSync::UpdateDamageModels()
         list<CDeathmatchVehicle*>::const_iterator iter = m_List.begin();
         for (; iter != m_List.end(); iter++)
         {
-            // Sync its damage model changes if neccessary
+            // Sync its damage model changes if necessary
             (*iter)->SyncDamageModel();
         }
     }
@@ -228,6 +228,18 @@ void CUnoccupiedVehicleSync::UpdateDamageModels()
 
 void CUnoccupiedVehicleSync::UpdateStates()
 {
+    CClientPlayer*      pPlayer = g_pClientGame->GetLocalPlayer();
+    CDeathmatchVehicle* pVehicle = nullptr;
+    // Are we leaving a vehicle as driver and physically out of it
+    if (pPlayer && pPlayer->GetVehicleInOutState() == VEHICLE_INOUT_GETTING_OUT && pPlayer->GetOccupiedVehicle() && pPlayer->GetOccupiedVehicleSeat() == 0 &&
+        !pPlayer->GetRealOccupiedVehicle())
+    {
+        // Make sure it's valid and add it to our list temporarily
+        pVehicle = dynamic_cast<CDeathmatchVehicle*>(pPlayer->GetOccupiedVehicle());
+        if (pVehicle)
+            m_List.push_front(pVehicle);
+    }
+
     // Got any items?
     if (m_List.size() > 0)
     {
@@ -250,6 +262,10 @@ void CUnoccupiedVehicleSync::UpdateStates()
             g_pNet->DeallocateNetBitStream(pBitStream);
         }
     }
+
+    // Remove our vehicle again
+    if (pVehicle)
+        m_List.remove(pVehicle);
 }
 
 bool CUnoccupiedVehicleSync::WriteVehicleInformation(NetBitStreamInterface* pBitStream, CDeathmatchVehicle* pVehicle)

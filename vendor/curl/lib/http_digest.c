@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,21 +18,18 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
+ * SPDX-License-Identifier: curl
+ *
  ***************************************************************************/
-
 #include "curl_setup.h"
 
-#if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_CRYPTO_AUTH)
+#if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_DIGEST_AUTH)
 
 #include "urldata.h"
 #include "strcase.h"
 #include "vauth/vauth.h"
 #include "http_digest.h"
-
-/* The last 3 #include files should be in this order */
-#include "curl_printf.h"
-#include "curl_memory.h"
-#include "memdebug.h"
+#include "curlx/strparse.h"
 
 /* Test example headers:
 
@@ -56,12 +53,11 @@ CURLcode Curl_input_digest(struct Curl_easy *data,
     digest = &data->state.digest;
   }
 
-  if(!checkprefix("Digest", header))
+  if(!checkprefix("Digest", header) || !ISBLANK(header[6]))
     return CURLE_BAD_CONTENT_ENCODING;
 
   header += strlen("Digest");
-  while(*header && ISSPACE(*header))
-    header++;
+  curlx_str_passblanks(&header);
 
   return Curl_auth_decode_digest_http_message(header, digest);
 }
@@ -73,13 +69,13 @@ CURLcode Curl_output_digest(struct Curl_easy *data,
 {
   CURLcode result;
   unsigned char *path = NULL;
-  char *tmp = NULL;
+  const char *tmp = NULL;
   char *response;
   size_t len;
   bool have_chlg;
 
   /* Point to the address of the pointer that holds the string to send to the
-     server, which is for a plain host or for a HTTP proxy */
+     server, which is for a plain host or for an HTTP proxy */
   char **allocuserpwd;
 
   /* Point to the name and password for this */
@@ -95,7 +91,7 @@ CURLcode Curl_output_digest(struct Curl_easy *data,
     return CURLE_NOT_BUILT_IN;
 #else
     digest = &data->state.proxydigest;
-    allocuserpwd = &data->state.aptr.proxyuserpwd;
+    allocuserpwd = &data->req.proxyuserpwd;
     userp = data->state.aptr.proxyuser;
     passwdp = data->state.aptr.proxypasswd;
     authp = &data->state.authproxy;
@@ -103,13 +99,13 @@ CURLcode Curl_output_digest(struct Curl_easy *data,
   }
   else {
     digest = &data->state.digest;
-    allocuserpwd = &data->state.aptr.userpwd;
+    allocuserpwd = &data->req.userpwd;
     userp = data->state.aptr.user;
     passwdp = data->state.aptr.passwd;
     authp = &data->state.authhost;
   }
 
-  Curl_safefree(*allocuserpwd);
+  curlx_safefree(*allocuserpwd);
 
   /* not set means empty */
   if(!userp)
@@ -118,10 +114,10 @@ CURLcode Curl_output_digest(struct Curl_easy *data,
   if(!passwdp)
     passwdp = "";
 
-#if defined(USE_WINDOWS_SSPI)
-  have_chlg = digest->input_token ? TRUE : FALSE;
+#ifdef USE_WINDOWS_SSPI
+  have_chlg = !!digest->input_token;
 #else
-  have_chlg = digest->nonce ? TRUE : FALSE;
+  have_chlg = !!digest->nonce;
 #endif
 
   if(!have_chlg) {
@@ -129,7 +125,7 @@ CURLcode Curl_output_digest(struct Curl_easy *data,
     return CURLE_OK;
   }
 
-  /* So IE browsers < v7 cut off the URI part at the query part when they
+  /* IE browsers < v7 cut off the URI part at the query part when they
      evaluate the MD5 and some (IIS?) servers work with them so we may need to
      do the Digest IE-style. Note that the different ways cause different MD5
      sums to get sent.
@@ -139,32 +135,32 @@ CURLcode Curl_output_digest(struct Curl_easy *data,
      https://httpd.apache.org/docs/2.2/mod/mod_auth_digest.html#msie
 
      Further details on Digest implementation differences:
-     http://www.fngtps.com/2006/09/http-authentication
+     https://web.archive.org/web/2009/fngtps.com/2006/09/http-authentication
   */
 
   if(authp->iestyle) {
-    tmp = strchr((char *)uripath, '?');
+    tmp = strchr((const char *)uripath, '?');
     if(tmp) {
-      size_t urilen = tmp - (char *)uripath;
-      path = (unsigned char *) aprintf("%.*s", urilen, uripath);
+      size_t urilen = tmp - (const char *)uripath;
+      /* typecast is fine here since the value is always less than 32 bits */
+      path = (unsigned char *)curl_maprintf("%.*s", (int)urilen, uripath);
     }
   }
   if(!tmp)
-    path = (unsigned char *) strdup((char *) uripath);
+    path = (unsigned char *)curlx_strdup((const char *)uripath);
 
   if(!path)
     return CURLE_OUT_OF_MEMORY;
 
   result = Curl_auth_create_digest_http_message(data, userp, passwdp, request,
                                                 path, digest, &response, &len);
-  free(path);
+  curlx_free(path);
   if(result)
     return result;
 
-  *allocuserpwd = aprintf("%sAuthorization: Digest %s\r\n",
-                          proxy ? "Proxy-" : "",
-                          response);
-  free(response);
+  *allocuserpwd = curl_maprintf("%sAuthorization: Digest %s\r\n",
+                                proxy ? "Proxy-" : "", response);
+  curlx_free(response);
   if(!*allocuserpwd)
     return CURLE_OUT_OF_MEMORY;
 

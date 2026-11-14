@@ -5,7 +5,7 @@
  *  FILE:        mods/shared_logic/logic/lua/LuaCommon.h
  *  PURPOSE:     Lua common functions
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,14 +13,14 @@
 
 extern "C"
 {
-    #include "lua.h"
-    #include "lualib.h"
-    #include "lauxlib.h"
+#include "lua.h"
+#include "lualib.h"
+#include "lauxlib.h"
 }
 
 CLuaFunctionRef luaM_toref(lua_State* luaVM, int iArgument);
 
-#define TO_ELEMENTID(x) ((ElementID) reinterpret_cast < unsigned long > (x) )
+#define TO_ELEMENTID(x) ((ElementID) reinterpret_cast<unsigned long>(x))
 
 // Predeclarations of our classes
 class CClientColModel;
@@ -37,11 +37,14 @@ class CClientPlayer;
 class CClientRadarMarker;
 class CClientTeam;
 class CClientTXD;
+class CClientIMG;
+class CClientBuilding;
 class CClientVehicle;
 class CClientWater;
 class CClientWeapon;
 class CClientRadarArea;
 class CClientPointLights;
+class CClientVectorGraphic;
 class CLuaTimer;
 class CResource;
 class CXMLNode;
@@ -68,6 +71,7 @@ void lua_initclasses(lua_State* luaVM);
 
 void lua_newclass(lua_State* luaVM);
 void lua_getclass(lua_State* luaVM, const char* szName);
+bool lua_isclass(lua_State* luaVM, int index, const char* szName);
 void lua_registerclass(lua_State* luaVM, const char* szName, const char* szParent = NULL);
 void lua_registerstaticclass(lua_State* luaVM, const char* szName);
 void lua_classfunction(lua_State* luaVM, const char* szFunction, lua_CFunction fn);
@@ -76,9 +80,7 @@ void lua_classvariable(lua_State* luaVM, const char* szVariable, lua_CFunction s
 void lua_classvariable(lua_State* luaVM, const char* szVariable, const char* set, const char* get);
 void lua_classmetamethod(lua_State* luaVM, const char* szName, lua_CFunction fn);
 
-const char* lua_makestring(lua_State* luaVM, int iArgument);
-
-class CLuaMain& lua_getownercluamain(lua_State* L);
+class CLuaMain&  lua_getownercluamain(lua_State* L);
 class CResource& lua_getownerresource(lua_State* L);
 
 // Lua debug info for logging

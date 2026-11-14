@@ -9,6 +9,7 @@
  *****************************************************************************/
 
 #include <StdInc.h>
+#include <game/CExplosionManager.h>
 
 extern CClientGame* g_pClientGame;
 
@@ -38,6 +39,24 @@ bool CClientExplosionManager::Hook_StaticExplosionCreation(CEntity* pGameExplodi
     return g_pExplosionManager->Hook_ExplosionCreation(pGameExplodingEntity, pGameCreator, vecPosition, explosionType);
 }
 
+eWeaponType CClientExplosionManager::GetWeaponTypeFromExplosionType(const eExplosionType explosionType)
+{
+    switch (explosionType)
+    {
+        case EXP_TYPE_GRENADE:
+            return WEAPONTYPE_GRENADE;
+        case EXP_TYPE_MOLOTOV:
+            return WEAPONTYPE_MOLOTOV;
+        case EXP_TYPE_ROCKET:
+        case EXP_TYPE_ROCKET_WEAK:
+            return WEAPONTYPE_ROCKET;
+        case EXP_TYPE_TANK_GRENADE:
+            return WEAPONTYPE_TANK_GRENADE;
+        default:
+            return WEAPONTYPE_EXPLOSION;
+    }
+}
+
 bool CClientExplosionManager::Hook_ExplosionCreation(CEntity* pGameExplodingEntity, CEntity* pGameCreator, const CVector& vecPosition,
                                                      eExplosionType explosionType)
 {
@@ -49,38 +68,54 @@ bool CClientExplosionManager::Hook_ExplosionCreation(CEntity* pGameExplodingEnti
     if (!pResponsibleGameEntity)
         return false;
 
-    CClientEntity* const pResponsible = pPools->GetClientEntity(reinterpret_cast<DWORD*>(pResponsibleGameEntity->GetInterface()));;
+    CClientEntity* const pResponsible = pPools->GetClientEntity(reinterpret_cast<DWORD*>(pResponsibleGameEntity->GetInterface()));
 
     if (!pResponsible)
-        return false;
+    {
+        if (!pGameCreator)
+            return false;
+
+        CClientPlayer* localPlayer = m_pManager->GetPlayerManager()->GetLocalPlayer();
+        if (!localPlayer || localPlayer->GetGameEntity() != pGameCreator)
+            return false;
+
+        eWeaponType explosionWeaponType = GetWeaponTypeFromExplosionType(explosionType);
+
+        CLuaArguments arguments;
+        arguments.PushNumber(vecPosition.fX);
+        arguments.PushNumber(vecPosition.fY);
+        arguments.PushNumber(vecPosition.fZ);
+        arguments.PushNumber(explosionWeaponType);
+        return localPlayer->CallEvent("onClientExplosion", arguments, true);
+    }
 
     // Determine the used weapon
     eWeaponType explosionWeaponType = WEAPONTYPE_EXPLOSION;
 
     switch (explosionType)
     {
-    case EXP_TYPE_GRENADE:
-    {
-        // Grenade type explosions from vehicles should only be freefall bombs
-        // TODO: need a way to check if its a freefall bomb if creator is a ped
-        if (pGameCreator && pGameCreator->GetEntityType() == ENTITY_TYPE_VEHICLE)
-            explosionWeaponType = WEAPONTYPE_FREEFALL_BOMB;
-        else
-            explosionWeaponType = WEAPONTYPE_GRENADE;
-        break;
-    }
-    case EXP_TYPE_MOLOTOV:
-        explosionWeaponType = WEAPONTYPE_MOLOTOV;
-        break;
-    case EXP_TYPE_ROCKET:
-    case EXP_TYPE_ROCKET_WEAK:
-        explosionWeaponType = WEAPONTYPE_ROCKET;
-        break;
-    case EXP_TYPE_TANK_GRENADE:
-        explosionWeaponType = WEAPONTYPE_TANK_GRENADE;
-        break;
-    default:
-        break;
+        case EXP_TYPE_GRENADE:
+        {
+            // Grenade type explosions from vehicles should only be freefall bombs
+            // TODO: need a way to check if its a freefall bomb if creator is a ped
+            if (pGameCreator && pGameCreator->GetEntityType() == ENTITY_TYPE_VEHICLE)
+                explosionWeaponType = WEAPONTYPE_FREEFALL_BOMB;
+            else
+                explosionWeaponType = WEAPONTYPE_GRENADE;
+            break;
+        }
+        case EXP_TYPE_MOLOTOV:
+            explosionWeaponType = WEAPONTYPE_MOLOTOV;
+            break;
+        case EXP_TYPE_ROCKET:
+        case EXP_TYPE_ROCKET_WEAK:
+            explosionWeaponType = WEAPONTYPE_ROCKET;
+            break;
+        case EXP_TYPE_TANK_GRENADE:
+            explosionWeaponType = WEAPONTYPE_TANK_GRENADE;
+            break;
+        default:
+            break;
     }
 
     // Handle this explosion client side only if entity is local or breakable (i.e. barrel)
@@ -89,13 +124,25 @@ bool CClientExplosionManager::Hook_ExplosionCreation(CEntity* pGameExplodingEnti
 
     if (pResponsible->IsLocalEntity() || (bHasModel && CClientObjectManager::IsBreakableModel(usModel)))
     {
-        CLuaArguments Arguments;
-        Arguments.PushNumber(vecPosition.fX);
-        Arguments.PushNumber(vecPosition.fY);
-        Arguments.PushNumber(vecPosition.fZ);
-        Arguments.PushNumber(explosionWeaponType);
-        const bool bAllowExplosion = pResponsible->CallEvent("onClientExplosion", Arguments, true);
-        return bAllowExplosion;
+        CLuaArguments arguments;
+        arguments.PushNumber(vecPosition.fX);
+        arguments.PushNumber(vecPosition.fY);
+        arguments.PushNumber(vecPosition.fZ);
+        arguments.PushNumber(explosionWeaponType);
+        bool allowExplosion = pResponsible->CallEvent("onClientExplosion", arguments, true);
+
+        // Check if the exploding entity is a client-only vehicle that exploded
+        if (pGameExplodingEntity != nullptr && pResponsible->GetType() == CCLIENTVEHICLE)
+        {
+            auto vehicle = reinterpret_cast<CClientVehicle*>(pResponsible);
+
+            // Create an explosion if the vehicle was intact or awaiting this explosion
+            allowExplosion = allowExplosion && (vehicle->GetBlowState() != VehicleBlowState::BLOWN);
+
+            vehicle->SetBlowState(VehicleBlowState::BLOWN);
+        }
+
+        return allowExplosion;
     }
 
     // All explosions are handled server side (ATTENTION: always 'return false;' below)
@@ -112,15 +159,10 @@ bool CClientExplosionManager::Hook_ExplosionCreation(CEntity* pGameExplodingEnti
     CClientEntity* pOriginSource = nullptr;
 
     // Is this an exploding vehicle?
-    if (pGameExplodingEntity && pGameExplodingEntity->GetEntityType() == ENTITY_TYPE_VEHICLE)
+    if (pGameExplodingEntity != nullptr && pResponsible->GetType() == CCLIENTVEHICLE)
     {
-        // Set our origin-source to the vehicle
-        SClientEntity<CVehicleSA>* pVehicleClientEntity = pPools->GetVehicle(reinterpret_cast<DWORD*>(pGameExplodingEntity->GetInterface()));
-
-        if (pVehicleClientEntity)
-        {
-            pOriginSource = pVehicleClientEntity->pClientEntity;
-        }
+        auto vehicle = reinterpret_cast<CClientVehicle*>(pResponsible);
+        pOriginSource = vehicle;
     }
     // If theres other players, sync it relative to the closest (lag compensation)
     else if (m_pManager->GetPlayerManager()->Count() > 1)
@@ -143,7 +185,7 @@ bool CClientExplosionManager::Hook_ExplosionCreation(CEntity* pGameExplodingEnti
     }
 
     // Request a new explosion
-    g_pClientGame->SendExplosionSync(vecPosition, explosionType, pOriginSource);
+    g_pClientGame->SendExplosionSync(vecPosition, explosionType, pOriginSource, VehicleBlowState::AWAITING_EXPLOSION_SYNC);
     return false;
 }
 
@@ -159,25 +201,31 @@ CExplosion* CClientExplosionManager::Create(eExplosionType explosionType, CVecto
     if (responsibleWeapon != WEAPONTYPE_UNARMED)
         m_LastWeaponType = responsibleWeapon;
     else
+        m_LastWeaponType = GetWeaponTypeFromExplosionType(explosionType);
+
+    if (pCreator && pCreator->IsLocalEntity())
     {
-        switch (explosionType)
+        bool allowExplosion = Hook_ExplosionCreation(nullptr, pGameCreator, vecPosition, explosionType);
+        if (!allowExplosion)
+            return nullptr;
+    }
+    else if (!pCreator)
+    {
+        // Fire onClientExplosion for script-driven createExplosion() calls without a
+        // creator. We can't reuse Hook_ExplosionCreation here: when it sees the local
+        // player as responsible it routes the explosion through SendExplosionSync and
+        // the server-replayed copy uses default makeSound/camShake, ignoring the
+        // script's arguments (regression from PR #4341).
+        CClientPlayer* localPlayer = m_pManager->GetPlayerManager()->GetLocalPlayer();
+        if (localPlayer)
         {
-            case EXP_TYPE_GRENADE:
-                m_LastWeaponType = WEAPONTYPE_GRENADE;
-                break;
-            case EXP_TYPE_MOLOTOV:
-                m_LastWeaponType = WEAPONTYPE_MOLOTOV;
-                break;
-            case EXP_TYPE_ROCKET:
-            case EXP_TYPE_ROCKET_WEAK:
-                m_LastWeaponType = WEAPONTYPE_ROCKET;
-                break;
-            case EXP_TYPE_TANK_GRENADE:
-                m_LastWeaponType = WEAPONTYPE_TANK_GRENADE;
-                break;
-            default:
-                m_LastWeaponType = WEAPONTYPE_EXPLOSION;
-                break;
+            CLuaArguments arguments;
+            arguments.PushNumber(vecPosition.fX);
+            arguments.PushNumber(vecPosition.fY);
+            arguments.PushNumber(vecPosition.fZ);
+            arguments.PushNumber(m_LastWeaponType);
+            if (!localPlayer->CallEvent("onClientExplosion", arguments, true))
+                return nullptr;
         }
     }
 

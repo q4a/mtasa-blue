@@ -2,6 +2,7 @@ project "blowfish_bcrypt"
 	language "C++"
 	kind "StaticLib"
 	targetname "blowfish_bcrypt"
+	warnings "Off"
 
 	vpaths {
 		["Headers/*"] = "*.h",
@@ -11,8 +12,9 @@ project "blowfish_bcrypt"
 
 	files {
 		"premake5.lua",
-
 		"*.h",
 		"*.c",
-		"*.S"
 	}
+
+	filter { "platforms:x86 or x64" }
+		files { "*.S" }

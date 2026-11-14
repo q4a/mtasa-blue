@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CPlayerTextManager.h
  *  PURPOSE:     Player text display manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,7 +13,7 @@ class CPlayerTextManager;
 
 #pragma once
 
-//#include <queue>
+// #include <queue>
 #include <list>
 #include "CTextItem.h"
 #include "CPlayer.h"

@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/CPlayerManager.cpp
  *  PURPOSE:     Player ped entity manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPlayerManager.h"
+#include "packets/CPlayerDisconnectedPacket.h"
+#include "CGame.h"
 #include "net/SimHeaders.h"
 
 CPlayerManager::CPlayerManager()
@@ -135,6 +138,17 @@ CPlayer* CPlayerManager::Get(const char* szNick, bool bCaseSensitive)
     return NULL;
 }
 
+CPlayer* CPlayerManager::GetBySerial(const std::string_view serial) const noexcept
+{
+    for (const auto& player : m_Players)
+    {
+        if (player->GetSerial() == serial)
+            return player;
+    }
+
+    return nullptr;
+}
+
 void CPlayerManager::DeleteAll()
 {
     // Delete all the items in the list
@@ -142,62 +156,58 @@ void CPlayerManager::DeleteAll()
         delete *m_Players.begin();
 }
 
-void CPlayerManager::BroadcastOnlyJoined(const CPacket& Packet, CPlayer* pSkip)
+size_t CPlayerManager::BroadcastOnlyJoined(const CPacket& Packet, CPlayer* pSkip)
 {
     // Make a list of players to send this packet to
     CSendList sendList;
 
     // Send the packet to each ingame player on the server except the skipped one
-    list<CPlayer*>::const_iterator iter = m_Players.begin();
-    for (; iter != m_Players.end(); iter++)
+    for (CPlayer* player : m_Players)
     {
-        CPlayer* pPlayer = *iter;
-        if (pPlayer != pSkip && pPlayer->IsJoined())
+        if (player != pSkip && player->IsJoined() && !player->IsLeavingServer())
         {
-            sendList.push_back(pPlayer);
+            sendList.push_back(player);
         }
     }
 
     CPlayerManager::Broadcast(Packet, sendList);
+    return sendList.size();
 }
 
-void CPlayerManager::BroadcastDimensionOnlyJoined(const CPacket& Packet, ushort usDimension, CPlayer* pSkip)
+size_t CPlayerManager::BroadcastDimensionOnlyJoined(const CPacket& Packet, ushort usDimension, CPlayer* pSkip)
 {
     // Make a list of players to send this packet to
     CSendList sendList;
 
     // Send the packet to each ingame player on the server except the skipped one
-    list<CPlayer*>::const_iterator iter = m_Players.begin();
-    for (; iter != m_Players.end(); iter++)
+    for (CPlayer* player : m_Players)
     {
-        CPlayer* pPlayer = *iter;
-        if (pPlayer != pSkip && pPlayer->IsJoined())
+        if (player != pSkip && player->IsJoined() && !player->IsLeavingServer() && player->GetDimension() == usDimension)
         {
-            if (pPlayer->GetDimension() == usDimension)
-                sendList.push_back(pPlayer);
+            sendList.push_back(player);
         }
     }
 
     CPlayerManager::Broadcast(Packet, sendList);
+    return sendList.size();
 }
 
-void CPlayerManager::BroadcastOnlySubscribed(const CPacket& Packet, CElement* pElement, const char* szName, CPlayer* pSkip)
+size_t CPlayerManager::BroadcastOnlySubscribed(const CPacket& Packet, CElement* pElement, const char* szName, CPlayer* pSkip)
 {
     // Make a list of players to send this packet to
     CSendList sendList;
 
     // Send the packet to each ingame player on the server except the skipped one
-    list<CPlayer*>::const_iterator iter = m_Players.begin();
-    for (; iter != m_Players.end(); iter++)
+    for (CPlayer* player : m_Players)
     {
-        CPlayer* pPlayer = *iter;
-        if (pPlayer != pSkip && pPlayer->IsJoined() && pPlayer->IsSubscribed(pElement, szName))
+        if (player != pSkip && player->IsJoined() && !player->IsLeavingServer() && player->IsSubscribed(pElement, szName))
         {
-            sendList.push_back(pPlayer);
+            sendList.push_back(player);
         }
     }
 
     CPlayerManager::Broadcast(Packet, sendList);
+    return sendList.size();
 }
 
 // Send one packet to a list of players, grouped by bitstream version
@@ -262,7 +272,8 @@ static void DoBroadcast(const CPacket& Packet, const std::multimap<ushort, CPlay
             {
                 CPlayer* pPlayer = s_it->second;
                 dassert(usBitStreamVersion == pPlayer->GetBitStreamVersion());
-                g_pGame->SendPacket(Packet.GetPacketID(), pPlayer->GetSocket(), pBitStream, FALSE, packetPriority, Reliability, Packet.GetPacketOrdering());
+                dassert(!pPlayer->IsLeavingServer());
+                g_pGame->SendPacket(Packet.GetPacketID(), pPlayer->GetSocket(), pBitStream, false, packetPriority, Reliability, Packet.GetPacketOrdering());
             }
 
             g_pGame->SendPacketBatchEnd();
@@ -289,8 +300,12 @@ static void DoBroadcast(const CPacket& Packet, const T& sendList)
     std::multimap<ushort, CPlayer*> groupMap;
     for (typename T::const_iterator iter = sendList.begin(); iter != sendList.end(); ++iter)
     {
-        CPlayer* pPlayer = *iter;
-        MapInsert(groupMap, pPlayer->GetBitStreamVersion(), pPlayer);
+        CPlayer* player = *iter;
+
+        if (!player->IsLeavingServer())
+        {
+            MapInsert(groupMap, player->GetBitStreamVersion(), player);
+        }
     }
 
     DoBroadcast(Packet, groupMap);
@@ -320,15 +335,23 @@ void CPlayerManager::Broadcast(const CPacket& Packet, const std::multimap<ushort
     DoBroadcast(Packet, groupMap);
 }
 
-bool CPlayerManager::IsValidPlayerModel(unsigned short usPlayerModel)
+bool CPlayerManager::IsValidPlayerModel(unsigned short model)
 {
-    return (usPlayerModel == 0 || usPlayerModel == 1 || usPlayerModel == 2 || usPlayerModel == 7 ||
-            (usPlayerModel >= 9 && usPlayerModel != 208 && usPlayerModel != 149 && usPlayerModel != 119 && usPlayerModel != 86 && usPlayerModel != 74 &&
-             usPlayerModel != 65 && usPlayerModel != 42 && usPlayerModel <= 272) ||
-            (usPlayerModel >= 274 && usPlayerModel <= 288) || (usPlayerModel >= 290 && usPlayerModel <= 312));
+    if (model > 312)
+        return false;  // TODO: On client side maybe check if a model was allocated with engineRequestModel and it is a ped
+
+    switch (model)
+    {
+        case 74:  // Missing skin
+        case 149:
+        case 208:
+            return false;
+        default:
+            return true;
+    }
 }
 
-void CPlayerManager::ClearElementData(CElement* pElement, const std::string& name)
+void CPlayerManager::ClearElementData(CElement* pElement, CStringName name)
 {
     list<CPlayer*>::const_iterator iter = m_Players.begin();
     for (; iter != m_Players.end(); iter++)

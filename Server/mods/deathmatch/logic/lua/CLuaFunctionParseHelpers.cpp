@@ -1,30 +1,38 @@
 /*****************************************************************************
  *
- *  PROJECT:     Multi Theft Auto v1.0
- *               (Shared logic for modifications)
+ *  PROJECT:     Multi Theft Auto
  *  LICENSE:     See LICENSE in the top level directory
- *  FILE:        MTA10_Server/mods/deathmatch/logic/lua/CLuaFunctionParseHelpers.cpp
- *  PURPOSE:
+ *  FILE:        Server/mods/deathmatch/logic/lua/CLuaFunctionParseHelpers.cpp
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CLuaFunctionParseHelpers.h"
+#include "CScriptArgReader.h"
+#include "CResource.h"
+#include "CResourceManager.h"
+#include "CGame.h"
+#include "CRemoteCalls.h"
+#include "CMainConfig.h"
+#include "CAccessControlListManager.h"
+#include "CDatabaseManager.h"
+#include "CBan.h"
 
 //
 // enum values <-> script strings
 //
 
 IMPLEMENT_ENUM_BEGIN(eLuaType)
-ADD_ENUM(LUA_TNONE, "none")
-ADD_ENUM(LUA_TNIL, "nil")
-ADD_ENUM(LUA_TBOOLEAN, "boolean")
-ADD_ENUM(LUA_TLIGHTUSERDATA, "lightuserdata")
-ADD_ENUM(LUA_TNUMBER, "number")
-ADD_ENUM(LUA_TSTRING, "string")
-ADD_ENUM(LUA_TTABLE, "table")
-ADD_ENUM(LUA_TFUNCTION, "function")
-ADD_ENUM(LUA_TUSERDATA, "userdata")
-ADD_ENUM(LUA_TTHREAD, "thread")
+ADD_ENUM(static_cast<eLuaType>(LUA_TNONE), "none")
+ADD_ENUM(static_cast<eLuaType>(LUA_TNIL), "nil")
+ADD_ENUM(static_cast<eLuaType>(LUA_TBOOLEAN), "boolean")
+ADD_ENUM(static_cast<eLuaType>(LUA_TLIGHTUSERDATA), "lightuserdata")
+ADD_ENUM(static_cast<eLuaType>(LUA_TNUMBER), "number")
+ADD_ENUM(static_cast<eLuaType>(LUA_TSTRING), "string")
+ADD_ENUM(static_cast<eLuaType>(LUA_TTABLE), "table")
+ADD_ENUM(static_cast<eLuaType>(LUA_TFUNCTION), "function")
+ADD_ENUM(static_cast<eLuaType>(LUA_TUSERDATA), "userdata")
+ADD_ENUM(static_cast<eLuaType>(LUA_TTHREAD), "thread")
 IMPLEMENT_ENUM_END("lua-type")
 
 IMPLEMENT_ENUM_BEGIN(TrafficLight::EColor)
@@ -70,6 +78,9 @@ ADD_ENUM(HUD_MONEY, "money")
 ADD_ENUM(HUD_VEHICLE_NAME, "vehicle_name")
 ADD_ENUM(HUD_AREA_NAME, "area_name")
 ADD_ENUM(HUD_RADAR, "radar")
+ADD_ENUM(HUD_RADAR_MAP, "radar_map")
+ADD_ENUM(HUD_RADAR_BLIPS, "radar_blips")
+ADD_ENUM(HUD_RADAR_ALTIMETER, "radar_altimeter")
 ADD_ENUM(HUD_CLOCK, "clock")
 ADD_ENUM(HUD_RADIO, "radio")
 ADD_ENUM(HUD_WANTED, "wanted")
@@ -263,6 +274,7 @@ ADD_ENUM(CElement::WATER, "water")
 ADD_ENUM(CElement::DATABASE_CONNECTION, "db-connection")
 ADD_ENUM(CElement::ROOT, "root")
 ADD_ENUM(CElement::UNKNOWN, "unknown")
+ADD_ENUM(CElement::BUILDING, "building")
 IMPLEMENT_ENUM_END_DEFAULTS("element-type", CElement::UNKNOWN, "unknown")
 
 IMPLEMENT_ENUM_BEGIN(CAccountPassword::EAccountPasswordType)
@@ -277,42 +289,206 @@ ADD_ENUM(ESyncType::LOCAL, "local")
 ADD_ENUM(ESyncType::SUBSCRIBE, "subscribe")
 IMPLEMENT_ENUM_CLASS_END("sync-mode")
 
+IMPLEMENT_ENUM_CLASS_BEGIN(eCustomDataClientTrust)
+ADD_ENUM(eCustomDataClientTrust::UNSET, "default")
+ADD_ENUM(eCustomDataClientTrust::ALLOW, "allow")
+ADD_ENUM(eCustomDataClientTrust::DENY, "deny")
+IMPLEMENT_ENUM_CLASS_END("client-trust-mode")
+
+//
+// CResource from userdata
+//
+CResource* UserDataCast(CResource* ptr, lua_State* luaState)
+{
+    return g_pGame->GetResourceManager()->GetResourceFromScriptID(reinterpret_cast<unsigned long>(ptr));
+}
+
+//
+// CXMLNode from userdata
+//
+CXMLNode* UserDataCast(CXMLNode* ptr, lua_State* luaState)
+{
+    return g_pServerInterface->GetXML()->GetNodeFromID(reinterpret_cast<unsigned long>(ptr));
+}
+
+//
+// CLuaTimer from userdata
+//
+CLuaTimer* UserDataCast(CLuaTimer* ptr, lua_State* luaState)
+{
+    CLuaManager* luaManager = g_pGame->GetLuaManager();
+    if (!luaManager)
+        return nullptr;
+
+    return luaManager->FindTimerGlobally(reinterpret_cast<unsigned long>(ptr));
+}
+
+//
+// CAccount from userdata
+//
+CAccount* UserDataCast(CAccount* ptr, lua_State* luaState)
+{
+    return g_pGame->GetAccountManager()->GetAccountFromScriptID(reinterpret_cast<unsigned long>(ptr));
+}
+
+//
+// CDbJobData from userdata
+//
+CDbJobData* UserDataCast(CDbJobData* ptr, lua_State* luaState)
+{
+    return g_pGame->GetDatabaseManager()->GetQueryFromId(reinterpret_cast<SDbJobId>(ptr));
+}
+
+//
+// CAccessControlList from userdata
+//
+CAccessControlList* UserDataCast(CAccessControlList* ptr, lua_State* luaState)
+{
+    return g_pGame->GetACLManager()->GetACLFromScriptID(reinterpret_cast<unsigned long>(ptr));
+}
+
+//
+// CAccessControlListGroup from userdata
+//
+CAccessControlListGroup* UserDataCast(CAccessControlListGroup* ptr, lua_State* luaState)
+{
+    return g_pGame->GetACLManager()->GetGroupFromScriptID(reinterpret_cast<unsigned long>(ptr));
+}
+
+//
+// CTextItem from userdata
+//
+CTextItem* UserDataCast(CTextItem* ptr, lua_State* luaState)
+{
+    if (CLuaMain* luaMain = g_pGame->GetLuaManager()->GetVirtualMachine(luaState); luaMain != nullptr)
+    {
+        return luaMain->GetTextItemFromScriptID(reinterpret_cast<unsigned long>(ptr));
+    }
+
+    return nullptr;
+}
+
+//
+// CTextDisplay from userdata
+//
+CTextDisplay* UserDataCast(CTextDisplay* ptr, lua_State* luaState)
+{
+    if (CLuaMain* luaMain = g_pGame->GetLuaManager()->GetVirtualMachine(luaState); luaMain != nullptr)
+    {
+        return luaMain->GetTextDisplayFromScriptID(reinterpret_cast<unsigned long>(ptr));
+    }
+
+    return nullptr;
+}
+
+//
+// CBan from userdata
+//
+CBan* UserDataCast(CBan* ptr, lua_State* luaState)
+{
+    return g_pGame->GetBanManager()->GetBanFromScriptID(reinterpret_cast<unsigned long>(ptr));
+}
+
+//
+// CElement from userdata
+//
+CElement* UserDataToElementCast(CElement* ptr, eEntityType entityType, lua_State* luaState)
+{
+    CElement* element = CElementIDs::GetElement(TO_ELEMENTID(ptr));
+
+    if (element == nullptr || element->IsBeingDeleted() || (element->GetType() != entityType && entityType != -1))
+        return nullptr;
+
+    return element;
+}
+
+//
+// CPed from userdata
+//
+CPed* UserDataCast(CPed* ptr, lua_State* luaState)
+{
+    ElementID ID = TO_ELEMENTID(ptr);
+    CElement* pElement = CElementIDs::GetElement(ID);
+    if (!pElement || pElement->IsBeingDeleted() || (pElement->GetType() != CElement::PED && pElement->GetType() != CElement::PLAYER))
+        return nullptr;
+    return (CPed*)pElement;
+}
+
+//
+// CRemoteCall from userdata
+//
+CRemoteCall* UserDataCast(CRemoteCall* ptr, lua_State* luaState)
+{
+    if (ptr && g_pGame->GetRemoteCalls()->CallExists(ptr))
+    {
+        return ptr;
+    }
+
+    return nullptr;
+}
+
+//
+// CPlayer from userdata
+// Disallows conversion of CPeds to CPlayers
+//
+CPlayer* UserDataCast(CPlayer* ptr, lua_State* luaState)
+{
+    ElementID ID = TO_ELEMENTID(ptr);
+    CElement* pElement = CElementIDs::GetElement(ID);
+    if (!pElement || pElement->IsBeingDeleted() || (pElement->GetType() != CElement::PLAYER))
+        return nullptr;
+    return (CPlayer*)pElement;
+}
+
+//
+// CClient from CConsoleClient or a CPlayer
+//
+CClient* UserDataCast(CClient* ptr, lua_State* luaState)
+{
+    ElementID ID = TO_ELEMENTID(ptr);
+    CElement* pElement = CElementIDs::GetElement(ID);
+    if (!pElement || pElement->IsBeingDeleted())
+        return nullptr;
+
+    CClient* pClient = nullptr;
+    if (pElement->GetType() == CElement::PLAYER)
+        pClient = reinterpret_cast<CPlayer*>(pElement);
+    else if (pElement->GetType() == CElement::CONSOLE)
+        pClient = reinterpret_cast<CConsoleClient*>(pElement);
+
+    return pClient;
+}
+
 //
 // Get best guess at name of userdata type
 //
 SString GetUserDataClassName(void* ptr, lua_State* luaVM, bool bFindElementType)
 {
-    if (CElement* pVar = UserDataCast<CElement>((CElement*)NULL, ptr, luaVM))            // Try element
+    if (CElement* pVar = UserDataCast((CElement*)ptr, luaVM))  // Try element
         return bFindElementType ? pVar->GetTypeName() : GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CResource>((CResource*)NULL, ptr, luaVM))            // Try resource
+    if (auto* pVar = UserDataCast(static_cast<CResource*>(ptr), luaVM))  // Try resource
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CXMLNode>((CXMLNode*)NULL, ptr, luaVM))            // Try xml node
+    if (auto* pVar = UserDataCast((CXMLNode*)ptr, luaVM))  // Try xml node
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CLuaTimer>((CLuaTimer*)NULL, ptr, luaVM))            // Try timer
+    if (auto* pVar = UserDataCast((CLuaTimer*)ptr, luaVM))  // Try timer
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CAccount>((CAccount*)NULL, ptr, luaVM))
+    if (auto* pVar = UserDataCast((CAccount*)ptr, luaVM))
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CDbJobData>((CDbJobData*)NULL, ptr, luaVM))
+    if (auto* pVar = UserDataCast((CDbJobData*)ptr, luaVM))
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CAccessControlList>((CAccessControlList*)NULL, ptr, luaVM))
+    if (auto* pVar = UserDataCast((CAccessControlList*)ptr, luaVM))
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CAccessControlListGroup>((CAccessControlListGroup*)NULL, ptr, luaVM))
+    if (auto* pVar = UserDataCast((CAccessControlListGroup*)ptr, luaVM))
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CCustomWeapon>((CCustomWeapon*)NULL, ptr, luaVM))
+    if (auto* pVar = UserDataCast((CCustomWeapon*)ptr, luaVM))
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CBan>((CBan*)NULL, ptr, luaVM))
+    if (auto* pVar = UserDataCast((CBan*)ptr, luaVM))
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CTextItem>((CTextItem*)NULL, ptr, luaVM))
+    if (auto* pVar = UserDataCast((CTextItem*)ptr, luaVM))
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CTextDisplay>((CTextDisplay*)NULL, ptr, luaVM))
+    if (auto* pVar = UserDataCast((CTextDisplay*)ptr, luaVM))
         return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CLuaVector2D>((CLuaVector2D*)NULL, ptr, luaVM))
-        return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CLuaVector3D>((CLuaVector3D*)NULL, ptr, luaVM))
-        return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CLuaVector4D>((CLuaVector4D*)NULL, ptr, luaVM))
-        return GetClassTypeName(pVar);
-    if (auto* pVar = UserDataCast<CLuaMatrix>((CLuaMatrix*)NULL, ptr, luaVM))
+    if (auto* pVar = UserDataCast((CRemoteCall*)ptr, luaVM))
         return GetClassTypeName(pVar);
 
     return "";
@@ -379,9 +555,9 @@ void MinServerReqCheck(CScriptArgReader& argStream, const char* szVersionReq, co
         {
             if (pResource->GetMinServerRequirement() < szVersionReq)
             {
-                #if MTASA_VERSION_TYPE == VERSION_TYPE_RELEASE
+#if MTASA_VERSION_TYPE >= VERSION_TYPE_UNTESTED
                 argStream.SetVersionWarning(szVersionReq, "server", szReason);
-                #endif
+#endif
             }
         }
     }
@@ -431,6 +607,42 @@ void ReadPregFlags(CScriptArgReader& argStream, pcrecpp::RE_Options& pOptions)
             }
         }
     }
+}
+
+//
+// Check 4x4 lua table
+//
+bool IsValidMatrixLuaTable(lua_State* luaVM, std::uint32_t argIndex) noexcept
+{
+    std::uint32_t cell = 0;
+
+    if (lua_type(luaVM, argIndex) == LUA_TTABLE)
+    {
+        lua_pushnil(luaVM);
+        for (std::uint32_t row = 0; lua_next(luaVM, argIndex) != 0; lua_pop(luaVM, 1), ++row)
+        {
+            if (lua_type(luaVM, -1) != LUA_TTABLE)
+                return false;
+
+            std::uint32_t col = 0;
+
+            lua_pushnil(luaVM);
+            for (; lua_next(luaVM, -2) != 0; lua_pop(luaVM, 1), ++col, ++cell)
+            {
+                int argumentType = lua_type(luaVM, -1);
+                if (argumentType != LUA_TNUMBER && argumentType != LUA_TSTRING)
+                    return false;
+            }
+
+            if (col != 4)
+                return false;
+        }
+    }
+
+    if (cell != 16)
+        return false;
+
+    return true;
 }
 
 //
@@ -511,16 +723,18 @@ eResourceModifyScope GetResourceModifyScope(CResource* pThisResource, CResource*
         return eResourceModifyScope::SINGLE_RESOURCE;
 
     CAccessControlListManager* const pACLManager = g_pGame->GetACLManager();
-    const SString& strResourceName = pThisResource->GetName();
+    const SString&                   strResourceName = pThisResource->GetName();
 
     // Check if resource has right to modify any resource
-    if (pACLManager->CanObjectUseRight(strResourceName.c_str(), CAccessControlListGroupObject::OBJECT_TYPE_RESOURCE, "ModifyOtherObjects", CAccessControlListRight::RIGHT_TYPE_GENERAL, false))
+    if (pACLManager->CanObjectUseRight(strResourceName.c_str(), CAccessControlListGroupObject::OBJECT_TYPE_RESOURCE, "ModifyOtherObjects",
+                                       CAccessControlListRight::RIGHT_TYPE_GENERAL, false))
         return eResourceModifyScope::EVERY_RESOURCE;
 
     // Check if resource has right to modify only pOtherResource
     const SString strRightName("ModifyOtherObjects.%s", pOtherResource->GetName().c_str());
 
-    if (pACLManager->CanObjectUseRight(strResourceName.c_str(), CAccessControlListGroupObject::OBJECT_TYPE_RESOURCE, strRightName.c_str(), CAccessControlListRight::RIGHT_TYPE_GENERAL, false))
+    if (pACLManager->CanObjectUseRight(strResourceName.c_str(), CAccessControlListGroupObject::OBJECT_TYPE_RESOURCE, strRightName.c_str(),
+                                       CAccessControlListRight::RIGHT_TYPE_GENERAL, false))
         return eResourceModifyScope::SINGLE_RESOURCE;
 
     return eResourceModifyScope::NONE;
@@ -532,7 +746,9 @@ eResourceModifyScope GetResourceModifyScope(CResource* pThisResource, CResource*
 void CheckCanModifyOtherResource(CScriptArgReader& argStream, CResource* pThisResource, CResource* pOtherResource)
 {
     if (GetResourceModifyScope(pThisResource, pOtherResource) == eResourceModifyScope::NONE)
-        argStream.SetCustomError(SString("ModifyOtherObjects in ACL denied resource %s to access %s", pThisResource->GetName().c_str(), pOtherResource->GetName().c_str()), "Access denied");
+        argStream.SetCustomError(
+            SString("ModifyOtherObjects in ACL denied resource %s to access %s", pThisResource->GetName().c_str(), pOtherResource->GetName().c_str()),
+            "Access denied");
 }
 
 //
@@ -560,7 +776,7 @@ void CheckCanModifyOtherResources(CScriptArgReader& argStream, CResource* pThisR
         return;
 
     std::stringstream ssResourceNames;
-    size_t remainingElements = setNoPermissionResources.size();
+    size_t            remainingElements = setNoPermissionResources.size();
 
     for (CResource* pResource : setNoPermissionResources)
     {
@@ -572,14 +788,15 @@ void CheckCanModifyOtherResources(CScriptArgReader& argStream, CResource* pThisR
         --remainingElements;
     }
 
-    argStream.SetCustomError(SString("ModifyOtherObjects in ACL denied resource %s to access %s", pThisResource->GetName().c_str(), ssResourceNames.str().c_str()), "Access denied");
+    argStream.SetCustomError(
+        SString("ModifyOtherObjects in ACL denied resource %s to access %s", pThisResource->GetName().c_str(), ssResourceNames.str().c_str()), "Access denied");
 }
 
 //
 // Set error if resource file access is blocked due to reasons
 //
 void CheckCanAccessOtherResourceFile(CScriptArgReader& argStream, CResource* pThisResource, CResource* pOtherResource, const SString& strAbsPath,
-    bool* pbReadOnly)
+                                     bool* pbReadOnly)
 {
     if (!g_pGame->GetConfig()->IsDatabaseCredentialsProtectionEnabled())
         return;

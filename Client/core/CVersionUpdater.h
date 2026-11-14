@@ -5,7 +5,7 @@
  *  FILE:        core/CVersionUpdater.h
  *  PURPOSE:     Header file for version update check and message dialog
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -28,7 +28,6 @@ public:
     virtual void           GetBrowseVersionMaps(std::map<SString, int>& outBlockedVersionMap, std::map<SString, int>& outAllowedVersionMap) = 0;
     virtual void           GetNewsSettings(SString& strOutOldestPost, uint& uiOutMaxHistoryLength) = 0;
     virtual const SString& GetDebugFilterString() = 0;
-    virtual void           OnMainMenuFullyVisible() = 0;
 };
 
 CVersionUpdaterInterface* GetVersionUpdater();

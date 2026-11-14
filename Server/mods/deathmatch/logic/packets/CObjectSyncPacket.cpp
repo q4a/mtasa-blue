@@ -5,15 +5,17 @@
  *  FILE:        mods/deathmatch/logic/packets/CObjectSyncPacket.cpp
  *  PURPOSE:     Header for object sync packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CObjectSyncPacket.h"
+#include <net/SyncStructures.h>
 
 CObjectSyncPacket::~CObjectSyncPacket()
 {
-    vector<SyncData*>::const_iterator iter = m_Syncs.begin();
+    std::vector<SyncData*>::const_iterator iter = m_Syncs.begin();
     for (; iter != m_Syncs.end(); ++iter)
     {
         delete *iter;
@@ -80,8 +82,8 @@ bool CObjectSyncPacket::Read(NetBitStreamInterface& BitStream)
 
 bool CObjectSyncPacket::Write(NetBitStreamInterface& BitStream) const
 {
-    bool                              bSent = false;
-    vector<SyncData*>::const_iterator iter = m_Syncs.begin();
+    bool                                   bSent = false;
+    std::vector<SyncData*>::const_iterator iter = m_Syncs.begin();
     // Write syncs
     for (; iter != m_Syncs.end(); ++iter)
     {

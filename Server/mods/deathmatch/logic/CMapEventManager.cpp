@@ -5,11 +5,19 @@
  *  FILE:        mods/deathmatch/logic/CMapEventManager.cpp
  *  PURPOSE:     Map event manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CMapEventManager.h"
+#include "CMapEvent.h"
+#include "lua/CLuaMain.h"
+#include "CGame.h"
+#include "CDebugHookManager.h"
+#include "CScriptDebugging.h"
+#include "CDummy.h"
+#include "CPerfStatManager.h"
 
 CMapEventManager::CMapEventManager()
 {
@@ -78,12 +86,11 @@ bool CMapEventManager::Delete(CLuaMain* pLuaMain, const char* szName, const CLua
                     }
                     else
                     {
+                        // Delete the object
+                        delete pMapEvent;
+
                         // Remove from list and remember that we deleted something
                         m_EventsMap.erase(iter++);
-
-                        // Delete the object
-                        DeleteInternal(pMapEvent);
-
                         bRemovedSomeone = true;
                         continue;
                     }
@@ -112,8 +119,8 @@ void CMapEventManager::DeleteAll()
         // Delete it if it's not already being destroyed
         if (!pMapEvent->IsBeingDestroyed())
         {
+            delete pMapEvent;
             m_EventsMap.erase(iter++);
-            DeleteInternal(pMapEvent);
         }
         else
             ++iter;
@@ -139,6 +146,7 @@ bool CMapEventManager::Call(const char* szName, const CLuaArguments& Arguments, 
 
     // Copy the results into a array in case m_EventsMap is modified during the call
     std::vector<CMapEvent*> matchingEvents;
+    matchingEvents.reserve(8);
     for (EventsIter iter = itPair.first; iter != itPair.second; ++iter)
         matchingEvents.push_back(iter->second);
 
@@ -158,16 +166,21 @@ bool CMapEventManager::Call(const char* szName, const CLuaArguments& Arguments, 
                     // Grab the current VM
                     lua_State* pState = pMapEvent->GetVM()->GetVM();
 
-                    LUA_CHECKSTACK(pState, 1);            // Ensure some room
+                    LUA_CHECKSTACK(pState, 1);  // Ensure some room
 
-                    #if MTA_DEBUG
+#if MTA_DEBUG
                     int luaStackPointer = lua_gettop(pState);
-                    #endif
+#endif
 
-                    TIMEUS startTime = GetTimeUs();
+                    const bool   timingActive = CPerfStatLuaTiming::GetSingleton()->IsActive();
+                    const TIMEUS startTime = timingActive ? GetTimeUs() : 0;
 
-                    if (!g_pGame->GetDebugHookManager()->OnPreEventFunction(szName, Arguments, pSource, pCaller, pMapEvent))
-                        continue;
+                    CDebugHookManager* debugHookManager = g_pGame->GetDebugHookManager();
+                    if (debugHookManager->HasPreEventFunctionHooks())
+                    {
+                        if (!debugHookManager->OnPreEventFunction(szName, Arguments, pSource, pCaller, pMapEvent))
+                            continue;
+                    }
 
                     // Store the current values of the globals
                     lua_getglobal(pState, "source");
@@ -238,7 +251,8 @@ bool CMapEventManager::Call(const char* szName, const CLuaArguments& Arguments, 
                     pMapEvent->Call(Arguments);
                     bCalled = true;
 
-                    g_pGame->GetDebugHookManager()->OnPostEventFunction(szName, Arguments, pSource, pCaller, pMapEvent);
+                    if (debugHookManager->HasPostEventFunctionHooks())
+                        debugHookManager->OnPostEventFunction(szName, Arguments, pSource, pCaller, pMapEvent);
 
                     // Reset the globals on that VM
                     OldSource.Push(pState);
@@ -259,11 +273,14 @@ bool CMapEventManager::Call(const char* szName, const CLuaArguments& Arguments, 
                     OldClient.Push(pState);
                     lua_setglobal(pState, "client");
 
-                    #if MTA_DEBUG
+#if MTA_DEBUG
                     assert(lua_gettop(pState) == luaStackPointer);
-                    #endif
+#endif
 
-                    CPerfStatLuaTiming::GetSingleton()->UpdateLuaTiming(pMapEvent->GetVM(), szName, GetTimeUs() - startTime);
+                    if (timingActive)
+                    {
+                        CPerfStatLuaTiming::GetSingleton()->UpdateLuaTiming(pMapEvent->GetVM(), szName, GetTimeUs() - startTime);
+                    }
                 }
             }
         }
@@ -301,7 +318,7 @@ void CMapEventManager::TakeOutTheTrash()
         }
 
         // Delete it
-        DeleteInternal(pMapEvent);
+        delete pMapEvent;
     }
 
     m_bHasEvents = !m_EventsMap.empty();
@@ -342,58 +359,18 @@ bool CMapEventManager::HandleExists(CLuaMain* pLuaMain, const char* szName, cons
     return false;
 }
 
-void CMapEventManager::DisableServerRPCFunction(eServerRPCFunctions eServerRPCFunction, bool bDisable)
+void CMapEventManager::AddInternal(CMapEvent* pEvent)
 {
-    // Check no active handle exists here
-    bool bFound = !GetHandlesByServerRPCFunction(eServerRPCFunction).empty();
-    if (bFound)
-        return;
-
-    // Check no active handle exists on root
-    if (bFound = !g_pGame->GetMapManager()->GetRootElement()->GetEventManager()->GetHandlesByServerRPCFunction(eServerRPCFunction).empty())
-        return;
-
-    // Check no active handle exists under root
-    auto iter = g_pGame->GetMapManager()->GetRootElement()->IterBegin();
-    for (; iter != g_pGame->GetMapManager()->GetRootElement()->IterEnd(); iter++)
-        if (bFound = !(*iter)->GetEventManager()->GetHandlesByServerRPCFunction(eServerRPCFunction).empty())
-            return;
-
-    // Let players know that the function got toggled
-    std::array<bool, eServerRPCFunctions::NUM_SERVER_RPC_FUNCS> disabledServerRPCFunctions;
-    disabledServerRPCFunctions[eServerRPCFunction] = bDisable;
-    CServerRPCControlPacket Packet(disabledServerRPCFunctions);
-    g_pGame->GetPlayerManager()->BroadcastOnlyJoined(Packet);
-}
-
-void CMapEventManager::DeleteInternal(CMapEvent* pMapEvent)
-{
-    SEvent* pEvent = g_pGame->GetEvents()->Get(pMapEvent->GetName());
-
-    // For now we only care about CURSOR_EVENT
-    if (pEvent && pEvent->eServerRPCFunction == eServerRPCFunctions::CURSOR_EVENT)
-        DisableServerRPCFunction(pEvent->eServerRPCFunction, true);            // Disable RPC if no longer used
-
-    delete pMapEvent;
-}
-
-void CMapEventManager::AddInternal(CMapEvent* pMapEvent)
-{
-    SEvent* pEvent = g_pGame->GetEvents()->Get(pMapEvent->GetName());
-
-    // For now we only care about CURSOR_EVENT
-    if (pEvent && pEvent->eServerRPCFunction == eServerRPCFunctions::CURSOR_EVENT)
-        DisableServerRPCFunction(pEvent->eServerRPCFunction, false);            // Enable RPC if used
-
     // Find place to insert
-    EventsIterPair itPair = m_EventsMap.equal_range(pMapEvent->GetName());
+    EventsIterPair itPair = m_EventsMap.equal_range(pEvent->GetName());
     EventsIter     iter;
     for (iter = itPair.first; iter != itPair.second; ++iter)
-        if (pMapEvent->IsHigherPriorityThan(iter->second))
+    {
+        if (pEvent->IsHigherPriorityThan(iter->second))
             break;
-
+    }
     // Do insert
-    m_EventsMap.insert(iter, std::pair<SString, CMapEvent*>(pMapEvent->GetName(), pMapEvent));
+    m_EventsMap.insert(iter, std::pair<SString, CMapEvent*>(pEvent->GetName(), pEvent));
 }
 
 void CMapEventManager::GetHandles(CLuaMain* pLuaMain, const char* szName, lua_State* luaVM)
@@ -420,15 +397,4 @@ void CMapEventManager::GetHandles(CLuaMain* pLuaMain, const char* szName, lua_St
             }
         }
     }
-}
-
-const std::vector<CMapEvent*> CMapEventManager::GetHandlesByServerRPCFunction(eServerRPCFunctions eServerRPCFunction) const
-{
-    std::vector<CMapEvent*> vecResult;
-    SEvent*                 pOtherEvent;
-    for (auto&& [strName, pMapEvent] : m_EventsMap)
-        if ((pOtherEvent = g_pGame->GetEvents()->Get(pMapEvent->GetName())) && pOtherEvent->eServerRPCFunction == eServerRPCFunction)
-            vecResult.push_back(pMapEvent);
-
-    return vecResult;
 }

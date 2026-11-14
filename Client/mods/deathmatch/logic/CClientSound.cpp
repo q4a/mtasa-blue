@@ -9,11 +9,13 @@
 
 #include <StdInc.h>
 #include "CBassAudio.h"
+#include <memory>
+#include <utility>
 
 CClientSound::CClientSound(CClientManager* pManager, ElementID ID) : ClassInit(this), CClientEntity(ID)
 {
     m_pSoundManager = pManager->GetSoundManager();
-    m_pAudio = NULL;
+    m_pAudio = nullptr;
 
     SetTypeName("sound");
 
@@ -25,8 +27,10 @@ CClientSound::CClientSound(CClientManager* pManager, ElementID ID) : ClassInit(t
     m_fPlaybackSpeed = 1.0f;
     m_bPan = true;
     m_fPan = 0.0f;
+    m_bThrottle = false;
+    m_bStreamFailureWarned = false;
 
-    m_pBuffer = NULL;
+    m_uiBufferLength = 0;
     m_uiFrameNumberCreated = g_pClientGame->GetFrameCount();
 }
 
@@ -35,8 +39,37 @@ CClientSound::~CClientSound()
     Destroy();
     m_pSoundManager->RemoveFromList(this);
 
-    delete m_pBuffer;
-    m_pBuffer = NULL;
+    ReleaseBuffer();
+}
+
+void CClientSound::ReleaseBuffer()
+{
+    if (!m_Buffer)
+        return;
+
+    m_Buffer.reset();
+    m_uiBufferLength = 0;
+}
+
+// Pull an existing audio buffer so it's owned by the sound; pass the matching deleter so we can release it safely later.
+void CClientSound::AdoptBuffer(void* pMemory, unsigned int uiLength, AudioBufferDeleter deleter)
+{
+    if (!pMemory || uiLength == 0)
+    {
+        ReleaseBuffer();
+        return;
+    }
+
+    // Always release the old buffer before adopting a new one, even if the pointer is the same
+    // This prevents deleter mismatch issues (e.g., mixing new[]/delete[] with malloc/free)
+    if (m_Buffer)
+    {
+        ReleaseBuffer();
+    }
+
+    m_Buffer = BufferPtr(pMemory, std::move(deleter));
+    m_uiBufferLength = uiLength;
+    m_strPath.clear();
 }
 
 ////////////////////////////////////////////////////////////
@@ -112,16 +145,20 @@ bool CClientSound::Create()
             return false;
 
     // Initial state
-    if (!m_pBuffer)
+    if (!m_Buffer)
         m_pAudio = new CBassAudio(m_bStream, m_strPath, m_bLoop, m_bThrottle, m_b3D);
     else
-        m_pAudio = new CBassAudio(m_pBuffer, m_uiBufferLength, m_bLoop, m_b3D);
+        m_pAudio = new CBassAudio(m_Buffer.get(), m_uiBufferLength, m_bLoop, m_b3D);
 
     m_bDoneCreate = true;
 
     // Load file/start connect
     if (!m_pAudio->BeginLoadingMedia())
+    {
+        m_pAudio->Destroy();
+        m_pAudio = nullptr;
         return false;
+    }
 
     // Get and save length
     m_dLength = m_pAudio->GetLength();
@@ -146,6 +183,10 @@ bool CClientSound::Create()
     m_pAudio->SetTempoValues(m_fSampleRate, m_fTempo, m_fPitch, m_bReversed);
     m_pAudio->SetPanEnabled(m_bPan);
     m_pAudio->SetPan(m_fPan);
+
+    // Also check and transfer if paused
+    if (m_bPaused)
+        m_pAudio->SetPaused(m_bPaused);
 
     // Transfer play position if it was being simulated
     EndSimulationOfPlayPositionAndApply();
@@ -226,10 +267,13 @@ bool CClientSound::Play(const SString& strPath, bool bLoop)
 {
     assert(m_strPath.empty());
 
+    ReleaseBuffer();
+
     m_bStream = false;
     m_b3D = false;
     m_strPath = strPath;
     m_bLoop = bLoop;
+    m_bThrottle = false;
     m_bPan = false;
 
     // Instant distance-stream in
@@ -242,9 +286,9 @@ bool CClientSound::Play(void* pMemory, unsigned int uiLength, bool bLoop)
 
     m_bStream = false;
     m_b3D = false;
-    m_pBuffer = pMemory;
-    m_uiBufferLength = uiLength;
+    AdoptBuffer(pMemory, uiLength, AudioBufferDeleter::ForNewArray());
     m_bLoop = bLoop;
+    m_bThrottle = false;
     m_bPan = false;
 
     // Instant distance-stream in
@@ -255,10 +299,13 @@ bool CClientSound::Play3D(const SString& strPath, bool bLoop)
 {
     assert(m_strPath.empty());
 
+    ReleaseBuffer();
+
     m_bStream = false;
     m_b3D = true;
     m_strPath = strPath;
     m_bLoop = bLoop;
+    m_bThrottle = false;
 
     BeginSimulationOfPlayPosition();
 
@@ -269,9 +316,9 @@ bool CClientSound::Play3D(void* pMemory, unsigned int uiLength, bool bLoop)
 {
     m_bStream = false;
     m_b3D = true;
-    m_pBuffer = pMemory;
-    m_uiBufferLength = uiLength;
+    AdoptBuffer(pMemory, uiLength, AudioBufferDeleter::ForNewArray());
     m_bLoop = bLoop;
+    m_bThrottle = false;
 
     BeginSimulationOfPlayPosition();
 
@@ -281,6 +328,8 @@ bool CClientSound::Play3D(void* pMemory, unsigned int uiLength, bool bLoop)
 void CClientSound::PlayStream(const SString& strURL, bool bLoop, bool bThrottle, bool b3D)
 {
     assert(m_strPath.empty());
+
+    ReleaseBuffer();
 
     m_bStream = true;
     m_b3D = b3D;
@@ -340,7 +389,7 @@ double CClientSound::GetLength(bool bAvoidLoad)
     {
         // Not loaded by this entity yet
 
-#if 0       // TODO
+#if 0  // TODO
         if ( bAvoidLoad )
         {
             // Caller wants to avoid loading the file to find out the length,
@@ -447,7 +496,7 @@ bool CClientSound::SetLooped(bool bLoop)
     return true;
 }
 
-bool CClientSound::IsLooped(void) const
+bool CClientSound::IsLooped() const
 {
     return m_bLoop;
 }
@@ -460,14 +509,14 @@ void CClientSound::SetPaused(bool bPaused)
         {
             // call onClientSoundStopped
             CLuaArguments Arguments;
-            Arguments.PushString("paused");            // Reason
+            Arguments.PushString("paused");  // Reason
             this->CallEvent("onClientSoundStopped", Arguments, false);
         }
         else
         {
             // call onClientSoundStarted
             CLuaArguments Arguments;
-            Arguments.PushString("resumed");            // Reason
+            Arguments.PushString("resumed");  // Reason
             this->CallEvent("onClientSoundStarted", Arguments, false);
         }
     }
@@ -549,6 +598,7 @@ float* CClientSound::GetWaveData(int iLength)
     }
     return NULL;
 }
+
 bool CClientSound::SetPanEnabled(bool bPan)
 {
     if (m_b3D)
@@ -631,7 +681,12 @@ bool CClientSound::SetFxEffect(uint uiFxEffect, bool bEnable)
     m_EnabledEffects[uiFxEffect] = bEnable;
 
     if (m_pAudio)
+    {
         m_pAudio->SetFxEffects(&m_EnabledEffects[0], NUMELMS(m_EnabledEffects));
+        // Report the BASS-effective outcome: an effect the OS doesn't provide
+        // (e.g. I3DL2REVERB on Windows 11 24H2, #4259) won't actually engage.
+        return m_pAudio->IsFxEffectEnabled(uiFxEffect) == bEnable;
+    }
 
     return true;
 }
@@ -640,7 +695,33 @@ bool CClientSound::IsFxEffectEnabled(uint uiFxEffect)
 {
     if (uiFxEffect >= NUMELMS(m_EnabledEffects))
         return false;
+    if (m_pAudio)
+        return m_pAudio->IsFxEffectEnabled(uiFxEffect);
     return m_EnabledEffects[uiFxEffect] ? true : false;
+}
+
+bool CClientSound::SetFxEffectParameters(uint uiFxEffect, void* params)
+{
+    if (uiFxEffect >= NUMELMS(m_EnabledEffects))
+        return false;
+
+    if (m_pAudio)
+        if (m_pAudio->SetFxParameters(uiFxEffect, params))
+            return true;
+
+    return false;
+}
+
+bool CClientSound::GetFxEffectParameters(uint uiFxEffect, void* params)
+{
+    if (uiFxEffect >= NUMELMS(m_EnabledEffects))
+        return false;
+
+    if (m_pAudio)
+        if (m_pAudio->GetFxParameters(uiFxEffect, params))
+            return true;
+
+    return false;
 }
 
 ////////////////////////////////////////////////////////////
@@ -658,13 +739,17 @@ void CClientSound::Process3D(const CVector& vecPlayerPosition, const CVector& ve
     {
         // Update our position and velocity if we're attached
         CClientEntity* pAttachedToEntity = GetAttachedTo();
+
         if (pAttachedToEntity)
         {
             GetPosition(m_vecPosition);
             DoAttaching();
+
             CVector vecVelocity;
+
             if (CStaticFunctionDefinitions::GetElementVelocity(*pAttachedToEntity, vecVelocity))
                 SetVelocity(vecVelocity);
+
             // Update our spatial data position
             UpdateSpatialData();
         }
@@ -684,7 +769,7 @@ void CClientSound::Process3D(const CVector& vecPlayerPosition, const CVector& ve
                     if (Create())
                     {
                         CLuaArguments Arguments;
-                        Arguments.PushString("enabled");            // Reason
+                        Arguments.PushString("enabled");  // Reason
                         CallEvent("onClientSoundStarted", Arguments, false);
                     }
                 }
@@ -694,7 +779,7 @@ void CClientSound::Process3D(const CVector& vecPlayerPosition, const CVector& ve
         {
             Destroy();
             CLuaArguments Arguments;
-            Arguments.PushString("disabled");            // Reason
+            Arguments.PushString("disabled");  // Reason
             CallEvent("onClientSoundStopped", Arguments, false);
         }
     }
@@ -726,7 +811,17 @@ void CClientSound::Process3D(const CVector& vecPlayerPosition, const CVector& ve
         }
         else if (eventInfo.type == SOUND_EVENT_STREAM_RESULT)
         {
-            // Call onClientSoundStream LUA event
+            if (eventInfo.bBool)
+            {
+                m_bStreamFailureWarned = false;
+            }
+            else if (!m_bStreamFailureWarned)
+            {
+                m_bStreamFailureWarned = true;
+                g_pClientGame->GetScriptDebugging()->LogWarning(m_LuaDebugInfo, SString("Unable to stream sound '%s'", *m_strPath));
+            }
+
+            // Call onClientSoundStream Lua event
             CLuaArguments Arguments;
             Arguments.PushBoolean(eventInfo.bBool);
             Arguments.PushNumber(eventInfo.dNumber);

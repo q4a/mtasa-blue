@@ -5,13 +5,16 @@
  *  FILE:        mods/deathmatch/logic/CDatabaseTypeMySql.cpp
  *  PURPOSE:     MySql connection maker
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
 #include "CDatabaseType.h"
+#include "CDatabaseManager.h"
 #include "CDynamicLibrary.h"
+#include "CPerfStatManager.h"
+#include <sqlite/sqlite3.h>
 
 #define LIB_DBCONMY "dbconmy" MTA_LIB_SUFFIX MTA_LIB_EXTENSION
 
@@ -195,8 +198,11 @@ CDatabaseConnection* CDatabaseTypeMySql::CallNewDatabaseConnectionMySql(CDatabas
     {
         SString strServerPath = g_pServerInterface->GetModManager()->GetServerPath();
         m_DbconmyLib.Load(PathJoin(strServerPath, SERVER_BIN_PATH_MOD, LIB_DBCONMY));
-        m_pfnNewDatabaseConnection =
-            reinterpret_cast<NewDatabaseConnectionMySql_t*>((long long)(m_DbconmyLib.GetProcedureAddress("NewDatabaseConnectionMySql")));
+        {
+            const auto procAddr = m_DbconmyLib.GetProcedureAddress("NewDatabaseConnectionMySql");
+            static_assert(sizeof(m_pfnNewDatabaseConnection) == sizeof(procAddr), "Unexpected function pointer size");
+            std::memcpy(&m_pfnNewDatabaseConnection, &procAddr, sizeof(m_pfnNewDatabaseConnection));
+        }
     }
 
     if (!m_pfnNewDatabaseConnection)

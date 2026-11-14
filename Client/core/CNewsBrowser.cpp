@@ -5,7 +5,7 @@
  *  FILE:        core/CNewsBrowser.cpp
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -26,6 +26,7 @@ CNewsBrowser::CNewsBrowser()
     m_pWindow = NULL;
     m_pTabPanel = NULL;
     m_pButtonOK = NULL;
+    m_pButtonNewsLink = NULL;
 }
 
 ////////////////////////////////////////////////////
@@ -66,9 +67,9 @@ void CNewsBrowser::InitNewsItemList()
     {
         SString strItemDir = directoryList[directoryList.size() - 1 - i];
         if (strItemDir < strOldestPost)
-            continue;            // Post too old
+            continue;  // Post too old
         if (m_NewsitemList.size() >= uiMaxHistoryLength)
-            continue;            // Post count too high
+            continue;  // Post count too high
 
         SNewsItem newsItem;
         newsItem.strContentFullDir = PathJoin(strAllNewsDir, strItemDir);
@@ -150,7 +151,7 @@ void CNewsBrowser::CreateGUI()
     CGUI* pManager = g_pCore->GetGUI();
 
     // Create the window
-    m_pWindow = reinterpret_cast<CGUIWindow*>(pManager->CreateWnd(NULL, "NEWS"));
+    m_pWindow = reinterpret_cast<CGUIWindow*>(pManager->CreateWnd(NULL, _("NEWS")));
     m_pWindow->SetCloseButtonEnabled(true);
     m_pWindow->SetMovable(true);
 
@@ -168,9 +169,10 @@ void CNewsBrowser::CreateGUI()
     m_pButtonOK->SetZOrderingEnabled(false);
 
     // News link
+    float fNewsLinkButtonWidth = pManager->GetTextExtent(_("Visit latest news article"));
     m_pButtonNewsLink = reinterpret_cast<CGUIButton*>(pManager->CreateButton(m_pWindow, _("Visit latest news article")));
-    m_pButtonNewsLink->SetSize(CVector2D(180, 40), false);
-    m_pButtonNewsLink->SetPosition(CVector2D(560.0f - 250, 480.0f - 30));
+    m_pButtonNewsLink->SetSize(CVector2D(60 + fNewsLinkButtonWidth, 40), false);
+    m_pButtonNewsLink->SetPosition(CVector2D(560.0f - 130 - fNewsLinkButtonWidth, 480.0f - 30));
     m_pButtonNewsLink->SetZOrderingEnabled(false);
 
     // Set up the events
@@ -198,31 +200,18 @@ void CNewsBrowser::CreateGUI()
 ////////////////////////////////////////////////////
 void CNewsBrowser::DestroyGUI()
 {
-    // Destroy
-    for (uint i = 0; i < m_TabList.size(); i++)
-    {
-        CGUITab* pTab = m_TabList[i];
-        if (pTab)
-            delete pTab;
-    }
-    m_TabList.clear();
-    for (uint i = 0; i < m_TabContentList.size(); i++)
-    {
-        CGUIWindow* pWindow = m_TabContentList[i];
-        if (pWindow)
-        {
-            CGUIElement* m_pScrollPane = pWindow->GetParent();
-            if (m_pScrollPane)
-            {
-                delete m_pScrollPane;
-            }
-            delete pWindow;
-        }
-    }
-    m_TabContentList.clear();
-    SAFE_DELETE(m_pTabPanel);
+    if (!m_pWindow && !m_pTabPanel && !m_pButtonOK && !m_pButtonNewsLink)
+        return;
+
+    // Clean up the main UI elements in reverse order of creation
+    SAFE_DELETE(m_pTabPanel);  // This will destroy all tabs and their children
     SAFE_DELETE(m_pButtonOK);
+    SAFE_DELETE(m_pButtonNewsLink);
     SAFE_DELETE(m_pWindow);
+
+    // Clear the lists after the GUI objects are destroyed
+    m_TabList.clear();
+    m_TabContentList.clear();
 }
 
 ////////////////////////////////////////////////////
@@ -250,16 +239,25 @@ void CNewsBrowser::AddNewsTab(const SNewsItem& newsItem)
     // Switch cwd
     pManager->PushGuiWorkingDirectory(newsItem.strContentFullDir);
 
-    // Load files
-    CGUIWindow* pWindow = LoadLayoutAndImages(m_pScrollPane, newsItem);
-    m_TabContentList.push_back(pWindow);
-
-    // Set tab name from content window title
-    if (pWindow)
+    try
     {
-        SString strTitle = pWindow->GetText();
-        if (!strTitle.empty())
-            pTab->SetText(strTitle);
+        // Load files
+        CGUIWindow* pWindow = LoadLayoutAndImages(m_pScrollPane, newsItem);
+        m_TabContentList.push_back(pWindow);
+
+        // Set tab name from content window title
+        if (pWindow)
+        {
+            SString strTitle = pWindow->GetText();
+            if (!strTitle.empty())
+                pTab->SetText(strTitle);
+        }
+    }
+    catch (...)
+    {
+        // Pop before rethrowing, or later asset loads resolve inside the failed dir and healthy installs look broken.
+        pManager->PopGuiWorkingDirectory(newsItem.strContentFullDir);
+        throw;
     }
 
     // Restore cwd
@@ -386,7 +384,7 @@ bool CNewsBrowser::OnOKButtonClick(CGUIElement* pElement)
 bool CNewsBrowser::OnNewsLinkButtonClick(CGUIElement* pElement)
 {
     // Visit the website
-    ShellExecuteNonBlocking("open", "https://mtasa.com/news");
+    ShellExecuteNonBlocking("open", "https://multitheftauto.com/news");
 
     // Close the window
     m_pWindow->SetVisible(false);

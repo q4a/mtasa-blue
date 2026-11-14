@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CEvents.h
  *  PURPOSE:     Event manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -17,11 +17,10 @@
 
 struct SEvent
 {
-    class CLuaMain*     pLuaMain;
-    std::string         strName;
-    std::string         strArguments;
-    bool                bAllowRemoteTrigger;
-    eServerRPCFunctions eServerRPCFunction;
+    std::vector<class CLuaMain*> pLuaMainVector;
+    std::string                  strName;
+    std::string                  strArguments;
+    bool                         bAllowRemoteTrigger;
 };
 
 class CEvents
@@ -30,8 +29,7 @@ public:
     CEvents();
     ~CEvents() { RemoveAllEvents(); };
 
-    bool AddEvent(const char* szName, const char* szArguments, class CLuaMain* pLuaMain, bool bAllowRemoteTrigger,
-                  eServerRPCFunctions eServerRPCFunction = eServerRPCFunctions::NUM_SERVER_RPC_FUNCS);
+    bool AddEvent(const char* szName, const char* szArguments, class CLuaMain* pLuaMain, bool bAllowRemoteTrigger);
     void RemoveEvent(SEvent* pEvent);
     void RemoveEvent(const char* szName);
     void RemoveAllEvents(class CLuaMain* pMain);
@@ -49,15 +47,25 @@ public:
     void        CancelEvent(bool bCancelled, const char* szReason);
     bool        WasEventCancelled();
     const char* GetLastError();
+    const char* WasLastError();
 
 private:
     void RemoveAllEvents();
 
     CFastHashMap<SString, SEvent*> m_EventHashMap;
 
-    std::vector<int> m_CancelledList;
-    bool             m_bEventCancelled;
-    bool             m_bWasEventCancelled;
+    std::vector<int>     m_CancelledList;
+    std::vector<SString> m_LastErrorList;  // Stacked alongside m_CancelledList so a nested
+                                           // event's cancel reason cannot overwrite an outer
+                                           // event's reason (see issue #4529 / PR fix for #4873).
+    bool m_bEventCancelled;
+    bool m_bWasEventCancelled;
 
     SString m_strLastError;
+    SString m_strWasLastError;  // Mirrors m_bWasEventCancelled: captures the reason set via
+                                // cancelEvent() during the call, since m_strLastError itself
+                                // is restored to the outer event's reason once the call returns
+                                // (see issue #4963 - callers reading the reason after CallEvent()
+                                // returns, e.g. onPlayerConnect, must use this instead of
+                                // GetLastError()).
 };

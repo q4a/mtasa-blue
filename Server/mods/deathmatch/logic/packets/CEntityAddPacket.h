@@ -5,19 +5,14 @@
  *  FILE:        mods/deathmatch/logic/packets/CEntityAddPacket.h
  *  PURPOSE:     Entity add packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
-class CEntityAddPacket;
-
 #pragma once
 
-#include "../packets/CPacket.h"
+#include "CPacket.h"
 #include <vector>
-#include "../CGame.h"
-
-extern CGame* g_pGame;
 
 class CEntityAddPacket final : public CPacket
 {

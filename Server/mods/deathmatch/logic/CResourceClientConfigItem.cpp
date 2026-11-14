@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CResourceClientConfigItem.cpp
  *  PURPOSE:     Resource client-side (XML) configuration file item class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -15,6 +15,7 @@
 // is provided by giving out the root xml node.
 
 #include "StdInc.h"
+#include "CResourceClientConfigItem.h"
 
 extern CServerInterface* g_pServerInterface;
 extern CGame*            g_pGame;

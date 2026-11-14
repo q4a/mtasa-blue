@@ -6,11 +6,12 @@
  *  FILE:        CPrimitive3DBatcher.cpp
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 #include <StdInc.h>
 #include "CPrimitive3DBatcher.h"
+#include "DXHook/CProxyDirect3DDevice9.h"
 ////////////////////////////////////////////////////////////////
 //
 // CPrimitive3DBatcher::CPrimitive3DBatcher
@@ -18,9 +19,13 @@
 //
 //
 ////////////////////////////////////////////////////////////////
-CPrimitive3DBatcher::CPrimitive3DBatcher(bool bPreGUI)
-    : m_bPreGUI(bPreGUI)
+CPrimitive3DBatcher::CPrimitive3DBatcher(bool bPreGUI) : m_bPreGUI(bPreGUI)
 {
+}
+
+CPrimitive3DBatcher::~CPrimitive3DBatcher()
+{
+    ClearQueue();
 }
 ////////////////////////////////////////////////////////////////
 //
@@ -55,7 +60,6 @@ void CPrimitive3DBatcher::Flush()
     D3DXMATRIX matViewInv;
     D3DXMatrixInverse(&matViewInv, NULL, &matView);
     const CVector vecCameraPos(matViewInv._41, matViewInv._42, matViewInv._43);
-
 
     IDirect3DStateBlock9* pSavedStateBlock = nullptr;
     m_pDevice->CreateStateBlock(D3DSBT_ALL, &pSavedStateBlock);
@@ -94,16 +98,13 @@ void CPrimitive3DBatcher::Flush()
     // Draw
 
     uint VertexStreamZeroStride = sizeof(PrimitiveVertice);
-    for (auto& primitive : m_primitiveList) {
+    for (auto& primitive : m_primitiveList)
+    {
         DrawPrimitive(primitive.eType, primitive.pVecVertices->size(), &primitive.pVecVertices->at(0), VertexStreamZeroStride);
     }
 
-    // Clean up
-    for (auto& primitive : m_primitiveList) {
-        delete primitive.pVecVertices;
-    }
-
-    m_primitiveList.clear();
+    // Clean up queued primitives now that they are flushed
+    ClearQueue();
 
     if (g_pDeviceState->AdapterState.bRequiresClipping)
         m_pDevice->SetRenderState(D3DRS_CLIPPING, FALSE);
@@ -126,22 +127,22 @@ void CPrimitive3DBatcher::DrawPrimitive(D3DPRIMITIVETYPE eType, size_t iCollecti
     int iSize = 1;
     switch (eType)
     {
-    case D3DPT_POINTLIST:
-        iSize = iCollectionSize;
-        break;
-    case D3DPT_LINELIST:
-        iSize = iCollectionSize / 2;
-        break;
-    case D3DPT_LINESTRIP:
-        iSize = iCollectionSize - 1;
-        break;
-    case D3DPT_TRIANGLEFAN:
-    case D3DPT_TRIANGLESTRIP:
-        iSize = iCollectionSize - 2;
-        break;
-    case D3DPT_TRIANGLELIST:
-        iSize = iCollectionSize / 3;
-        break;
+        case D3DPT_POINTLIST:
+            iSize = iCollectionSize;
+            break;
+        case D3DPT_LINELIST:
+            iSize = iCollectionSize / 2;
+            break;
+        case D3DPT_LINESTRIP:
+            iSize = iCollectionSize - 1;
+            break;
+        case D3DPT_TRIANGLEFAN:
+        case D3DPT_TRIANGLESTRIP:
+            iSize = iCollectionSize - 2;
+            break;
+        case D3DPT_TRIANGLELIST:
+            iSize = iCollectionSize / 3;
+            break;
     }
     m_pDevice->DrawPrimitiveUP(eType, iSize, pDataAddr, uiVertexStride);
 }
@@ -155,4 +156,15 @@ void CPrimitive3DBatcher::DrawPrimitive(D3DPRIMITIVETYPE eType, size_t iCollecti
 void CPrimitive3DBatcher::AddPrimitive(D3DPRIMITIVETYPE eType, std::vector<PrimitiveVertice>* pVecVertices)
 {
     m_primitiveList.push_back({eType, pVecVertices});
+}
+
+void CPrimitive3DBatcher::ClearQueue()
+{
+    for (auto& primitive : m_primitiveList)
+    {
+        delete primitive.pVecVertices;
+        primitive.pVecVertices = nullptr;
+    }
+
+    m_primitiveList.clear();
 }

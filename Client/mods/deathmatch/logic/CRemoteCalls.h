@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CRemoteCalls.h
  *  PURPOSE:     Remote HTTP call (callRemote) class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -36,11 +36,11 @@ public:
                 const SHttpRequestOptions& options);
     ~CRemoteCall();
 
-    void        MakeCall();
-    static void DownloadFinishedCallback(const SHttpDownloadResult& result);
-    bool        CancelDownload();
-    const       SDownloadStatus& GetDownloadStatus();
-    void        OnLuaMainDestroy();
+    void                   MakeCall();
+    static void            DownloadFinishedCallback(const SHttpDownloadResult& result);
+    bool                   CancelDownload();
+    const SDownloadStatus& GetDownloadStatus();
+    void                   OnLuaMainDestroy();
 
     CLuaMain*                  GetVM() { return m_VM; }
     long long                  GetStartTime() { return m_iStartTime; }

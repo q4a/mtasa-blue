@@ -5,14 +5,14 @@
  *  FILE:        game_sa/CFlyingHandlingEntrySA.h
  *  PURPOSE:     Header file for vehicle flying handling data entry class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
+#include <CVector.h>
 #include <game/CFlyingHandlingEntry.h>
-#include "Common.h"
 
 struct tFlyingHandlingDataSA
 {

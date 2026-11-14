@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CVehicleManager.h
  *  PURPOSE:     Vehicle entity manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -18,7 +18,7 @@ class CVehicleManager;
 #include <list>
 
 // Undefined number of passengers (to disable custom passenger seats overriding in CVehicle)
-#define VEHICLE_PASSENGERS_UNDEFINED    255
+#define VEHICLE_PASSENGERS_UNDEFINED 255
 
 class CVehicleManager
 {
@@ -51,6 +51,7 @@ public:
     static bool         HasDamageModel(eVehicleType Type);
     static bool         HasDoors(unsigned short usModel);
     static void         GetRandomVariation(unsigned short usModel, unsigned char& ucVariant, unsigned char& ucVariant2);
+    static bool         IsVariationValidForModel(unsigned short usModel, unsigned char ucVariant, unsigned char ucVariant2);
 
     CVehicleColorManager* GetColorManager() { return &m_ColorManager; }
     CVehicleColor         GetRandomColor(unsigned short usModel);

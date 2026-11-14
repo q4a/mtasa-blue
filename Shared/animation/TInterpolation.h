@@ -9,13 +9,15 @@
 
 #pragma once
 
+#include "CEasingCurve.h"
+
 template <typename T>
 class TInterpolation
 {
 public:
     TInterpolation() : m_easingCurve(CEasingCurve::Linear), m_ullStartTime(0), m_ullEndTime(0), m_ulDuration(0) {}
 
-    virtual ~TInterpolation(){};
+    virtual ~TInterpolation() {};
 
     virtual void SetSourceValue(const T& a_rValue)
     {
@@ -65,8 +67,8 @@ public:
             unsigned long long ullNow = _GetTime();
             float              fElapsedTime = static_cast<float>(ullNow - m_ullStartTime);
 
-            float fAnimationTime = fElapsedTime / m_ulDuration;                         // Division by 0 is handled by IsRunning ()
-            fAnimationTime = m_easingCurve.ValueForProgress(fAnimationTime);            // Get the animation time to use (since it can be non linear)
+            float fAnimationTime = fElapsedTime / m_ulDuration;               // Division by 0 is handled by IsRunning ()
+            fAnimationTime = m_easingCurve.ValueForProgress(fAnimationTime);  // Get the animation time to use (since it can be non linear)
 
             _GetValue(a_rResult, fAnimationTime);
 
@@ -88,7 +90,7 @@ public:
         }
         else
         {
-            float fAnimationTime = m_easingCurve.ValueForProgress(1.0);            // Get the animation time to use (since it can be non linear)
+            float fAnimationTime = m_easingCurve.ValueForProgress(1.0);  // Get the animation time to use (since it can be non linear)
             _GetValue(a_rResult, fAnimationTime);
         }
     }
@@ -128,7 +130,7 @@ protected:
 
     T m_SourceValue;
     T m_TargetValue;
-    T m_DeltaValue;            // Used for calculations, also allows some subtypes to use a different way to set delta
+    T m_DeltaValue;  // Used for calculations, also allows some subtypes to use a different way to set delta
 
     CEasingCurve m_easingCurve;
 

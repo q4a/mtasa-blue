@@ -5,14 +5,14 @@
  *  FILE:        sdk/game/CExplosion.h
  *  PURPOSE:     Explosition interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-#include <CVector.h>
-#include "CEntity.h"
+class CEntity;
+class CVector;
 
 enum eExplosionType
 {

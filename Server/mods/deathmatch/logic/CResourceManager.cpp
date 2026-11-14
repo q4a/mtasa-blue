@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CResourceManager.cpp
  *  PURPOSE:     Resource manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,8 +13,18 @@
 // new resources on demand
 
 #include "StdInc.h"
-#define BLOCKED_DB_FILE_NAME    "fileblock.db"
-#define BLOCKED_DB_TABLE_NAME   "`block_reasons`"
+#include "CResourceManager.h"
+#include "CLogger.h"
+#include "CGame.h"
+#include "CMapManager.h"
+#include "CIdArray.h"
+#include "Utils.h"
+#include "CMainConfig.h"
+#include "CDatabaseManager.h"
+#include "CRegistry.h"
+
+#define BLOCKED_DB_FILE_NAME  "fileblock.db"
+#define BLOCKED_DB_TABLE_NAME "`block_reasons`"
 
 // SResInfo - Item in list of potential resources - Used in Refresh()
 struct SResInfo
@@ -162,19 +172,42 @@ bool CResourceManager::Refresh(bool bRefreshAll, const SString strJustThisResour
         if (!strJustThisResource.empty() && strJustThisResource != info.strName)
             continue;
 
-        if (!info.bPathIssue)
+        if (info.bPathIssue)
+            continue;
+
+        auto* pResource = GetResource(info.strName);
+
+        if (bRefreshAll || !pResource || !pResource->CheckIfStartable())
         {
-            CResource* pResource = GetResource(info.strName);
+            if (g_pServerInterface->IsRequestingExit())
+                return false;
 
-            if (bRefreshAll || !pResource || !pResource->CheckIfStartable())
-            {
-                if (g_pServerInterface->IsRequestingExit())
-                    return false;
-
-                // Add the resource
-                Load(!info.bIsDir, info.strAbsPath, info.strName);
-            }
+            // Add the resource
+            Load(!info.bIsDir, info.strAbsPath, info.strName);
+            continue;
         }
+
+        if (!pResource)
+            continue;
+
+        // For existing resources, refresh ACL permissions without full reload
+        std::string strPath;
+        if (!pResource->GetFilePath("meta.xml", strPath))
+            continue;
+
+        std::unique_ptr<CXMLFile> pMetaFile(g_pServerInterface->GetXML()->CreateXML(strPath.c_str()));
+        if (!pMetaFile || !pMetaFile->Parse())
+            continue;
+
+        CXMLNode* pRoot = pMetaFile->GetRootNode();
+        if (!pRoot)
+            continue;
+
+        CXMLNode* pNodeAclRequest = pRoot->FindSubNode("aclrequest", 0);
+        if (pNodeAclRequest)
+            pResource->RefreshAutoPermissions(pNodeAclRequest);
+        else
+            pResource->RemoveAutoPermissions();
     }
 
     marker.Set("AddNew");
@@ -219,6 +252,15 @@ bool CResourceManager::Refresh(bool bRefreshAll, const SString strJustThisResour
     {
         CResource* pResource = m_resourcesToStartAfterRefresh.front();
         m_resourcesToStartAfterRefresh.pop_front();
+        if (pResource->HasResourceChanged())
+        {
+            // Files changed since Load(); reload to refresh checksums
+            if (!Reload(pResource))
+            {
+                CLogger::LogPrintf("Resource '%s' has changed but reload failed; skipping start\n", pResource->GetName().c_str());
+                continue;
+            }
+        }
         pResource->Start();
     }
 
@@ -260,7 +302,8 @@ void CResourceManager::CheckResources(CResource* pResource)
 
 void CResourceManager::OnResourceLoadStateChange(CResource* pResource, const char* szOldState, const char* szNewState) const
 {
-    if (!pResource) return;
+    if (!pResource)
+        return;
 
     CLuaArguments Arguments;
     Arguments.PushResource(pResource);
@@ -393,7 +436,7 @@ CResource* CResourceManager::Load(bool bIsZipped, const char* szAbsPath, const c
     CResource* pResource = GetResource(szResourceName);
     if (pResource)
     {
-        if (!pResource->HasResourceChanged())
+        if (pResource->IsLoaded() && !pResource->HasResourceChanged())
         {
             // Already loaded and no reload required
             return pResource;
@@ -515,7 +558,7 @@ CResource* CResourceManager::GetResourceFromNetID(unsigned short usNetID)
     {
         if ((*iter)->GetNetID() == usNetID)
         {
-            assert(0);            // Should be in map
+            assert(0);  // Should be in map
             return (*iter);
         }
     }
@@ -529,6 +572,14 @@ void CResourceManager::OnPlayerJoin(CPlayer& Player)
     for (; iter != CResource::m_StartedResources.end(); iter++)
     {
         (*iter)->OnPlayerJoin(Player);
+    }
+}
+
+void CResourceManager::OnPlayerQuit(CPlayer& Player)
+{
+    for (CResource* resource : CResource::m_StartedResources)
+    {
+        resource->OnPlayerQuit(Player);
     }
 }
 
@@ -829,11 +880,11 @@ void CResourceManager::ProcessQueue()
         }
         else if (sItem.eQueue == QUEUE_REFRESH)
         {
-            Refresh(false, sItem.pResource ? sItem.pResource->GetName() : "");
+            Refresh(false, sItem.pResource ? sItem.pResource->GetName() : SStringX(""));
         }
         else if (sItem.eQueue == QUEUE_REFRESHALL)
         {
-            Refresh(true, sItem.pResource ? sItem.pResource->GetName() : "");
+            Refresh(true, sItem.pResource ? sItem.pResource->GetName() : SStringX(""));
         }
     }
 }
@@ -1178,7 +1229,7 @@ bool CResourceManager::ParseResourcePathInput(std::string strInput, CResource*& 
     ReplaceOccurrencesInString(strInput, "\\", "/");
 
     // Disallow file paths with a directory separator at the end
-    if (strInput.back() == '/')
+    if (strInput.empty() || strInput.back() == '/')
         return false;
 
     std::string strMetaPath;
@@ -1188,12 +1239,14 @@ bool CResourceManager::ParseResourcePathInput(std::string strInput, CResource*& 
         // This isn't relevant on the server because all files are private
         // But let's skip the symbol anyway
         strInput = strInput.substr(1);
+        if (strInput.empty())
+            return false;
     }
 
     if (strInput[0] == ':')
     {
-        unsigned int iEnd = strInput.find_first_of("/");
-        if (iEnd)
+        const std::size_t iEnd = strInput.find_first_of("/");
+        if (iEnd != std::string::npos && iEnd > 1 && iEnd + 1 < strInput.size())
         {
             std::string strResourceName = strInput.substr(1, iEnd - 1);
             pResource = g_pGame->GetResourceManager()->GetResource(strResourceName.c_str());
@@ -1317,11 +1370,11 @@ void CResourceManager::ReevaluateSyncMapElementDataOption()
     {
         if (iter->second)
         {
-            bSyncMapElementData = true;            // Any 'true' will stop the set
+            bSyncMapElementData = true;  // Any 'true' will stop the set
             break;
         }
         else
-            bSyncMapElementData = false;            // Need at least one 'false' to set
+            bSyncMapElementData = false;  // Need at least one 'false' to set
     }
 
     // Apply

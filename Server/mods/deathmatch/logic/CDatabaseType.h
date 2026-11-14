@@ -5,9 +5,16 @@
  *  FILE:        mods/deathmatch/logic/CDatabaseType.h
  *  PURPOSE:     Generic database and connection
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
+
+#pragma once
+
+#include "CRegistry.h"
+
+// Only used for identifying 8 byte integers in varargs list
+#define SQLITE_INTEGER64 10
 
 class CDatabaseConnection;
 
@@ -67,5 +74,5 @@ CDatabaseConnection* NewDatabaseConnectionSqlite(CDatabaseType* pManager, const 
 // Create interfaces for mysql
 //
 CDatabaseType* NewDatabaseTypeMySql();
-typedef CDatabaseConnection*(NewDatabaseConnectionMySql_t)(CDatabaseType* pManager, const SString& strHost, const SString& strUsername,
+typedef CDatabaseConnection*(NewDatabaseConnectionMySql_t)(CDatabaseType * pManager, const SString& strHost, const SString& strUsername,
                                                            const SString& strPassword, const SString& strOptions);

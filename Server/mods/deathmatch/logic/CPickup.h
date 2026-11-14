@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CPickup.h
  *  PURPOSE:     Pickup entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -147,11 +147,13 @@ public:
 
 protected:
     bool ReadSpecialData(const int iLine) override;
+    void WriteSpecialData(CXMLNode* pNode) override;
 
 private:
     void Callback_OnCollision(CColShape& Shape, CElement& Element);
     void Callback_OnLeave(CColShape& Shape, CElement& Element);
     void Callback_OnCollisionDestroy(CColShape* pShape);
+    bool ShouldTrackCollision(CColShape& Shape, CElement& Element);
 
     class CPickupManager* m_pPickupManager;
 

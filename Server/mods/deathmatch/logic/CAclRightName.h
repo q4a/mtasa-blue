@@ -4,10 +4,14 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        mods/deathmatch/logic/CAclRightName.h
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
+
 #pragma once
+
+#include "CAccessControlListRight.h"
+#include "lua/CLuaFunctionParseHelpers.h"
 
 //
 // Encapsulate a right name as a name and type

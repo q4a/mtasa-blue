@@ -5,7 +5,7 @@
  *  FILE:        sdk/game/CObject.h
  *  PURPOSE:     Object entity interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,14 +13,14 @@
 
 #include "CPhysical.h"
 
-class CVehicle;
-class CPed;
 class CObjectSAInterface;
+class CPed;
+class CVehicle;
 
 class CObject : public virtual CPhysical
 {
 public:
-    virtual ~CObject(){};
+    virtual ~CObject() {};
 
     virtual CObjectSAInterface* GetObjectInterface() = 0;
 

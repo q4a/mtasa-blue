@@ -5,15 +5,16 @@
  *  FILE:        mods/deathmatch/logic/packets/CVehicleDamageSyncPacket.h
  *  PURPOSE:     Vehicle damage synchronization packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #include "CPacket.h"
-#include "../CVehicle.h"
 #include "net/SyncStructures.h"
+
+class CVehicle;
 
 class CVehicleDamageSyncPacket final : public CPacket
 {

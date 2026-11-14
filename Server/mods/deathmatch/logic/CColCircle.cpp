@@ -5,13 +5,16 @@
  *  FILE:        mods/deathmatch/logic/CColCircle.cpp
  *  PURPOSE:     Circle-shaped collision entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
-
-using namespace std;
+#include "CColCircle.h"
+#include "CColManager.h"
+#include "CVector2D.h"
+#include "CSpatialDatabase.h"
+#include "Utils.h"
 
 CColCircle::CColCircle(CColManager* pManager, CElement* pParent, const CVector2D& vecPosition, float fRadius, bool bIsPartnered)
     : CColShape(pManager, pParent, bIsPartnered)
@@ -32,7 +35,7 @@ CElement* CColCircle::Clone(bool* bAddEntity, CResource* pResource)
 bool CColCircle::DoHitDetection(const CVector& vecNowPosition)
 {
     // Do a simple distance check between now position and our position
-    return IsPointNearPoint2D(vecNowPosition, m_vecPosition, m_fRadius);
+    return IsPointNearPoint2D(vecNowPosition, GetPosition(), m_fRadius);
 }
 
 bool CColCircle::ReadSpecialData(const int iLine)

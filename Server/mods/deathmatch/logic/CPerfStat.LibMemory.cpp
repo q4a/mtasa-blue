@@ -5,12 +5,16 @@
  *  FILE:        mods/deathmatch/logic/CPerfStat.LibMemory.cpp
  *  PURPOSE:     Performance stats manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPerfStatManager.h"
 #include "CDynamicLibrary.h"
+#include "core/CServerInterface.h"
+
+extern CServerInterface* g_pServerInterface;
 
 namespace
 {
@@ -42,7 +46,7 @@ namespace
         CDynamicLibrary* pLibrary;
         PFNGETALLOCSTATS pfnGetAllocStats;
     };
-}            // namespace
+}  // namespace
 
 ///////////////////////////////////////////////////////////////
 //
@@ -213,16 +217,16 @@ void CPerfStatLibMemoryImpl::GetLibMemoryStats(CPerfStatResult* pResult, const s
             {
                 CLibraryInfo info;
                 info.strName = libs[i];
-                #if MTA_DEBUG
+#if MTA_DEBUG
                 info.strName += "_d";
-                #endif
-                #ifdef WIN32
+#endif
+#ifdef WIN32
                 info.strName += ".dll";
-                #elif defined(__APPLE__)
+#elif defined(__APPLE__)
                 info.strName += ".dylib";
-                #else
+#else
                 info.strName += ".so";
-                #endif
+#endif
                 info.pLibrary = new CDynamicLibrary();
 
                 SString strPathFilename = g_pServerInterface->GetAbsolutePath(info.strName);

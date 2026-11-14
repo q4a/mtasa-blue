@@ -5,11 +5,16 @@
  *  FILE:        game_sa/TaskPhysicalResponseSA.cpp
  *  PURPOSE:     Physical response game tasks
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CGameSA.h"
+#include "CPedSA.h"
+#include "TaskPhysicalResponseSA.h"
+
+extern CGameSA* pGame;
 
 // ##############################################################################
 // ## Name:    CTaskSimpleChoking
@@ -28,11 +33,12 @@ CTaskSimpleChokingSA::CTaskSimpleChokingSA(CPed* pAttacker, bool bIsTearGas)
     if (pAttackerSA)
         pAttackerInterface = pAttackerSA->GetPedInterface();
 
-    this->CreateTaskInterface(sizeof(CTaskSimpleChokingSAInterface));
+    CreateTaskInterface(sizeof(CTaskSimpleChokingSAInterface));
     if (!IsValid())
         return;
-    DWORD dwThisInterface = (DWORD)this->GetInterface();
-    _asm
+    DWORD dwThisInterface = (DWORD)GetInterface();
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThisInterface
         push    ebx
@@ -41,36 +47,37 @@ CTaskSimpleChokingSA::CTaskSimpleChokingSA(CPed* pAttacker, bool bIsTearGas)
         call    dwFunc
         pop     ebx
     }
+    // clang-format on
 }
 
 CPed* CTaskSimpleChokingSA::GetAttacker()
 {
-    CTaskSimpleChokingSAInterface* internalInterface = (CTaskSimpleChokingSAInterface*)this->GetInterface();
+    CTaskSimpleChokingSAInterface* internalInterface = (CTaskSimpleChokingSAInterface*)GetInterface();
     SClientEntity<CPedSA>*         pPedClientEntity = pGame->GetPools()->GetPed((DWORD*)internalInterface->m_pAttacker);
     return pPedClientEntity ? pPedClientEntity->pEntity : nullptr;
 }
 
 unsigned int CTaskSimpleChokingSA::GetTimeRemaining()
 {
-    CTaskSimpleChokingSAInterface* internalInterface = (CTaskSimpleChokingSAInterface*)this->GetInterface();
+    CTaskSimpleChokingSAInterface* internalInterface = (CTaskSimpleChokingSAInterface*)GetInterface();
     return internalInterface->m_nTimeRemaining;
 }
 
 unsigned int CTaskSimpleChokingSA::GetTimeStarted()
 {
-    CTaskSimpleChokingSAInterface* internalInterface = (CTaskSimpleChokingSAInterface*)this->GetInterface();
+    CTaskSimpleChokingSAInterface* internalInterface = (CTaskSimpleChokingSAInterface*)GetInterface();
     return internalInterface->m_nTimeStarted;
 }
 
 bool CTaskSimpleChokingSA::IsTeargas()
 {
-    CTaskSimpleChokingSAInterface* internalInterface = (CTaskSimpleChokingSAInterface*)this->GetInterface();
+    CTaskSimpleChokingSAInterface* internalInterface = (CTaskSimpleChokingSAInterface*)GetInterface();
     return internalInterface->m_bIsTeargas ? true : false;
 }
 
 bool CTaskSimpleChokingSA::IsFinished()
 {
-    CTaskSimpleChokingSAInterface* internalInterface = (CTaskSimpleChokingSAInterface*)this->GetInterface();
+    CTaskSimpleChokingSAInterface* internalInterface = (CTaskSimpleChokingSAInterface*)GetInterface();
     return internalInterface->m_bIsFinished;
 }
 
@@ -92,9 +99,10 @@ void CTaskSimpleChokingSA::UpdateChoke(CPed* pPed, CPed* pAttacker, bool bIsTear
     }
 
     // Call the func
-    DWORD dwThisInterface = (DWORD)this->GetInterface();
+    DWORD dwThisInterface = (DWORD)GetInterface();
     DWORD dwFunc = FUNC_CTaskSimpleChoking__UpdateChoke;
-    _asm
+    // clang-format off
+    __asm
     {
         mov         ecx, dwThisInterface
         push        bIsTearGas
@@ -102,4 +110,5 @@ void CTaskSimpleChokingSA::UpdateChoke(CPed* pPed, CPed* pAttacker, bool bIsTear
         push        pPedInterface
         call        dwFunc
     }
+    // clang-format on
 }

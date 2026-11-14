@@ -5,28 +5,18 @@
  *  FILE:        game_sa/CPedIntelligenceSA.h
  *  PURPOSE:     Header file for ped entity AI class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #include <game/CPedIntelligence.h>
-#include "CEventSA.h"
+
+class CPedSAInterface;
 class CTaskManagerSA;
-class CVehicleScannerSA;
-class CTaskSimpleUseGunSAInterface;
 
-#include "CTaskManagerSA.h"
-#include "CVehicleScannerSA.h"
-
-#define FUNC_IsRespondingToEvent                    0x600DB0
-#define FUNC_GetCurrentEvent                        0x4ABE70
-#define FUNC_GetCurrentEventType                    0x4ABE60
-#define FUNC_CPedIntelligence_TestForStealthKill    0x601E00
-#define FUNC_CPedIntelligence_GetTaskUseGun         0x600F70
-
-class CPed;
+#define FUNC_CPedIntelligence_TestForStealthKill 0x601E00
 
 class CFightManagerInterface
 {
@@ -43,11 +33,11 @@ class CPedIntelligenceSAInterface
 public:
     // CEventHandlerHistory @ + 56
     CPedSAInterface*        pPed;
-    DWORD                   taskManager;            // +4 (really CTaskManagerSAInterface)
+    DWORD                   taskManager;  // +4 (really CTaskManagerSAInterface)
     BYTE                    bPad[16];
-    CFightManagerInterface* fightInterface;            // +24
+    CFightManagerInterface* fightInterface;  // +24
     BYTE                    bPad2[184];
-    DWORD                   vehicleScanner;            // +212 (really CVehicleScannerSAInterface)
+    DWORD                   vehicleScanner;  // +212 (really CVehicleScannerSAInterface)
 };
 
 class CPedIntelligenceSA : public CPedIntelligence
@@ -56,18 +46,14 @@ private:
     CPedIntelligenceSAInterface* internalInterface;
     CPed*                        ped;
     CTaskManagerSA*              TaskManager;
-    CVehicleScannerSA*           VehicleScanner;
 
 public:
     CPedIntelligenceSA(CPedIntelligenceSAInterface* pedIntelligenceSAInterface, CPed* ped);
     ~CPedIntelligenceSA();
-    CPedIntelligenceSAInterface*  GetInterface() { return this->internalInterface; }
-    bool                          IsRespondingToEvent();
-    int                           GetCurrentEventType();
-    CEvent*                       GetCurrentEvent();
-    CTaskManager*                 GetTaskManager();
-    CVehicleScanner*              GetVehicleScanner();
-    bool                          TestForStealthKill(CPed* pPed, bool bUnk);
-    CTaskSimpleUseGunSAInterface* GetTaskUseGun();
-    CTaskSAInterface*             SetTaskDuckSecondary(unsigned short nLengthOfDuck);
+    CPedIntelligenceSAInterface* GetInterface() { return internalInterface; }
+    CTaskManager*                GetTaskManager();
+    bool                         TestForStealthKill(CPed* pPed, bool bUnk);
+    CTaskSAInterface*            SetTaskDuckSecondary(unsigned short nLengthOfDuck);
+    CTaskSimpleUseGun*           GetTaskUseGun();
+    CTaskSimpleFight*            GetFightTask();
 };

@@ -5,7 +5,7 @@
  *  FILE:        mods/shared_logic/logic/lua/CLuaTimerManager.cpp
  *  PURPOSE:     Lua timer manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -17,11 +17,18 @@ void CLuaTimerManager::DoPulse(CLuaMain* pLuaMain)
     assert(!m_pPendingDelete);
     assert(!m_pProcessingTimer);
 
+    if (m_TimerList.empty())
+        return;
+
     CTickCount llCurrentTime = CTickCount::Now();
 
     // Use a separate queue to avoid trouble
     for (CFastList<CLuaTimer*>::const_iterator iter = m_TimerList.begin(); iter != m_TimerList.end(); iter++)
-        m_ProcessQueue.push_back(*iter);
+    {
+        CLuaTimer* pTimer = *iter;
+        if (!pTimer->IsPaused() && llCurrentTime >= (pTimer->GetStartTime() + pTimer->GetDelay()))
+            m_ProcessQueue.push_back(pTimer);
+    }
 
     while (!m_ProcessQueue.empty())
     {
@@ -108,6 +115,15 @@ void CLuaTimerManager::RemoveAllTimers()
     m_pProcessingTimer = NULL;
 }
 
+void CLuaTimerManager::SetTimerPaused(CLuaTimer* timer, bool paused)
+{
+    assert(timer);
+
+    timer->SetPaused(paused);
+    if (paused)
+        ListRemove(m_ProcessQueue, timer);
+}
+
 void CLuaTimerManager::ResetTimer(CLuaTimer* pLuaTimer)
 {
     assert(pLuaTimer);
@@ -144,5 +160,5 @@ CLuaTimer* CLuaTimerManager::AddTimer(const CLuaFunctionRef& iLuaFunction, CTick
         return pLuaTimer;
     }
 
-    return false;
+    return nullptr;
 }

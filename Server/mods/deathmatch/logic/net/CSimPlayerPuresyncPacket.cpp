@@ -3,21 +3,24 @@
  *  PROJECT:     Multi Theft Auto v1.0
  *  LICENSE:     See LICENSE in the top level directory
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
 #include "SimHeaders.h"
+#include "Utils.h"
+#include "CWeaponNames.h"
 
 CSimPlayerPuresyncPacket::CSimPlayerPuresyncPacket(ElementID PlayerID, ushort PlayerLatency, uchar PlayerSyncTimeContext, uchar PlayerGotWeaponType,
-                                                   float WeaponRange, CControllerState& sharedControllerState)
+                                                   float WeaponRange, float PlayerMaxHealth, CControllerState& sharedControllerState)
 
     : m_PlayerID(PlayerID),
       m_PlayerLatency(PlayerLatency),
       m_PlayerSyncTimeContext(PlayerSyncTimeContext),
       m_PlayerGotWeaponType(PlayerGotWeaponType),
       m_WeaponRange(WeaponRange),
+      m_PlayerMaxHealth(PlayerMaxHealth),
       m_sharedControllerState(sharedControllerState)
 {
 }
@@ -81,14 +84,14 @@ bool CSimPlayerPuresyncPacket::Read(NetBitStreamInterface& BitStream)
     SPlayerHealthSync health;
     if (!BitStream.Read(&health))
         return false;
-    m_Cache.fHealth = health.data.fValue;
+    m_Cache.fHealth = std::clamp(health.data.fValue, 0.0f, m_PlayerMaxHealth);
 
     // Armor
     SPlayerArmorSync armor;
     if (!BitStream.Read(&armor))
         return false;
 
-    m_Cache.fArmor = armor.data.fValue;
+    m_Cache.fArmor = std::clamp(armor.data.fValue, 0.0f, 100.0f);
 
     // Read out the camera rotation
     SCameraRotationSync camRotation;
@@ -113,8 +116,8 @@ bool CSimPlayerPuresyncPacket::Read(NetBitStreamInterface& BitStream)
 
         if (m_PlayerGotWeaponType != ucClientWeaponType)
         {
-            bWeaponCorrect = false;                          // Possibly old weapon data.
-            ucUseWeaponType = ucClientWeaponType;            // Use the packet supplied weapon type to skip over the correct amount of data
+            bWeaponCorrect = false;                // Possibly old weapon data.
+            ucUseWeaponType = ucClientWeaponType;  // Use the packet supplied weapon type to skip over the correct amount of data
         }
 
         // Update check counts
@@ -128,7 +131,7 @@ bool CSimPlayerPuresyncPacket::Read(NetBitStreamInterface& BitStream)
 
         // Set weapon slot
         if (bWeaponCorrect)
-            m_Cache.ucWeaponSlot = uiSlot;
+            m_Cache.ucWeaponSlot = static_cast<uchar>(uiSlot);
 
         if (CWeaponNames::DoesSlotHaveAmmo(uiSlot))
         {
@@ -229,7 +232,7 @@ bool CSimPlayerPuresyncPacket::Write(NetBitStreamInterface& BitStream) const
 
     if (m_Cache.flags.data.bHasAWeapon)
     {
-        unsigned int    uiSlot = m_Cache.ucWeaponSlot;            // check m_Cache.bWeaponCorrect !
+        unsigned int    uiSlot = m_Cache.ucWeaponSlot;  // check m_Cache.bWeaponCorrect !
         SWeaponSlotSync slot;
         slot.data.uiSlot = uiSlot;
         BitStream.Write(&slot);

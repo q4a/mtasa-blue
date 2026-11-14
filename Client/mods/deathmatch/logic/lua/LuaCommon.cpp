@@ -5,18 +5,19 @@
  *  FILE:        mods/shared_logic/logic/lua/LuaCommon.cpp
  *  PURPOSE:     Lua common functions
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include <StdInc.h>
+#include <new>
 
 // Temporary until we change these funcs:
 #include "../luadefs/CLuaDefs.h"
 // End of temporary
 
 // Prevent the warning issued when doing unsigned short -> void*
-#pragma warning(disable:4312)
+#pragma warning(disable : 4312)
 
 CClientEntity* lua_toelement(lua_State* luaVM, int iArgument)
 {
@@ -98,22 +99,14 @@ void lua_pushxmlnode(lua_State* luaVM, CXMLNode* pElement)
 
 void lua_pushuserdata(lua_State* luaVM, void* pData)
 {
-    if (CClientEntity* pEntity = UserDataCast<CClientEntity>((CClientEntity*)NULL, pData, luaVM))
+    if (CClientEntity* pEntity = UserDataCast((CClientEntity*)pData, luaVM))
         return lua_pushelement(luaVM, pEntity);
-    else if (CResource* pResource = UserDataCast<CResource>((CResource*)NULL, pData, luaVM))
+    else if (CResource* pResource = UserDataCast((CResource*)pData, luaVM))
         return lua_pushresource(luaVM, pResource);
-    else if (CXMLNode* pNode = UserDataCast<CXMLNode>((CXMLNode*)NULL, pData, luaVM))
+    else if (CXMLNode* pNode = UserDataCast((CXMLNode*)pData, luaVM))
         return lua_pushxmlnode(luaVM, pNode);
-    else if (CLuaTimer* pTimer = UserDataCast<CLuaTimer>((CLuaTimer*)NULL, pData, luaVM))
+    else if (CLuaTimer* pTimer = UserDataCast((CLuaTimer*)pData, luaVM))
         return lua_pushtimer(luaVM, pTimer);
-    else if (CLuaVector2D* pVector = UserDataCast<CLuaVector2D>((CLuaVector2D*)NULL, pData, luaVM))
-        return lua_pushvector(luaVM, *pVector);
-    else if (CLuaVector3D* pVector = UserDataCast<CLuaVector3D>((CLuaVector3D*)NULL, pData, luaVM))
-        return lua_pushvector(luaVM, *pVector);
-    else if (CLuaVector4D* pVector = UserDataCast<CLuaVector4D>((CLuaVector4D*)NULL, pData, luaVM))
-        return lua_pushvector(luaVM, *pVector);
-    else if (CLuaMatrix* pMatrix = UserDataCast<CLuaMatrix>((CLuaMatrix*)NULL, pData, luaVM))
-        return lua_pushmatrix(luaVM, *pMatrix);
 
     lua_pushobject(luaVM, NULL, pData);
 }
@@ -161,35 +154,39 @@ void lua_pushobject(lua_State* luaVM, const char* szClass, void* pObject, bool b
 
     // Assign the class metatable
     lua_getclass(luaVM, szClass);
-    lua_setmetatable(luaVM, -2);            // element
+    lua_setmetatable(luaVM, -2);  // element
 }
 
 void lua_pushvector(lua_State* luaVM, const CVector4D& vector)
 {
-    CLuaVector4D* pVector = new CLuaVector4D(vector);
-    lua_pushobject(luaVM, "Vector4", (void*)reinterpret_cast<unsigned int*>(pVector->GetScriptID()), true);
-    lua_addtotalbytes(luaVM, LUA_GC_EXTRA_BYTES);
+    void* storage = lua_newuserdata(luaVM, sizeof(CVector4D));
+    new (storage) CVector4D(vector);
+    lua_getclass(luaVM, "Vector4");
+    lua_setmetatable(luaVM, -2);
 }
 
 void lua_pushvector(lua_State* luaVM, const CVector& vector)
 {
-    CLuaVector3D* pVector = new CLuaVector3D(vector);
-    lua_pushobject(luaVM, "Vector3", (void*)reinterpret_cast<unsigned int*>(pVector->GetScriptID()), true);
-    lua_addtotalbytes(luaVM, LUA_GC_EXTRA_BYTES);
+    void* storage = lua_newuserdata(luaVM, sizeof(CVector));
+    new (storage) CVector(vector);
+    lua_getclass(luaVM, "Vector3");
+    lua_setmetatable(luaVM, -2);
 }
 
 void lua_pushvector(lua_State* luaVM, const CVector2D& vector)
 {
-    CLuaVector2D* pVector = new CLuaVector2D(vector);
-    lua_pushobject(luaVM, "Vector2", (void*)reinterpret_cast<unsigned int*>(pVector->GetScriptID()), true);
-    lua_addtotalbytes(luaVM, LUA_GC_EXTRA_BYTES);
+    void* storage = lua_newuserdata(luaVM, sizeof(CVector2D));
+    new (storage) CVector2D(vector);
+    lua_getclass(luaVM, "Vector2");
+    lua_setmetatable(luaVM, -2);
 }
 
 void lua_pushmatrix(lua_State* luaVM, const CMatrix& matrix)
 {
-    CLuaMatrix* pMatrix = new CLuaMatrix(matrix);
-    lua_pushobject(luaVM, "Matrix", (void*)reinterpret_cast<unsigned int*>(pMatrix->GetScriptID()), true);
-    lua_addtotalbytes(luaVM, LUA_GC_EXTRA_BYTES);
+    void* storage = lua_newuserdata(luaVM, sizeof(CMatrix));
+    new (storage) CMatrix(matrix);
+    lua_getclass(luaVM, "Matrix");
+    lua_setmetatable(luaVM, -2);
 }
 
 CLuaMain& lua_getownercluamain(lua_State* L)
@@ -200,24 +197,6 @@ CLuaMain& lua_getownercluamain(lua_State* L)
 CResource& lua_getownerresource(lua_State* L)
 {
     return *lua_getownercluamain(L).GetResource();
-}
-
-// Just do a type check vs LUA_TNONE before calling this, or bant
-const char* lua_makestring(lua_State* luaVM, int iArgument)
-{
-    if (lua_type(luaVM, iArgument) == LUA_TSTRING)
-    {
-        return lua_tostring(luaVM, iArgument);
-    }
-    lua_pushvalue(luaVM, iArgument);
-    lua_getglobal(luaVM, "tostring");
-    lua_pushvalue(luaVM, -2);
-    lua_call(luaVM, 1, 1);
-
-    const char* szString = lua_tostring(luaVM, -1);
-    lua_pop(luaVM, 2);
-
-    return szString;
 }
 
 void lua_initclasses(lua_State* luaVM)
@@ -271,31 +250,43 @@ void lua_newclass(lua_State* luaVM)
 
 void lua_getclass(lua_State* luaVM, const char* szName)
 {
-    lua_pushstring(luaVM, "mt");                     // "mt"
-    lua_rawget(luaVM, LUA_REGISTRYINDEX);            // mt
+    lua_pushstring(luaVM, "mt");           // "mt"
+    lua_rawget(luaVM, LUA_REGISTRYINDEX);  // mt
 
     assert(lua_istable(luaVM, -1));
 
-    lua_pushstring(luaVM, szName);            // mt, class name
-    lua_rawget(luaVM, -2);                    // mt, class
+    lua_pushstring(luaVM, szName);  // mt, class name
+    lua_rawget(luaVM, -2);          // mt, class
 
-    lua_remove(luaVM, -2);            // class
+    lua_remove(luaVM, -2);  // class
+}
+
+bool lua_isclass(lua_State* luaVM, int index, const char* szName)
+{
+    if (lua_type(luaVM, index) != LUA_TUSERDATA)
+        return false;
+    if (!lua_getmetatable(luaVM, index))
+        return false;
+    lua_getclass(luaVM, szName);
+    bool bEqual = (lua_rawequal(luaVM, -1, -2) != 0);
+    lua_pop(luaVM, 2);
+    return bEqual;
 }
 
 void lua_registerclass(lua_State* luaVM, const char* szName, const char* szParent)
 {
     if (szParent != NULL)
     {
-        lua_pushstring(luaVM, "mt");                     // class table, "mt"
-        lua_rawget(luaVM, LUA_REGISTRYINDEX);            // class table, mt table
-        lua_getfield(luaVM, -1, szParent);               // class table, mt table, parent table
+        lua_pushstring(luaVM, "mt");           // class table, "mt"
+        lua_rawget(luaVM, LUA_REGISTRYINDEX);  // class table, mt table
+        lua_getfield(luaVM, -1, szParent);     // class table, mt table, parent table
 
         // Error if we can't find the parent class to extend from
         assert(lua_istable(luaVM, -1));
 
-        lua_setfield(luaVM, -3, "__parent");            // class table, mt table
+        lua_setfield(luaVM, -3, "__parent");  // class table, mt table
 
-        lua_pop(luaVM, 1);            // class table
+        lua_pop(luaVM, 1);  // class table
     }
 
     lua_pushstring(luaVM, "mt");

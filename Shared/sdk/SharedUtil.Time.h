@@ -5,7 +5,7 @@
  *  FILE:        SharedUtil.Time.h
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 #pragma once
@@ -23,9 +23,9 @@ namespace SharedUtil
     //
     uint GetTickCount32();
 
-    // Forbid use of GetTickCount
-    #define GetTickCount GetTickCount_has_been_replaced_with_GetTickCount32
-    #define GetTickCount64 GetTickCount64_wont_work_on_XP_you_IDIOT
+// Forbid use of GetTickCount
+#define GetTickCount   GetTickCount_has_been_replaced_with_GetTickCount32
+#define GetTickCount64 GetTickCount64_wont_work_on_XP_you_IDIOT
 
     //
     // Retrieves the number of milliseconds that have elapsed since some arbitrary point in time.
@@ -40,6 +40,8 @@ namespace SharedUtil
     // Retrieves the number of seconds that have elapsed since some arbitrary point in time.
     //
     double GetSecondCount();
+
+    std::int64_t GetTimestamp();
 
     //
     // Get the time as a sortable string.
@@ -166,9 +168,9 @@ namespace SharedUtil
             m_ppIntervalCounter = NULL;
             m_ucUpdateCount = 0;
             m_uiElapsedTime = 0;
-    #ifndef SHARED_UTIL_MANUAL_TIMER_INITIALIZATION
+#ifndef SHARED_UTIL_MANUAL_TIMER_INITIALIZATION
             StaticInitialize(this);
-    #endif
+#endif
         }
 
         ~CElapsedTimeApprox()
@@ -215,15 +217,9 @@ namespace SharedUtil
     class CElapsedTimeHD
     {
     public:
-        CElapsedTimeHD()
-        {
-            Reset();
-        }
+        CElapsedTimeHD() { Reset(); }
 
-        void Reset()
-        {
-            m_resetTime = DoGetTickCount();
-        }
+        void Reset() { m_resetTime = DoGetTickCount(); }
 
         // Returns time in milliseconds since last reset
         double Get()
@@ -233,10 +229,7 @@ namespace SharedUtil
         }
 
     protected:
-        std::chrono::high_resolution_clock::time_point DoGetTickCount()
-        {
-            return std::chrono::high_resolution_clock::now();
-        }
+        std::chrono::high_resolution_clock::time_point DoGetTickCount() { return std::chrono::high_resolution_clock::now(); }
 
         std::chrono::high_resolution_clock::time_point m_resetTime;
     };
@@ -287,4 +280,4 @@ namespace SharedUtil
         std::vector<SItem> itemList;
     };
 
-}            // namespace SharedUtil
+}  // namespace SharedUtil

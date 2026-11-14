@@ -5,17 +5,13 @@
  *  FILE:        game_sa/TaskGoToSA.h
  *  PURPOSE:     Go-to game tasks
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <game/TaskGoTo.h>
-#include <game/CPathFind.h>
-
 #include "CVehicleSA.h"
 #include "TaskSA.h"
 
@@ -23,10 +19,10 @@
 class CAnimBlendAssociation;
 typedef DWORD CTaskUtilityLineUpPedWithCar;
 
-#define FUNC_CTaskComplexWanderStandard__Constructor            0x48E4F0
-#define FUNC_CTaskComplexWanderStandard__Destructor             0x48E600
+#define FUNC_CTaskComplexWanderStandard__Constructor 0x48E4F0
+#define FUNC_CTaskComplexWanderStandard__Destructor  0x48E600
 
-#define FUNC_CTaskSimpleCarSetPedOut__PositionPedOutOfCollision     0x6479B0
+#define FUNC_CTaskSimpleCarSetPedOut__PositionPedOutOfCollision 0x6479B0
 
 class TaskComplexWanderVTBL : public TaskComplexVTBL
 {
@@ -66,7 +62,7 @@ public:
 class CTaskComplexWanderSA : public virtual CTaskComplexSA, public virtual CTaskComplexWander
 {
 public:
-    CTaskComplexWanderSA(){};
+    CTaskComplexWanderSA() {};
 
     CNodeAddress* GetNextNode();
     CNodeAddress* GetLastNode();
@@ -90,6 +86,6 @@ public:
 class CTaskComplexWanderStandardSA : public virtual CTaskComplexWanderSA, public virtual CTaskComplexWanderStandard
 {
 public:
-    CTaskComplexWanderStandardSA(){};
+    CTaskComplexWanderStandardSA() {};
     CTaskComplexWanderStandardSA(const int iMoveState, const unsigned char iDir, const bool bWanderSensibly = true);
 };

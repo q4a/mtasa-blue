@@ -1,13 +1,24 @@
+/*****************************************************************************
+ *
+ *  PROJECT:     Multi Theft Auto
+ *  LICENSE:     See LICENSE in the top level directory
+ *  FILE:        game_sa/CMatrixSA.cpp
+ *
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
+ *
+ *****************************************************************************/
+
 #include "StdInc.h"
+#include "CMatrixSA.h"
 
 CMatrixSAInterface::CMatrixSAInterface(CMatrixSAInterface const& matrix)
 {
     ((void(__thiscall*)(CMatrixSAInterface*, CMatrixSAInterface const&))0x59BCF0)(this, matrix);
 }
 
-CMatrixSAInterface::CMatrixSAInterface(RwMatrixTag* matrix, bool temporary)
+CMatrixSAInterface::CMatrixSAInterface(RwMatrix* matrix, bool temporary)
 {
-    ((void(__thiscall*)(CMatrixSAInterface*, RwMatrixTag*, bool))0x59C050)(this, matrix, temporary);
+    ((void(__thiscall*)(CMatrixSAInterface*, RwMatrix*, bool))0x59C050)(this, matrix, temporary);
 }
 
 // destructor detaches matrix if attached

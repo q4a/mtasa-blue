@@ -7,7 +7,10 @@
  *  PURPOSE:     source file for the custom weapon stats manager.
  *
  *****************************************************************************/
+
 #include "StdInc.h"
+#include "CWeaponStatManager.h"
+#include "CWeaponStat.h"
 
 SFixedArray<sWeaponInfo, WEAPONTYPE_MAX + 1> CWeaponStatManager::OriginalPoorWeaponData;
 SFixedArray<sWeaponInfo, WEAPONTYPE_MAX + 1> CWeaponStatManager::OriginalNormalWeaponData;
@@ -117,73 +120,8 @@ CWeaponStat* CWeaponStatManager::GetOriginalWeaponStats(eWeaponType type, eWeapo
 void CWeaponStatManager::Init()
 {
     // Load SA Defaults
-    // Script to Dump:
-    // Script bugs:
-    // -
-    /*
-    count = 22
-    statid = 3
-    addCommandHandler("dump", function ()
-        while (count < 33) do
-            hFile = fileOpen ( "dump.txt" )
-            fileSetPos(hFile, fileGetSize ( hFile ))
-            i = count
-            fileWrite(hFile, "// " .. i .. " - " .. getWeaponNameFromID( i ) .. " Stat: " .. statid )
-            fileWrite(hFile, "\r\n")
-            for k,v in ipairs(props) do
-                outputChatBox(v)
-                fileWrite(hFile, Dump(v))
-                fileWrite(hFile, "\r\n")
-            end
-            fileClose(hFile)
-            count = count + 1
-        end
-    end)
-    function Array()
-        if (statid == 3) then
-            return "OriginalHitmanData["
-        elseif ( statid == 2 ) then
-            return "OriginalGangsterData["
-        else
-            return "OriginalWeaponData["
-        end
-    end
-    function Dump(strInfo)
-        i = count
-        -- Special case for Vectors
-        if ( strInfo == "fire_offset") then
-            fx, fy, fz = getWeaponProperty(i, statid, strInfo)
-            return Array() .. i .. "]." .. strInfo .. " = CVector ( " .. floatify ( fx ) .. ", " .. floatify ( fy ) .. ", " .. floatify ( fz ) .. " );"
-        end
-        -- Avoids compile errors ( Cannot convert from x to y )
-        if ( strInfo == "skill_level" ) then
-            return Array() .. i .. "]." .. strInfo .. " = (eWeaponSkill) " .. getWeaponProperty(i, statid, strInfo) .. ";"
-        end
+    // Script used to dump data: https://wiki.multitheftauto.com/wiki/Code_snippet_for_extracting_weapon_stats
 
-        if ( strInfo == "weapon_slot" ) then
-            return Array() .. i .. "]." .. strInfo .. " = (eWeaponSlot) " .. getWeaponProperty(i, statid, strInfo) .. ";"
-        end
-
-        if ( strInfo == "fire_type" ) then
-            return Array() .. i .. "]." .. strInfo .. " = (eFireType) " .. getWeaponProperty(i, statid, strInfo) .. ";"
-        end
-        -- end
-        -- Avoids Conversion from Double to float warnings.
-        if ( strInfo == "weapon_range" or strInfo == "target_range" or strInfo == "accuracy" or strInfo == "move_speed" or strInfo == "anim_loop_start" or
-    strInfo == "anim_loop_stop" or strInfo == "anim_loop_bullet_fire" or strInfo == "anim2_loop_start" or strInfo == "anim2_loop_stop" or strInfo ==
-    "anim2_loop_bullet_fire" or strInfo == "anim_breakout_time" or strInfo == "firing_speed" or strInfo == "radius" or strInfo == "life_span" or strInfo ==
-    "spread") then return Array() .. i .. "]." .. strInfo .. " = " .. floatify ( getWeaponProperty(i, statid, strInfo) ) .. ";" end
-        -- Default
-        return Array() .. i .. "]." .. strInfo .. " = " .. getWeaponProperty(i, statid, strInfo) .. ";"
-    end
-    -- Avoids conversion from Double to float warnings.
-    function floatify ( fVal )
-        if ( fVal == math.floor( fVal ) or fVal == math.ceil( fVal ) ) then
-            return fVal .. ".0f"
-        end
-        return fVal .. "f"
-    end
-    */
     // 22 - Colt 45
     OriginalNormalWeaponData[22].weapon_range = 35.0f;
     OriginalNormalWeaponData[22].target_range = 30.0f;
@@ -545,8 +483,8 @@ void CWeaponStatManager::Init()
     OriginalNormalWeaponData[33].default_combo = 4;
     OriginalNormalWeaponData[33].combos_available = 1;
     // 34 - Sniper
-    OriginalNormalWeaponData[34].weapon_range = 300.0f;            // Default is actually 100;
-    OriginalNormalWeaponData[34].target_range = 250.0f;            // Default is actually 50;
+    OriginalNormalWeaponData[34].weapon_range = 300.0f;  // Default is actually 100;
+    OriginalNormalWeaponData[34].target_range = 250.0f;  // Default is actually 50;
     OriginalNormalWeaponData[34].accuracy = 1.0f;
     OriginalNormalWeaponData[34].damage = 125;
     OriginalNormalWeaponData[34].life_span = 0.0f;
@@ -1659,71 +1597,38 @@ bool CWeaponStatManager::LoadDefault(CWeaponStat* pDest, eWeaponType weaponType,
     return true;
 }
 
-unsigned short CWeaponStatManager::GetSkillStatIndex(eWeaponType eWeapon)
+eStats CWeaponStatManager::GetSkillStatIndex(eWeaponType weapon)
 {
-    switch (eWeapon)
+    switch (weapon)
     {
         case WEAPONTYPE_PISTOL:
-        {
-            return 46;
-            break;
-        }
+            return STAT_PISTOL_SKILL;
         case WEAPONTYPE_PISTOL_SILENCED:
-        {
-            return 47;
-            break;
-        }
+            return STAT_SILENCED_PISTOL_SKILL;
         case WEAPONTYPE_DESERT_EAGLE:
-        {
-            return 48;
-            break;
-        }
+            return STAT_DESERT_EAGLE_SKILL;
         case WEAPONTYPE_SHOTGUN:
-        {
-            return 49;
-            break;
-        }
+            return STAT_SHOTGUN_SKILL;
         case WEAPONTYPE_SAWNOFF_SHOTGUN:
-        {
-            return 50;
-            break;
-        }
+            return STAT_SAWN_OFF_SHOTGUN_SKILL;
         case WEAPONTYPE_SPAS12_SHOTGUN:
-        {
-            return 51;
-            break;
-        }
+            return STAT_COMBAT_SHOTGUN_SKILL;
         case WEAPONTYPE_MICRO_UZI:
-        case WEAPONTYPE_TEC9:
-        {
-            return 52;
-            break;
-        }
+            return STAT_MACHINE_PISTOL_SKILL;
         case WEAPONTYPE_MP5:
-        {
-            return 53;
-            break;
-        }
-        case WEAPONTYPE_M4:
-        {
-            return 54;
-            break;
-        }
+            return STAT_SMG_SKILL;
         case WEAPONTYPE_AK47:
-        {
-            return 55;
-            break;
-        }
-        case WEAPONTYPE_SNIPERRIFLE:
+            return STAT_AK_47_SKILL;
+        case WEAPONTYPE_M4:
+            return STAT_M4_SKILL;
+        case WEAPONTYPE_TEC9:
+            return STAT_MACHINE_PISTOL_SKILL;
         case WEAPONTYPE_COUNTRYRIFLE:
-        {
-            return 56;
-            break;
-        }
+            return STAT_RIFLE_SKILL;
+        case WEAPONTYPE_SNIPERRIFLE:
+            return STAT_RIFLE_SKILL;
         default:
-        {
-            return 0;
-        }
+            return static_cast<eStats>(0);
     }
 }
 
@@ -1736,4 +1641,9 @@ float CWeaponStatManager::GetWeaponRangeFromSkillLevel(eWeaponType eWeapon, floa
         fWeaponRange = pWeaponStat->GetWeaponRange();
     }
     return fWeaponRange;
+}
+
+bool CWeaponStatManager::HasWeaponBulletSync(std::uint8_t weaponID) noexcept
+{
+    return weaponID >= 22 && weaponID <= 34;
 }

@@ -5,9 +5,11 @@
  *  FILE:        mods/deathmatch/logic/CDatabaseJobQueueManager.h
  *  PURPOSE:     Threaded job queue
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
+
+#pragma once
 
 ///////////////////////////////////////////////////////////////
 //

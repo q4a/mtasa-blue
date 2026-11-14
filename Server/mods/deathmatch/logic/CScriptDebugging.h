@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CScriptDebugging.h
  *  PURPOSE:     Script debugging facility class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -43,6 +43,7 @@ public:
 
     void LogCustom(lua_State* luaVM, unsigned char ucRed, unsigned char ucGreen, unsigned char ucBlue, const char* szFormat, ...);
     void LogDebug(lua_State* luaVM, unsigned char ucRed, unsigned char ucGreen, unsigned char ucBlue, const char* szFormat, ...);
+    void LogInformationV(lua_State* luaVM, const char* format, va_list vlist);
     void LogInformation(lua_State* luaVM, const char* szFormat, ...);
     void LogWarning(lua_State* luaVM, const char* szFormat, ...);
     void LogError(lua_State* luaVM, const char* szFormat, ...);
@@ -72,6 +73,7 @@ private:
                    unsigned char ucGreen = 255, unsigned char ucBlue = 255);
 
     void PrintLog(const char* szText);
+    bool CheckForSufficientDebugLevel(std::uint8_t playerDebugLevel, std::uint8_t messageDebugLevel) const noexcept;
     void Broadcast(const CPacket& Packet, unsigned int uiMinimumDebugLevel);
 
     unsigned int                   m_uiLogFileLevel;

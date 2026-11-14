@@ -5,20 +5,15 @@
  *  FILE:        game_sa/CMonsterTruckSA.cpp
  *  PURPOSE:     Monster truck vehicle entity
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CMonsterTruckSA.h"
 
-CMonsterTruckSA::CMonsterTruckSA(CMonsterTruckSAInterface* monstertruck) : CAutomobileSA(monstertruck)
+CMonsterTruckSA::CMonsterTruckSA(CMonsterTruckSAInterface* pInterface)
 {
-    DEBUG_TRACE("CMonsterTruckSA::CMonsterTruckSA( CMonsterTruckSAInterface * monstertruck )");
-    this->m_pInterface = monstertruck;
-}
-
-CMonsterTruckSA::CMonsterTruckSA(eVehicleTypes dwModelID, unsigned char ucVariation, unsigned char ucVariation2)
-    : CAutomobileSA(dwModelID, ucVariation, ucVariation2)
-{
-    DEBUG_TRACE("CMonsterTruckSA::CMonsterTruckSA( eVehicleTypes dwModelID ):CVehicleSA( dwModelID )");
+    SetInterface(pInterface);
+    Init();
 }

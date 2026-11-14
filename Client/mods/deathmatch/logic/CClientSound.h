@@ -13,9 +13,13 @@ class CBassAudio;
 
 #pragma once
 
+#include <cstdlib>
+#include <memory>
+#include <new>
 #include "CClientSoundManager.h"
 #include "CClientEntity.h"
 #include "CSimulatedPlayPosition.h"
+#include "lua/LuaCommon.h"
 
 class CClientSound final : public CClientEntity
 {
@@ -80,10 +84,16 @@ public:
     bool SetPan(float fPan);
     bool GetPan(float& fPan);
 
+    void                 SetLuaDebugInfo(const SLuaDebugInfo& luaDebugInfo) noexcept { m_LuaDebugInfo = luaDebugInfo; }
+    const SLuaDebugInfo& GetLuaDebugInfo() const noexcept { return m_LuaDebugInfo; }
+
     bool SetFxEffect(uint uiFxEffect, bool bEnable);
     bool IsFxEffectEnabled(uint uiFxEffect);
 
-    void Unlink(){};
+    bool SetFxEffectParameters(uint uiFxEffect, void* params);
+    bool GetFxEffectParameters(uint uiFxEffect, void* params);
+
+    void Unlink() {};
 
     bool IsSoundStopped() { return m_pAudio == NULL; }
     bool IsFinished();
@@ -101,6 +111,37 @@ protected:
     void Destroy();
 
 private:
+    struct AudioBufferDeleter
+    {
+        using DeleterFn = void (*)(void*) noexcept;
+
+        AudioBufferDeleter() noexcept = default;
+        explicit AudioBufferDeleter(DeleterFn fn) noexcept { Set(fn); }
+
+        void operator()(void* ptr) const noexcept
+        {
+            if (ptr)
+                m_Deleter(ptr);
+        }
+
+        void Set(DeleterFn fn) noexcept { m_Deleter = fn ? fn : &DeleteArrayImpl; }
+
+        static AudioBufferDeleter ForNewArray() noexcept { return AudioBufferDeleter(&DeleteArrayImpl); }
+        static AudioBufferDeleter ForMalloc() noexcept { return AudioBufferDeleter(&FreeImpl); }
+        static AudioBufferDeleter ForExternalReference() noexcept { return AudioBufferDeleter(&NoopImpl); }
+
+    private:
+        static void DeleteArrayImpl(void* ptr) noexcept { delete[] static_cast<uint8_t*>(ptr); }
+        static void FreeImpl(void* ptr) noexcept { std::free(ptr); }
+        static void NoopImpl(void*) noexcept {}
+
+        DeleterFn m_Deleter = &DeleteArrayImpl;
+    };
+    using BufferPtr = std::unique_ptr<void, AudioBufferDeleter>;
+
+    void ReleaseBuffer();
+    void AdoptBuffer(void* pMemory, unsigned int uiLength, AudioBufferDeleter deleter = {});
+
     CClientSoundManager*   m_pSoundManager;
     CSimulatedPlayPosition m_SimulatedPlayPosition;
     CBassAudio*            m_pAudio;
@@ -111,13 +152,15 @@ private:
     SString      m_strPath;
     bool         m_bLoop;
     bool         m_bThrottle;
-    void*        m_pBuffer;
+    BufferPtr    m_Buffer;
     unsigned int m_uiBufferLength;
 
     // Info
     bool                       m_bDoneCreate;
     double                     m_dLength;
     std::map<SString, SString> m_SavedTags;
+    bool                       m_bStreamFailureWarned;
+    SLuaDebugInfo              m_LuaDebugInfo;
 
     // Playback altering stuff
     float m_fPitch;

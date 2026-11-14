@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/packets/CVehicleTrailerPacket.cpp
  *  PURPOSE:     Vehicle trailer synchronization packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CVehicleTrailerPacket.h"
+#include "CVehicle.h"
+#include <net/SyncStructures.h>
 
 CVehicleTrailerPacket::CVehicleTrailerPacket(CVehicle* pVehicle, CVehicle* pTrailer, bool bAttached)
 {

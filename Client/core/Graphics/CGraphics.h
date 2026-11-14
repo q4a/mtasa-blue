@@ -5,7 +5,7 @@
  *  FILE:        core/CGraphics.h
  *  PURPOSE:     Header file for general graphics subsystem class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -19,9 +19,9 @@ class CGraphics;
 #include "CSingleton.h"
 #include "CRenderItemManager.h"
 
-#define DUMMY_PROGRESS_INITIAL_DELAY        1000    // Game stall time before spinner is displayed
-#define DUMMY_PROGRESS_MIN_DISPLAY_TIME     1000    // Minimum time spinner is drawn (to prevent flicker)
-#define DUMMY_PROGRESS_ANIMATION_INTERVAL   100     // Animation speed
+#define DUMMY_PROGRESS_INITIAL_DELAY      1000  // Game stall time before spinner is displayed
+#define DUMMY_PROGRESS_MIN_DISPLAY_TIME   1000  // Minimum time spinner is drawn (to prevent flicker)
+#define DUMMY_PROGRESS_ANIMATION_INTERVAL 100   // Animation speed
 
 class CTileBatcher;
 class CLine3DBatcher;
@@ -135,11 +135,11 @@ public:
     // Queued up drawing funcs
     void DrawLineQueued(float fX1, float fY1, float fX2, float fY2, float fWidth, unsigned long ulColor, bool bPostGUI);
 
-    void DrawLine3DQueued(const CVector& vecBegin, const CVector& vecEnd, float fWidth, unsigned long ulColor, bool bPostGUI);
+    void DrawLine3DQueued(const CVector& vecBegin, const CVector& vecEnd, float fWidth, unsigned long ulColor, eRenderStage stage = eRenderStage::PRE_FX);
 
     void DrawMaterialLine3DQueued(const CVector& vecBegin, const CVector& vecEnd, float fWidth, unsigned long ulColor, CMaterialItem* pMaterial, float fU = 0,
                                   float fV = 0, float fSizeU = 1, float fSizeV = 1, bool bRelativeUV = true, bool bFlipUV = false, bool bUseFaceToward = false,
-                                  const CVector& vecFaceToward = CVector(), bool bPostGUI = false) override;
+                                  const CVector& vecFaceToward = CVector(), eRenderStage stage = eRenderStage::PRE_FX) override;
 
     void DrawRectQueued(float fX, float fY, float fWidth, float fHeight, unsigned long ulColor, bool bPostGUI, bool bSubPixelPositioning = false);
 
@@ -148,21 +148,21 @@ public:
 
     void DrawStringQueued(float iLeft, float iTop, float iRight, float iBottom, unsigned long dwColor, const char* wszText, float fScaleX, float fScaleY,
                           unsigned long ulFormat, ID3DXFont* pDXFont = NULL, bool bPostGUI = false, bool bColorCoded = false, bool bSubPixelPositioning = false,
-                          float fRotation = 0, float fRotationCenterX = 0, float fRotationCenterY = 0);
+                          float fRotation = 0, float fRotationCenterX = 0, float fRotationCenterY = 0, float fLineHeight = 0);
 
     void DrawPrimitiveQueued(std::vector<PrimitiveVertice>* pVecVertices, D3DPRIMITIVETYPE eType, bool bPostGUI = false);
     void DrawMaterialPrimitiveQueued(std::vector<PrimitiveMaterialVertice>* vertices, D3DPRIMITIVETYPE type, CMaterialItem* pMaterial, bool bPostGUI);
 
-    void DrawPrimitive3DQueued(std::vector<PrimitiveVertice>* pVecVertices, D3DPRIMITIVETYPE eType, bool bPostGUI);
-    void DrawMaterialPrimitive3DQueued(std::vector<PrimitiveMaterialVertice>* pVecVertices, D3DPRIMITIVETYPE eType, CMaterialItem* pMaterial, bool bPostGUI);
+    void DrawPrimitive3DQueued(std::vector<PrimitiveVertice>* pVecVertices, D3DPRIMITIVETYPE eType, eRenderStage stage = eRenderStage::PRE_FX);
+    void DrawMaterialPrimitive3DQueued(std::vector<PrimitiveMaterialVertice>* pVecVertices, D3DPRIMITIVETYPE eType, CMaterialItem* pMaterial,
+                                       eRenderStage stage = eRenderStage::PRE_FX);
 
     void DrawCircleQueued(float fX, float fY, float fRadius, float fStartAngle, float fStopAngle, unsigned long ulColor, unsigned long ulColorCenter,
                           short siSegments, float fRatio, bool bPostGUI);
 
     void DrawWiredSphere(CVector vecPosition, float radius, SColor color, float fLineWidth, int iterations);
 
-
-    bool IsValidPrimitiveSize (int iNumVertives, D3DPRIMITIVETYPE eType);
+    bool IsValidPrimitiveSize(int iNumVertives, D3DPRIMITIVETYPE eType);
 
     void OnChangingRenderTarget(uint uiNewViewportSizeX, uint uiNewViewportSizeY);
 
@@ -170,6 +170,11 @@ public:
     CRenderItemManagerInterface* GetRenderItemManager() { return m_pRenderItemManager; }
     CScreenGrabberInterface*     GetScreenGrabber() { return m_pScreenGrabber; }
     CPixelsManagerInterface*     GetPixelsManager() { return m_pPixelsManager; }
+    void                         RetryInvalidRenderTargets()
+    {
+        if (m_pRenderItemManager)
+            m_pRenderItemManager->RetryInvalidRenderTargets();
+    }
 
     // Transition between GTA and MTA controlled rendering
     virtual void EnteringMTARenderZone();
@@ -186,17 +191,26 @@ public:
     bool CopyDataFromSurface(IDirect3DSurface9* pSurface, CBuffer& outBuffer);
 
     // To draw queued up drawings
-    void DrawPreGUIQueue(void);
-    void DrawPostGUIQueue(void);
-    void DrawLine3DPreGUIQueue(void);
-    bool HasLine3DPreGUIQueueItems(void);
-    void DrawPrimitive3DPreGUIQueue(void);
-    bool HasPrimitive3DPreGUIQueueItems(void);
+    void DrawPreGUIQueue();
+    void DrawPostGUIQueue();
+    void DrawLine3DPreGUIQueue();
+    void DrawLine3DPostFXQueue();
+    bool HasLine3DPreGUIQueueItems();
+    bool HasLine3DPostFXQueueItems();
+    void DrawPrimitive3DPostFXQueue();
+    void DrawPrimitive3DPreGUIQueue();
+    bool HasPrimitive3DPreGUIQueueItems();
+    bool HasPrimitive3DPostFXQueueItems();
 
     void DidRenderScene();
     void SetProgressMessage(const SString& strMessage);
     void DrawProgressMessage(bool bPreserveBackbuffer = true);
     void DrawRectangleInternal(float fX, float fY, float fWidth, float fHeight, unsigned long ulColor, bool bSubPixelPositioning);
+    void MarkViewportRefreshPending();
+    void RefreshViewportIfNeeded();
+    void ApplyMTARenderViewportIfNeeded();
+    void SetSkipMTARenderThisFrame(bool bSkip) { m_bSkipMTARenderThisFrame = bSkip; }
+    bool ShouldSkipMTARenderThisFrame() const { return m_bSkipMTARenderThisFrame; }
 
 private:
     void       OnDeviceCreate(IDirect3DDevice9* pDevice);
@@ -227,16 +241,26 @@ private:
     CPixelsManagerInterface*     m_pPixelsManager = nullptr;
     CTileBatcher*                m_pTileBatcher = nullptr;
     CLine3DBatcher*              m_pLine3DBatcherPreGUI = nullptr;
+    CLine3DBatcher*              m_pLine3DBatcherPostFX = nullptr;
     CLine3DBatcher*              m_pLine3DBatcherPostGUI = nullptr;
     CMaterialLine3DBatcher*      m_pMaterialLine3DBatcherPreGUI = nullptr;
+    CMaterialLine3DBatcher*      m_pMaterialLine3DBatcherPostFX = nullptr;
     CMaterialLine3DBatcher*      m_pMaterialLine3DBatcherPostGUI = nullptr;
     CPrimitiveBatcher*           m_pPrimitiveBatcher = nullptr;
     CPrimitiveMaterialBatcher*   m_pPrimitiveMaterialBatcher = nullptr;
     CPrimitive3DBatcher*         m_pPrimitive3DBatcherPreGUI = nullptr;
+    CPrimitive3DBatcher*         m_pPrimitive3DBatcherPostFX = nullptr;
     CPrimitive3DBatcher*         m_pPrimitive3DBatcherPostGUI = nullptr;
     CMaterialPrimitive3DBatcher* m_pMaterialPrimitive3DBatcherPreGUI = nullptr;
+    CMaterialPrimitive3DBatcher* m_pMaterialPrimitive3DBatcherPostFX = nullptr;
     CMaterialPrimitive3DBatcher* m_pMaterialPrimitive3DBatcherPostGUI = nullptr;
     CAspectRatioConverter*       m_pAspectRatioConverter = nullptr;
+    bool                         m_bSkipMTARenderThisFrame = false;
+    D3DVIEWPORT9                 m_prevViewportForMTA = {};
+    RECT                         m_prevScissorForMTA = {};
+    DWORD                        m_prevScissorEnableForMTA = FALSE;
+    bool                         m_bRestoreViewportAfterMTA = false;
+    bool                         m_bRestoreScissorAfterMTA = false;
 
     // Fonts
     ID3DXFont* m_pDXFonts[NUM_FONTS];
@@ -315,15 +339,15 @@ private:
 
     struct sDrawQueuePrimitive
     {
-        D3DPRIMITIVETYPE                eType;
-        std::vector<PrimitiveVertice>*  pVecVertices;
+        D3DPRIMITIVETYPE               eType;
+        std::vector<PrimitiveVertice>* pVecVertices;
     };
 
     struct sDrawQueuePrimitiveMaterial
     {
-        D3DPRIMITIVETYPE                        eType;
-        CMaterialItem*                          pMaterial;
-        std::vector<PrimitiveMaterialVertice>*  pVecVertices;
+        D3DPRIMITIVETYPE                       eType;
+        CMaterialItem*                         pMaterial;
+        std::vector<PrimitiveMaterialVertice>* pVecVertices;
     };
 
     struct sDrawQueueItem
@@ -333,7 +357,8 @@ private:
         std::wstring   wstrText;
 
         // Queue item data based on the eType.
-        union {
+        union
+        {
             sDrawQueueLine              Line;
             sDrawQueueText              Text;
             sDrawQueueRect              Rect;
@@ -355,6 +380,7 @@ private:
     void RemoveQueueRef(CRenderItem* pRenderItem);
     void AddQueueRef(IUnknown* pUnknown);
     void RemoveQueueRef(IUnknown* pUnknown);
+    void UpdateRenderTargetMatrices(uint uiNewViewportSizeX, uint uiNewViewportSizeY);
 
     // Drawing types
     struct ID3DXLine* m_pLineInterface = nullptr;
@@ -362,8 +388,8 @@ private:
     enum EMTARenderZone
     {
         MTA_RZONE_NONE,
-        MTA_RZONE_MAIN,               // MTA rendering inside known areas.
-        MTA_RZONE_OUTSIDE,            // MTA rendering outside known areas. i.e. During a keypress or GTA callback
+        MTA_RZONE_MAIN,     // MTA rendering inside known areas.
+        MTA_RZONE_OUTSIDE,  // MTA rendering outside known areas. i.e. During a keypress or GTA callback
     };
 
     EMTARenderZone                          m_MTARenderZone;
@@ -382,4 +408,13 @@ private:
     CElapsedTime                            m_ProgressAnimTimer;
     uint                                    m_uiProgressAnimFrame;
     std::map<SString, SCustomScaleFontInfo> m_CustomScaleFontMap;
+    bool                                    m_bPendingViewportRefresh = false;
+    uint                                    m_uiPendingViewportRefreshTries = 0;
+    uint                                    m_uiViewportRefreshSerial = 0;
+    uint                                    m_uiViewportLastAppliedSerial = 0;
+    bool                                    m_bPendingBackbufferOverrideAttempted = false;
+    bool                                    m_bForceFullViewportInMTA = false;
+    uint                                    m_uiForceViewportWidth = 0;
+    uint                                    m_uiForceViewportHeight = 0;
+    bool                                    m_bForceFullScissorInMTA = false;
 };

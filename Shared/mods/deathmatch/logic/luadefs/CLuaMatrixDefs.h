@@ -5,17 +5,20 @@
  *  FILE:        mods/shared_logic/CLuaVectorDefs.h
  *  PURPOSE:     Lua general class functions
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
+
 extern "C"
 {
-    #include "lua.h"
-    #include "lualib.h"
-    #include "lauxlib.h"
+#include "lua.h"
+#include "lualib.h"
+#include "lauxlib.h"
 }
+
+#include "luadefs/CLuaDefs.h"
 
 class CLuaMatrixDefs : public CLuaDefs
 {

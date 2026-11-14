@@ -5,11 +5,12 @@
  *  FILE:        game_sa/CStatsSA.cpp
  *  PURPOSE:     Game statistics
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CStatsSA.h"
 
 float CStatsSA::GetStatValue(unsigned short usIndex)
 {
@@ -17,70 +18,48 @@ float CStatsSA::GetStatValue(unsigned short usIndex)
     float fReturn = 0.0f;
     DWORD dwStatIndex = usIndex;
 
-    _asm
+    // clang-format off
+    __asm
     {
         push    dwStatIndex
         call    dwFunc
         add     esp, 4
         fstp    fReturn
     }
+    // clang-format on
     return fReturn;
 }
 
-void CStatsSA::ModifyStat(unsigned short usIndex, float fAmmount)
+void CStatsSA::ModifyStat(unsigned short usIndex, float fAmount)
 {
     DWORD dwFunc = FUNC_ModifyStat;
     DWORD dwStatIndex = usIndex;
 
-    _asm
+    // clang-format off
+    __asm
     {
-        push    fAmmount
+        push    fAmount
         push    dwStatIndex
         call    dwFunc
         add     esp, 8
     }
+    // clang-format on
 }
 
-void CStatsSA::IncrementStat(unsigned short usIndex, float fAmmount)
-{
-    DWORD dwFunc = FUNC_IncrementStat;
-    DWORD dwStatIndex = usIndex;
-
-    _asm
-    {
-        push    fAmmount
-        push    dwStatIndex
-        call    dwFunc
-        add     esp, 8
-    }
-}
-
-void CStatsSA::DecrementStat(unsigned short usIndex, float fAmmount)
-{
-    DWORD dwFunc = FUNC_DecrementStat;
-    DWORD dwStatIndex = usIndex;
-
-    _asm
-    {
-        push    fAmmount
-        push    dwStatIndex
-        call    dwFunc
-        add     esp, 8
-    }
-}
-
-void CStatsSA::SetStatValue(unsigned short usIndex, float fAmmount)
+void CStatsSA::SetStatValue(unsigned short usIndex, float fAmount)
 {
     DWORD dwFunc = FUNC_SetStatValue;
     DWORD dwStatIndex = usIndex;
 
-    _asm
+    // clang-format off
+    __asm
     {
-        push    fAmmount
+        push    fAmount
         push    dwStatIndex
         call    dwFunc
         add     esp, 8
     }
+    // clang-format on
 }
 
 unsigned short CStatsSA::GetSkillStatIndex(eWeaponType type)
@@ -88,12 +67,14 @@ unsigned short CStatsSA::GetSkillStatIndex(eWeaponType type)
     int   weaponType = (int)type;
     int   iIndex;
     DWORD dwFunc = FUNC_CWeaponInfo_GetSkillStatIndex;
-    _asm
+    // clang-format off
+    __asm
     {
         push    weaponType
         call    dwFunc
         add     esp, 0x4
         mov     iIndex, eax
     }
+    // clang-format on
     return (unsigned short)iIndex;
 }

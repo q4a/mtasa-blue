@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/luadefs/CLuaHTTPDefs.cpp
  *  PURPOSE:     Lua HTTP webserver definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CLuaHTTPDefs.h"
+#include "CScriptArgReader.h"
+#include "CResourceHTMLItem.h"
 
 void CLuaHTTPDefs::LoadFunctions(lua_State* luaVM)
 {

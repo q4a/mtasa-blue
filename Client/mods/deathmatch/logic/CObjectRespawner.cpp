@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CObjectRespawner.cpp
  *  PURPOSE:     Manager for objects to be respawned
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -57,6 +57,7 @@ bool CObjectRespawner::IsBeingRespawned(CClientObject* pObject)
 void CObjectRespawner::Unreference(CClientObject* pObject)
 {
     std::vector<CClientObject*>::iterator it = std::find(m_List.begin(), m_List.end(), pObject);
+
     if (it != m_List.end())
         m_List.erase(it);
 }

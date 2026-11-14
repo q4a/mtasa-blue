@@ -4,13 +4,14 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        Client/mods/deathmatch/logic/CIFPAnimations.cpp
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include <StdInc.h>
-#include "game/CAnimBlendSequence.h"
-#include "game/CAnimBlendHierarchy.h"
+#include <game/CAnimBlendHierarchy.h>
+#include <game/CAnimBlendSequence.h>
+#include <game/CAnimManager.h>
 
 CIFPAnimations::~CIFPAnimations()
 {

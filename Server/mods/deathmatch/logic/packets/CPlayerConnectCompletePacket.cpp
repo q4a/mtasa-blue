@@ -5,11 +5,15 @@
  *  FILE:        mods/deathmatch/logic/packets/CPlayerConnectCompletePacket.cpp
  *  PURPOSE:     Player connect complete packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPlayerConnectCompletePacket.h"
+#include "CStaticFunctionDefinitions.h"
+#include "version.h"
+
 #define MAX_CONN_TEXT_LEN 128
 
 bool CPlayerConnectCompletePacket::Write(NetBitStreamInterface& BitStream) const

@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/rpc/CColShapeRPC.h
  *  PURPOSE:     Header for colshape RPC class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -16,7 +16,7 @@
 class CColShapeRPCs : public CRPCFunctions
 {
 public:
-    static void LoadFunctions(void);
+    static void LoadFunctions();
 
     DECLARE_ELEMENT_RPC(SetColShapeRadius);
     DECLARE_ELEMENT_RPC(SetColShapeSize);

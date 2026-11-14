@@ -4,11 +4,14 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CLatentTransferManager.h"
+#include <net/Packets.h>
+
 using namespace LatentTransfer;
 
 ///////////////////////////////////////////////////////////////
@@ -94,8 +97,7 @@ void CLatentSendQueue::DoPulse(int iTimeMsBetweenCalls)
             pBitStream->Write(activeTx.usCategory);
             pBitStream->Write(activeTx.bufferRef->GetSize());
             pBitStream->Write(activeTx.uiRate);
-            if (pBitStream->Version() >= 0x31)
-                pBitStream->Write(activeTx.usResourceNetId);
+            pBitStream->Write(activeTx.usResourceNetId);
             activeTx.bSendStarted = true;
         }
         else if (activeTx.bufferRef->GetSize() == activeTx.uiReadPosition)
@@ -139,11 +141,10 @@ void CLatentSendQueue::DoPulse(int iTimeMsBetweenCalls)
 ///////////////////////////////////////////////////////////////
 SSendHandle CLatentSendQueue::AddSend(CBufferRef bufferRef, uint uiRate, ushort usCategory, void* pLuaMain, ushort usResourceNetId)
 {
-    m_TxQueue.push_back(SSendItem());
+    SSendItem& newTx = m_TxQueue.emplace_back();
 
-    SSendItem& newTx = m_TxQueue.back();
     newTx.uiId = m_uiNextSendId++;
-    newTx.bufferRef = bufferRef;
+    newTx.bufferRef = std::move(bufferRef);
     newTx.uiRate = uiRate;
     newTx.usCategory = usCategory;
     newTx.pLuaMain = pLuaMain;

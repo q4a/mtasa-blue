@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/lua/CLuaManager.h
  *  PURPOSE:     Lua virtual machine manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -22,6 +22,7 @@ class CLuaManager;
 // Predeclarations
 class CBlipManager;
 class CEvents;
+class CLuaTimer;
 class CMapManager;
 class CObjectManager;
 class CPlayerManager;
@@ -45,12 +46,14 @@ public:
 
     CLuaModuleManager* GetLuaModuleManager() const { return m_pLuaModuleManager; }
 
-    list<CLuaMain*>::const_iterator IterBegin() { return m_virtualMachines.begin(); };
-    list<CLuaMain*>::const_iterator IterEnd() { return m_virtualMachines.end(); };
+    std::list<CLuaMain*>::const_iterator IterBegin() { return m_virtualMachines.begin(); };
+    std::list<CLuaMain*>::const_iterator IterEnd() { return m_virtualMachines.end(); };
 
     void DoPulse();
 
     void LoadCFunctions();
+
+    CLuaTimer* FindTimerGlobally(unsigned long scriptID) const;
 
 private:
     CBlipManager*              m_pBlipManager;
@@ -64,5 +67,5 @@ private:
     CLuaModuleManager*         m_pLuaModuleManager;
 
     CFastHashMap<lua_State*, CLuaMain*> m_VirtualMachineMap;
-    list<CLuaMain*>                     m_virtualMachines;
+    std::list<CLuaMain*>                m_virtualMachines;
 };

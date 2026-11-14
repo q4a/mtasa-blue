@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CRadarArea.h
  *  PURPOSE:     Radar area entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -35,6 +35,7 @@ public:
 
 protected:
     bool ReadSpecialData(const int iLine) override;
+    void WriteSpecialData(CXMLNode* pNode) override;
 
 private:
     CRadarArea(class CRadarAreaManager* pRadarAreaManager, CElement* pParent);

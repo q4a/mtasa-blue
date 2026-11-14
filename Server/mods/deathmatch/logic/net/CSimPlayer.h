@@ -3,9 +3,13 @@
  *  PROJECT:     Multi Theft Auto v1.0
  *  LICENSE:     See LICENSE in the top level directory
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
+
+#pragma once
+
+#include "CPad.h"
 
 struct SSimVehicleDamageInfo
 {
@@ -35,16 +39,18 @@ public:
     unsigned short                     m_usBitStreamVersion;
     NetServerPlayerID                  m_PlayerSocket;
     std::vector<CSimPlayer*>           m_PuresyncSendListFlat;
-    std::multimap<ushort, CSimPlayer*> m_PuresyncSendListGrouped;            // Send list grouped by bitstream version
+    std::multimap<ushort, CSimPlayer*> m_PuresyncSendListGrouped;  // Send list grouped by bitstream version
     bool                               m_bSendListChanged;
     bool                               m_bHasOccupiedVehicle;
-    CControllerState                   m_sharedControllerState;            // Updated by CSim*Packet code
+    bool                               m_bIsExitingVehicle;
+    CControllerState                   m_sharedControllerState;  // Updated by CSim*Packet code
 
     // Used in CSimPlayerPuresyncPacket and CSimVehiclePuresyncPacket
     ElementID m_PlayerID;
     ushort    m_usLatency;
     uchar     m_ucSyncTimeContext;
     uchar     m_ucWeaponType;
+    float     m_fMaxHealth;
 
     // Used in CSimVehiclePuresyncPacket
     ushort                m_usVehicleModel;
@@ -52,6 +58,26 @@ public:
     float                 m_fWeaponRange;
     uint                  m_uiVehicleDamageInfoSendPhase;
     SSimVehicleDamageInfo m_VehicleDamageInfo;
+
+    // Used in bullet sync validation (HandleBulletSync)
+    CVector      m_vecPosition;
+    CElapsedTime m_BulletSyncRateTimer;
+
+    // Bullet sync validation snapshot, refreshed by UpdateSimPlayer on the
+    // main thread. The sim thread must not read live player state, so the
+    // sim path's possession, ammo and range checks run against these copies.
+    static constexpr std::size_t WEAPON_SLOT_COUNT = 13;  // Matches WEAPON_SLOTS in CPed.h
+    bool                         m_bIsSpawned{};
+    bool                         m_bIsDead{};
+    unsigned char                m_WeaponTypes[WEAPON_SLOT_COUNT]{};
+    unsigned short               m_WeaponTotalAmmo[WEAPON_SLOT_COUNT]{};
+    // Widest-tier range per weapon slot, for the range gate in
+    // HandleBulletSync. The gate measures the packet's weapon, so keying by
+    // slot keeps a shooter from relaying shots the main path rejects when
+    // the held weapon outranges the fired one, and from dropping shots of a
+    // weapon selected after the last refresh. Computed on the main thread
+    // because the sim thread cannot consult the mutable weapon stat tables.
+    float m_fBulletSyncRangeHighest[WEAPON_SLOT_COUNT]{};
 
     // Used in CSimKeysyncPacket
     bool m_bVehicleHasHydraulics;

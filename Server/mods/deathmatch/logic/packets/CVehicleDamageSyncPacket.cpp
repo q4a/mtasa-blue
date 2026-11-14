@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CVehicleDamageSyncPacket.cpp
  *  PURPOSE:     Vehicle damage synchronization packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CVehicleDamageSyncPacket.h"
+#include "CVehicle.h"
 
 CVehicleDamageSyncPacket::CVehicleDamageSyncPacket() : m_damage(true, true, true, true, true)
 {

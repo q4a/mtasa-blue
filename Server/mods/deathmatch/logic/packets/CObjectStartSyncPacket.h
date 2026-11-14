@@ -5,13 +5,15 @@
  *  FILE:        mods/deathmatch/logic/packets/CObjectStartSyncPacket.h
  *  PURPOSE:     Header for object start sync packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #include "CPacket.h"
+
+class CObject;
 
 class CObjectStartSyncPacket final : public CPacket
 {

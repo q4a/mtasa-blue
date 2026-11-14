@@ -4,12 +4,25 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CLatentTransferManager.h"
+
 using namespace LatentTransfer;
+
+#ifndef MTA_CLIENT
+    #include "CGame.h"
+    #include "CResource.h"
+    #include "CResourceManager.h"
+    #include "Utils.h"
+    #include <net/CNetServer.h>
+
+extern CNetServer*       g_pNetServer;
+extern CTimeUsMarker<20> markerLatentEvent;
+#endif
 
 ///////////////////////////////////////////////////////////////
 //
@@ -51,9 +64,9 @@ void CLatentTransferManager::DoPulse()
     // Smooth out time between calls, with more resistance when rising
     int iBetweenCallsChange = iDeltaTimeMs - m_iTimeMsBetweenCalls;
     if (iBetweenCallsChange > 0)
-        m_iTimeMsBetweenCalls += std::min(iBetweenCallsChange, std::max(1, m_iTimeMsBetweenCalls / 10));            // 10% max when rising
+        m_iTimeMsBetweenCalls += std::min(iBetweenCallsChange, std::max(1, m_iTimeMsBetweenCalls / 10));  // 10% max when rising
     else
-        m_iTimeMsBetweenCalls -= std::min(-iBetweenCallsChange, std::max(1, m_iTimeMsBetweenCalls / 5));            // 20% max when falling
+        m_iTimeMsBetweenCalls -= std::min(-iBetweenCallsChange, std::max(1, m_iTimeMsBetweenCalls / 5));  // 20% max when falling
 
     m_iTimeMsBetweenCalls = Clamp(1, m_iTimeMsBetweenCalls, 100);
 
@@ -73,13 +86,18 @@ void CLatentTransferManager::RemoveRemote(NetPlayerID remoteId)
 {
     CLatentSendQueue* pSendQueue = FindSendQueueForRemote(remoteId);
     CLatentReceiver*  pReceiver = FindReceiverForRemote(remoteId);
-
     ListRemove(m_SendQueueList, pSendQueue);
     MapRemove(m_SendQueueMap, remoteId);
-    MapRemove(m_ReceiverMap, remoteId);
 
     SAFE_DELETE(pSendQueue);
-    SAFE_DELETE(pReceiver);
+
+    if (pReceiver && pReceiver->IsInside())
+        pReceiver->SetDeferredDelete();
+    else
+    {
+        MapRemove(m_ReceiverMap, remoteId);
+        SAFE_DELETE(pReceiver);
+    }
 }
 
 ///////////////////////////////////////////////////////////////
@@ -112,18 +130,18 @@ void CLatentTransferManager::AddSendBatchBegin(unsigned char ucPacketId, NetBitS
     uint uiBitStreamBitsUsed = pBitStream->GetNumberOfBitsUsed();
     uint uiBitStreamBytesUsed = (uiBitStreamBitsUsed + 7) >> 3;
 
-    // Make a buffer containing enough info to recreate ucPacketId+BitStream at the other end
-    m_pBatchBufferRef = new CBufferRef();
+    // Make a buffer containing enough info to recreate ucPacketId+BitStream at the other
+    m_pBatchBufferRef = std::make_shared<CBuffer>();
 
-    CBuffer& buffer = *m_pBatchBufferRef->operator->();
-    CBufferWriteStream                    stream(buffer);
+    CBuffer&           buffer = *m_pBatchBufferRef;
+    CBufferWriteStream stream(buffer);
     stream.Write(ucPacketId);
     stream.Write(uiBitStreamBitsUsed);
     uint uiHeadSize = buffer.GetSize();
 
     // Copy data from bitstream into buffer
     buffer.SetSize(uiHeadSize + uiBitStreamBytesUsed);
-    *(buffer.GetData() + buffer.GetSize() - 1) = 0;            // Zero last byte of destination buffer
+    *(buffer.GetData() + buffer.GetSize() - 1) = 0;  // Zero last byte of destination buffer
     pBitStream->ResetReadPointer();
     pBitStream->ReadBits(buffer.GetData() + uiHeadSize, uiBitStreamBitsUsed);
 
@@ -146,7 +164,7 @@ SSendHandle CLatentTransferManager::AddSend(NetPlayerID remoteId, ushort usBitSt
     assert(m_pBatchBufferRef);
 
     CLatentSendQueue* pSendQueue = GetSendQueueForRemote(remoteId, usBitStreamVersion);
-    return pSendQueue->AddSend(*m_pBatchBufferRef, uiRate, CATEGORY_PACKET, pLuaMain, usResourceNetId);
+    return pSendQueue->AddSend(m_pBatchBufferRef, uiRate, CATEGORY_PACKET, pLuaMain, usResourceNetId);
 }
 
 ///////////////////////////////////////////////////////////////
@@ -161,8 +179,8 @@ void CLatentTransferManager::AddSendBatchEnd()
 #ifndef MTA_CLIENT
     markerLatentEvent.SetAndStoreString(SString("BatchEnd (%d sends)", m_uiNumSends));
 #endif
-    assert(m_pBatchBufferRef);
-    SAFE_DELETE(m_pBatchBufferRef);
+
+    m_pBatchBufferRef.reset();
 }
 
 ///////////////////////////////////////////////////////////////
@@ -280,6 +298,12 @@ void CLatentTransferManager::OnReceive(NetPlayerID remoteId, NetBitStreamInterfa
 {
     CLatentReceiver* pReceiver = GetReceiverForRemote(remoteId, pBitStream->Version());
     pReceiver->OnReceive(pBitStream);
+
+    if (pReceiver->IsDeferredDelete())
+    {
+        MapRemove(m_ReceiverMap, remoteId);
+        SAFE_DELETE(pReceiver);
+    }
 }
 
 ///////////////////////////////////////////////////////////////
@@ -351,7 +375,7 @@ bool DoStaticProcessPacket(unsigned char ucPacketID, NetPlayerID remoteId, NetBi
 
 void DoDisconnectRemote(NetPlayerID remoteId, const SString& strReason)
 {
-    g_pCore->ShowMessageBox(_("Error") + _E("CD61"), strReason, MB_BUTTON_OK | MB_ICON_ERROR);            // DoDisconnectRemote
+    g_pCore->ShowMessageBox(_("Error") + _E("CD61"), strReason, MB_BUTTON_OK | MB_ICON_ERROR);  // DoDisconnectRemote
     g_pCore->GetModManager()->RequestUnload();
 }
 
@@ -378,18 +402,26 @@ void DoDeallocateNetBitStream(NetBitStreamInterface* pBitStream)
 bool DoSendPacket(unsigned char ucPacketID, NetPlayerID remoteId, NetBitStreamInterface* bitStream, NetServerPacketPriority packetPriority,
                   NetServerPacketReliability packetReliability, ePacketOrdering packetOrdering)
 {
-    return g_pNetServer->SendPacket(ucPacketID, remoteId, bitStream, FALSE, packetPriority, packetReliability, packetOrdering);
+    return g_pNetServer->SendPacket(ucPacketID, remoteId, bitStream, false, packetPriority, packetReliability, packetOrdering);
 }
 
 bool DoStaticProcessPacket(unsigned char ucPacketID, NetPlayerID remoteId, NetBitStreamInterface* pBitStream, ushort usResourceNetId)
 {
-    // Check if latent packet should be ignored
-    if (usResourceNetId != 0xFFFF)
-    {
-        CResource* pResource = g_pGame->GetResourceManager()->GetResourceFromNetID(usResourceNetId);
-        if (!pResource)
-            return true;
-    }
+    // triggerLatentServerEvent is the only legitimate client-to-server latent
+    // path. It always sends PACKET_ID_LUA_EVENT with a valid resource net ID.
+    // Reject any other packet ID to prevent arbitrary packet handler dispatch
+    // via the latent transfer channel (e.g. routing PACKET_ID_PLAYER_MODINFO
+    // through a 100MB reassembled buffer to cause an unbounded heap storm).
+    if (ucPacketID != PACKET_ID_LUA_EVENT)
+        return false;
+
+    if (usResourceNetId == 0xFFFF)
+        return false;
+
+    CResource* pResource = g_pGame->GetResourceManager()->GetResourceFromNetID(usResourceNetId);
+    if (!pResource)
+        return true;
+
     return CGame::StaticProcessPacket(ucPacketID, remoteId, pBitStream, NULL);
 }
 

@@ -5,11 +5,12 @@
  *  FILE:        mods/deathmatch/logic/packets/CServerTextItemPacket.cpp
  *  PURPOSE:     Server text item packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CServerTextItemPacket.h"
 
 CServerTextItemPacket::CServerTextItemPacket(unsigned long ulUniqueId, bool bDeleteable, float fX, float fY, float fScale, const SColor color,
                                              unsigned char format, unsigned char ucShadowAlpha, const char* szText)

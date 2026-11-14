@@ -5,19 +5,15 @@
  *  FILE:        game_sa/CTrailerSA.cpp
  *  PURPOSE:     Trailer vehicle entity
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CTrailerSA.h"
 
-CTrailerSA::CTrailerSA(CTrailerSAInterface* trailer) : CAutomobileSA(trailer)
+CTrailerSA::CTrailerSA(CTrailerSAInterface* pInterface)
 {
-    DEBUG_TRACE("CTrailerSA::CTrailerSA( CTrailerSAInterface * trailer )");
-    this->m_pInterface = trailer;
-}
-
-CTrailerSA::CTrailerSA(eVehicleTypes dwModelID, unsigned char ucVariation, unsigned char ucVariation2) : CAutomobileSA(dwModelID, ucVariation, ucVariation2)
-{
-    DEBUG_TRACE("CTrailerSA::CTrailerSA( eVehicleTypes dwModelID ):CVehicleSA( dwModelID )");
+    SetInterface(pInterface);
+    Init();
 }

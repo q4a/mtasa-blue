@@ -5,11 +5,12 @@
  *  FILE:        mods/deathmatch/logic/packets/CCommandPacket.cpp
  *  PURPOSE:     Command packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CCommandPacket.h"
 
 bool CCommandPacket::Read(NetBitStreamInterface& BitStream)
 {

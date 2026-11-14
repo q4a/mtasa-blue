@@ -5,11 +5,18 @@
  *  FILE:        mods/deathmatch/logic/CConsole.cpp
  *  PURPOSE:     Console handler class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CConsole.h"
+#include "Utils.h"
+#include "CLogger.h"
+#include "CAccessControlListManager.h"
+#include "CRegisteredCommands.h"
+#include "CPlayerManager.h"
+#include "CConsoleClient.h"
 
 CConsole::CConsole(CBlipManager* pBlipManager, CMapManager* pMapManager, CPlayerManager* pPlayerManager, CRegisteredCommands* pRegisteredCommands,
                    CVehicleManager* pVehicleManager, CBanManager* pBanManager, CAccessControlListManager* pACLManager)

@@ -4,12 +4,14 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        mods/deathmatch/utils/CFunctionUseLogger.cpp
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
 #include "CFunctionUseLogger.h"
+#include "CGame.h"
+#include "CResourceManager.h"
 
 //
 // CFunctionUseLogger::CFunctionUseLogger
@@ -72,7 +74,7 @@ void CFunctionUseLogger::OnFunctionUse(lua_State* luaVM, const char* szFunctionN
         return;
 
     CResource* pResource = g_pGame->GetResourceManager()->GetResourceFromLuaState(luaVM);
-    SString    strResourceName = pResource ? pResource->GetName() : "Unknown";
+    SString    strResourceName = pResource ? pResource->GetName() : SStringX("Unknown");
 
     SString strKey("%s-%s", szFunctionName, *strResourceName);
 

@@ -5,16 +5,16 @@
  *  FILE:        sdk/game/CQuadBike.h
  *  PURPOSE:     Quad bike vehicle entity interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
-#include "CVehicle.h"
+#include "CAutomobile.h"
 
-class CQuadBike : public virtual CVehicle
+class CQuadBike : public virtual CAutomobile
 {
 public:
-    virtual ~CQuadBike(){};
+    virtual ~CQuadBike() {};
 };

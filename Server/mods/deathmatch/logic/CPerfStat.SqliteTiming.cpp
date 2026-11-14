@@ -5,11 +5,18 @@
  *  FILE:        mods/deathmatch/logic/CPerfStat.SqliteTiming.cpp
  *  PURPOSE:     Performance stats class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPerfStatManager.h"
+#include "CRegistry.h"
+#include "CGame.h"
+#include "CResource.h"
+#include "CResourceManager.h"
+
+struct lua_State;
 
 namespace
 {
@@ -21,7 +28,7 @@ namespace
         SString   databaseName;
         SString   resourceName;
     };
-}            // namespace
+}  // namespace
 
 ///////////////////////////////////////////////////////////////
 //
@@ -212,7 +219,7 @@ void CPerfStatSqliteTimingImpl::GetStats(CPerfStatResult* pResult, const std::ma
 {
     GetSqliteTimingStats(pResult, optionMap, strFilter);
 
-    uint      uiTicks = 1000 * 10;            // 10 seconds
+    uint      uiTicks = 1000 * 10;  // 10 seconds
     long long llTime = GetTickCount64_();
 
     m_llRecordStatsEndTime = llTime + uiTicks;
@@ -221,9 +228,9 @@ void CPerfStatSqliteTimingImpl::GetStats(CPerfStatResult* pResult, const std::ma
     for (std::map<CRegistry*, SString>::iterator iter = m_RegistryMap.begin(); iter != m_RegistryMap.end(); ++iter)
     {
         if (m_bDisableBatching)
-            iter->first->SuspendBatching(uiTicks);            // Suspend batching
+            iter->first->SuspendBatching(uiTicks);  // Suspend batching
         else
-            iter->first->SuspendBatching(0);            // Unsuspend batching
+            iter->first->SuspendBatching(0);  // Unsuspend batching
     }
 }
 

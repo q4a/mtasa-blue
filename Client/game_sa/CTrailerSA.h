@@ -5,7 +5,7 @@
  *  FILE:        game_sa/CTrailerSA.h
  *  PURPOSE:     Header file for trailer vehicle entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -19,12 +19,10 @@ class CTrailerSAInterface : public CAutomobileSAInterface
     // fill this
 };
 
-class CTrailerSA : public virtual CTrailer, public virtual CAutomobileSA
+class CTrailerSA final : public virtual CTrailer, public virtual CAutomobileSA
 {
-private:
 public:
-    CTrailerSA(CTrailerSAInterface* trailer);
-    CTrailerSA(eVehicleTypes dwModelID, unsigned char ucVariation, unsigned char ucVariation2);
+    CTrailerSA(CTrailerSAInterface* pInterface);
 
-    virtual ~CTrailerSA() {}
+    CTrailerSAInterface* GetTrailerInterface() { return reinterpret_cast<CTrailerSAInterface*>(GetInterface()); }
 };

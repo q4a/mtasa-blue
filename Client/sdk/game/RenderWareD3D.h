@@ -6,15 +6,20 @@
  *  PURPOSE:     RenderWare-compatible definitions for
  *               Grand Theft Auto: San Andreas
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *  RenderWare is © Criterion Software
  *
  *****************************************************************************/
 
+#pragma once
+
+#include <d3d9.h>
+
 // From SA::Render
 struct RwD3D9Raster
 {
-    union {
+    union
+    {
         IDirect3DTexture9* texture;
         IDirect3DSurface9* surface;
     };

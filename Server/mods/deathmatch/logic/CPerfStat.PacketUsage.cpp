@@ -5,11 +5,16 @@
  *  FILE:        mods/deathmatch/logic/CPerfStat.PacketUsage.cpp
  *  PURPOSE:     Performance stats manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPerfStatManager.h"
+#include "Enums.h"
+#include <net/CNetServer.h>
+
+extern CNetServer* g_pNetServer;
 
 ///////////////////////////////////////////////////////////////
 //
@@ -247,7 +252,7 @@ void CPerfStatPacketUsageImpl::GetStats(CPerfStatResult* pResult, const std::map
             row[c++] = SString("%d", (statInDelta.iCount + 4) / 5);
             row[c++] = CPerfStatManager::GetScaledByteString((statInDelta.iTotalBytes + 4) / 5);
             row[c++] = SString("%2.2f%%",
-                               statInDelta.totalTime / 50000.f);            // Number of microseconds in sample period ( 5sec * 1000000 ) into percent ( * 100 )
+                               statInDelta.totalTime / 50000.f);  // Number of microseconds in sample period ( 5sec * 1000000 ) into percent ( * 100 )
         }
         else
         {

@@ -5,11 +5,12 @@
  *  FILE:        mods/deathmatch/logic/CEvents.cpp
  *  PURPOSE:     Event manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CEvents.h"
 
 CEvents::CEvents()
 {
@@ -17,22 +18,33 @@ CEvents::CEvents()
     m_bEventCancelled = false;
 }
 
-bool CEvents::AddEvent(const char* szName, const char* szArguments, CLuaMain* pLuaMain, bool bAllowRemoteTrigger, eServerRPCFunctions eServerRPCFunction)
+bool CEvents::AddEvent(const char* szName, const char* szArguments, CLuaMain* pLuaMain, bool bAllowRemoteTrigger)
 {
     assert(szName);
     assert(szArguments);
 
-    // If it already exists, return
-    if (Get(szName))
-        return false;
+    // Get the event if it already exists
+    SEvent* pEvent = Get(szName);
 
-    // Create and add the event
-    SEvent* pEvent = new SEvent;
-    pEvent->strName = szName;
-    pEvent->strArguments = szArguments;
-    pEvent->pLuaMain = pLuaMain;
-    pEvent->bAllowRemoteTrigger = bAllowRemoteTrigger;
-    pEvent->eServerRPCFunction = eServerRPCFunction;
+    if (pEvent)
+    {
+        // If bAllowRemoteTrigger has been altered, return
+        if (pEvent->bAllowRemoteTrigger != bAllowRemoteTrigger)
+            return false;
+
+        // Add pLuaMain to the vector, in case it's not already there
+        if (!ListContains(pEvent->pLuaMainVector, pLuaMain))
+            pEvent->pLuaMainVector.push_back(pLuaMain);
+    }
+    else
+    {
+        // Create and add the event
+        pEvent = new SEvent;
+        pEvent->strName = szName;
+        pEvent->strArguments = szArguments;
+        pEvent->pLuaMainVector.push_back(pLuaMain);
+        pEvent->bAllowRemoteTrigger = bAllowRemoteTrigger;
+    }
 
     m_EventHashMap[szName] = pEvent;
 
@@ -69,17 +81,19 @@ void CEvents::RemoveAllEvents(class CLuaMain* pMain)
     while (iter != m_EventHashMap.end())
     {
         SEvent* pEvent = (*iter).second;
-        // If they match, delete it null it and set the bool
-        if (pEvent->pLuaMain == pMain)
+        ListRemoveFirst(pEvent->pLuaMainVector, pMain);
+
+        // If no pMain is left, delete it null it and set the bool
+        if (pEvent->pLuaMainVector.empty())
         {
             // Delete the object
             delete pEvent;
 
             // Remove from list
-            m_EventHashMap.erase(iter++);
+            m_EventHashMap.erase(iter);
         }
-        else
-            ++iter;
+
+        ++iter;
     }
 }
 
@@ -111,7 +125,12 @@ void CEvents::RemoveAllEvents()
 
 void CEvents::PreEventPulse()
 {
+    // Save outer event's cancel state (boolean + reason) so nested events cannot
+    // clobber it. Restored in PostEventPulse. Fixes the nested cancel-reason loss
+    // that motivated #4529 without changing cancel-boolean semantics (which were
+    // already correctly stacked here, and which #4873 relied on).
     m_CancelledList.push_back(m_bEventCancelled);
+    m_LastErrorList.push_back(m_strLastError);
     m_bEventCancelled = false;
     m_bWasEventCancelled = false;
     m_strLastError = "";
@@ -122,16 +141,22 @@ void CEvents::PostEventPulse()
     m_bWasEventCancelled = m_bEventCancelled;
     m_bEventCancelled = m_CancelledList.back() ? true : false;
     m_CancelledList.pop_back();
+    // Mirrors m_bWasEventCancelled above, before restoring the outer reason.
+    m_strWasLastError = m_strLastError;
+    m_strLastError = m_LastErrorList.back();
+    m_LastErrorList.pop_back();
 }
 
 void CEvents::CancelEvent(bool bCancelled)
 {
     m_bEventCancelled = bCancelled;
+    m_bWasEventCancelled = bCancelled;
 }
 
 void CEvents::CancelEvent(bool bCancelled, const char* szReason)
 {
     m_bEventCancelled = bCancelled;
+    m_bWasEventCancelled = bCancelled;
     m_strLastError = SStringX(szReason);
 }
 
@@ -143,4 +168,9 @@ bool CEvents::WasEventCancelled()
 const char* CEvents::GetLastError()
 {
     return m_strLastError;
+}
+
+const char* CEvents::WasLastError()
+{
+    return m_strWasLastError;
 }

@@ -5,14 +5,16 @@
  *  FILE:        core/Server.cpp
  *  PURPOSE:     Server core module entry
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
 #include "CServerImpl.h"
+#include "version.h"
 #define ALLOC_STATS_MODULE_NAME "core"
 #include "SharedUtil.hpp"
+#include "ErrorCodes.h"
 #ifdef WIN_x86
 // TODO - 64 bit file hooks
     #include "SharedUtil.Win32Utf8FileHooks.hpp"
@@ -33,26 +35,26 @@ MTAEXPORT int Run(int iArgumentCount, char* szArguments[])
         }
     }
 
-    #ifdef WIN32
+#ifdef WIN32
     // Disable critical error message boxes
     SetErrorMode(SEM_FAILCRITICALERRORS);
-    #endif
+#endif
 
-    #ifdef WIN_x86
+#ifdef WIN_x86
     // Apply file hooks if not already done by the client
     bool bSkipFileHooks = false;
     for (int i = 1; i < iArgumentCount; i++)
         bSkipFileHooks |= SStringX(szArguments[i]).Contains("--clientfeedback");
     if (!bSkipFileHooks)
         AddUtf8FileHooks();
-    #endif
+#endif
 
-        // Create the server
-    #ifdef WIN32
+    // Create the server
+#ifdef WIN32
     CServerImpl Server(&g_CommandQueue);
-    #else
+#else
     CServerImpl Server;
-    #endif
+#endif
 
     // Run the main func
     int iReturn;
@@ -61,10 +63,14 @@ MTAEXPORT int Run(int iArgumentCount, char* szArguments[])
         iReturn = Server.Run(iArgumentCount, szArguments);
     } while (iReturn == SERVER_RESET_RETURN);
 
-    // Done
-    #ifdef WIN_x86
+// Done
+#ifdef WIN_x86
     RemoveUtf8FileHooks();
-    #endif
+#endif
+
+    // Overwrite the exit code, if we are stopping gracefully without errors
+    if (iReturn == ERROR_NO_ERROR)
+        iReturn = Server.GetExitCode();
 
     return iReturn;
 }

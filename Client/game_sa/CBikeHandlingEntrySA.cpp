@@ -5,11 +5,12 @@
  *  FILE:        game_sa/CHandlingEntrySA.cpp
  *  PURPOSE:     Vehicle handling data entry
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CBikeHandlingEntrySA.h"
 
 CBikeHandlingEntrySA::CBikeHandlingEntrySA()
 {
@@ -24,7 +25,10 @@ CBikeHandlingEntrySA::CBikeHandlingEntrySA(tBikeHandlingDataSA* pOriginal)
 
 void CBikeHandlingEntrySA::Assign(const CBikeHandlingEntry* pData)
 {
-    const CBikeHandlingEntrySA* pEntrySA = static_cast<const CBikeHandlingEntrySA*>(pData);
+    if (!pData)
+        return;
+
+    const auto* pEntrySA = static_cast<const CBikeHandlingEntrySA*>(pData);
     m_BikeHandling = pEntrySA->m_BikeHandling;
 }
 

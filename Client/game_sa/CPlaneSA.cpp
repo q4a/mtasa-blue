@@ -5,19 +5,15 @@
  *  FILE:        game_sa/CPlaneSA.cpp
  *  PURPOSE:     Plane vehicle entity
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPlaneSA.h"
 
-CPlaneSA::CPlaneSA(CPlaneSAInterface* plane) : CAutomobileSA(plane)
+CPlaneSA::CPlaneSA(CPlaneSAInterface* pInterface)
 {
-    DEBUG_TRACE("CPlaneSA::CPlaneSA( CPlaneSAInterface * plane )");
-    this->m_pInterface = plane;
-}
-
-CPlaneSA::CPlaneSA(eVehicleTypes dwModelID, unsigned char ucVariation, unsigned char ucVariation2) : CAutomobileSA(dwModelID, ucVariation, ucVariation2)
-{
-    DEBUG_TRACE("CPlaneSA::CPlaneSA( eVehicleTypes dwModelID ):CVehicleSA( dwModelID )");
+    SetInterface(pInterface);
+    Init();
 }

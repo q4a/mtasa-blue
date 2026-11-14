@@ -10,6 +10,7 @@
  *****************************************************************************/
 #include <StdInc.h>
 #include "CPrimitiveBatcher.h"
+#include "DXHook/CProxyDirect3DDevice9.h"
 ////////////////////////////////////////////////////////////////
 //
 // CPrimitiveBatcher::CPrimitiveBatcher
@@ -30,6 +31,7 @@ CPrimitiveBatcher::CPrimitiveBatcher()
 ////////////////////////////////////////////////////////////////
 CPrimitiveBatcher::~CPrimitiveBatcher()
 {
+    ClearQueue();
 }
 ////////////////////////////////////////////////////////////////
 //
@@ -41,6 +43,7 @@ CPrimitiveBatcher::~CPrimitiveBatcher()
 void CPrimitiveBatcher::OnDeviceCreate(IDirect3DDevice9* pDevice, float fViewportSizeX, float fViewportSizeY)
 {
     m_pDevice = pDevice;
+
     // Cache matrices
     UpdateMatrices(fViewportSizeX, fViewportSizeY);
 }
@@ -163,22 +166,22 @@ void CPrimitiveBatcher::DrawPrimitive(D3DPRIMITIVETYPE eType, size_t iCollection
     int iSize = 1;
     switch (eType)
     {
-    case D3DPT_POINTLIST:
-        iSize = iCollectionSize;
-        break;
-    case D3DPT_LINELIST:
-        iSize = iCollectionSize / 2;
-        break;
-    case D3DPT_LINESTRIP:
-        iSize = iCollectionSize - 1;
-        break;
-    case D3DPT_TRIANGLEFAN:
-    case D3DPT_TRIANGLESTRIP:
-        iSize = iCollectionSize - 2;
-        break;
-    case D3DPT_TRIANGLELIST:
-        iSize = iCollectionSize / 3;
-        break;
+        case D3DPT_POINTLIST:
+            iSize = iCollectionSize;
+            break;
+        case D3DPT_LINELIST:
+            iSize = iCollectionSize / 2;
+            break;
+        case D3DPT_LINESTRIP:
+            iSize = iCollectionSize - 1;
+            break;
+        case D3DPT_TRIANGLEFAN:
+        case D3DPT_TRIANGLESTRIP:
+            iSize = iCollectionSize - 2;
+            break;
+        case D3DPT_TRIANGLELIST:
+            iSize = iCollectionSize / 3;
+            break;
     }
     m_pDevice->DrawPrimitiveUP(eType, iSize, pDataAddr, uiVertexStride);
 }
@@ -192,8 +195,10 @@ void CPrimitiveBatcher::DrawPrimitive(D3DPRIMITIVETYPE eType, size_t iCollection
 void CPrimitiveBatcher::ClearQueue()
 {
     // Clean up
-    for(auto& primitive : m_primitiveList){
+    for (auto& primitive : m_primitiveList)
+    {
         delete primitive.pVecVertices;
+        primitive.pVecVertices = nullptr;
     }
     size_t prevSize = m_primitiveList.size();
     m_primitiveList.clear();

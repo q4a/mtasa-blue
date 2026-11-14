@@ -5,14 +5,13 @@
  *  FILE:        game_sa/CHandlingEntrySA.h
  *  PURPOSE:     Header file for vehicle handling data entry class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #include <game/CBikeHandlingEntry.h>
-#include "Common.h"
 
 struct tBikeHandlingDataSA
 {
@@ -39,8 +38,8 @@ class CBikeHandlingEntrySA : public CBikeHandlingEntry
 public:
     CBikeHandlingEntrySA();
     CBikeHandlingEntrySA(tBikeHandlingDataSA* pOriginal);
-    void Assign(const CBikeHandlingEntry* pData);
-    void Recalculate();
+    void                 Assign(const CBikeHandlingEntry* pData);
+    void                 Recalculate();
     tBikeHandlingDataSA* GetInterface() { return &m_pBikeHandlingSA; };
 
 private:

@@ -5,40 +5,17 @@
  *  FILE:        game_sa/CProjectileInfoSA.cpp
  *  PURPOSE:     Projectile type information
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CGameSA.h"
+#include "CProjectileInfoSA.h"
+#include "CVehicleSA.h"
+#include "CWorldSA.h"
 
 extern CGameSA* pGame;
-/**
- * This destroys all the projectiles in the world
- */
-void CProjectileInfoSA::RemoveAllProjectiles()
-{
-    DEBUG_TRACE("void CProjectileInfoSA::RemoveAllProjectiles (  )");
-    DWORD dwFunction = FUNC_RemoveAllProjectiles;
-    _asm
-    {
-        call    dwFunction
-    }
-}
-
-/**
- * Gets a projectile class for a specific projectile ID
- * @param ID valid projectile ID (0-31)
- * @return CProjectile * for the requested projectile, or NULL if the projectile slot is empty or the ID is invalid
- * \todo Check this CProjectile array is how it says in the function
- */
-CProjectile* CProjectileInfoSA::GetProjectile(DWORD ID)
-{
-    DEBUG_TRACE("CProjectile * CProjectileInfoSA::GetProjectile ( DWORD ID )");
-    if (ID >= 0 && ID < 32)
-        return (CProjectile*)(ARRAY_CProjectile + ID * sizeof(CProjectile*));
-    else
-        return NULL;
-}
 
 CProjectile* CProjectileInfoSA::GetProjectile(void* projectilePointer)
 {
@@ -59,12 +36,12 @@ void CProjectileInfoSA::RemoveProjectile(CProjectileInfo* pProjectileInfo, CProj
     if (!pProjectileSA)
         return;
 
-    CEntitySAInterface* projectileInterface = pProjectileSA->GetInterface();
+    CProjectileSAInterface* projectileInterface = pProjectileSA->GetProjectileInterface();
 
     // Check that this infact is a CProjectile
     // This is perhaps the fix for a crash where it jumps to 0x42480000
     // The proper cause should be figured out instead though as this is a rather unsafe fix.
-    if ((DWORD)projectileInterface->vtbl == VTBL_CProjectile)
+    if (projectileInterface->IsProjectableVTBL())
     {
         // Has it not already been removed by GTA?
         if (pProjectileInfo->IsActive())
@@ -72,36 +49,30 @@ void CProjectileInfoSA::RemoveProjectile(CProjectileInfo* pProjectileInfo, CProj
             if (bBlow)
             {
                 DWORD dwFunc = FUNC_RemoveProjectile;
-                _asm
+                // clang-format off
+                __asm
                 {
                     push    projectileInterface
                     push    projectileInfoInterface
                     call    dwFunc
                     add     esp, 8
                 }
+                // clang-format on
             }
             else
             {
                 DWORD dwFunc = FUNC_RemoveIfThisIsAProjectile;
-                _asm
+                // clang-format off
+                __asm
                 {
                     push   projectileInterface
                     call   dwFunc
                     add    esp, 4
                 }
+                // clang-format on
             }
         }
     }
-}
-
-CProjectileInfo* CProjectileInfoSA::GetNextFreeProjectileInfo()
-{
-    for (int i = 0; i < PROJECTILE_INFO_COUNT; i++)
-    {
-        if (projectileInfo[i]->internalInterface->dwProjectileType == 0)
-            return projectileInfo[i];
-    }
-    return NULL;
 }
 
 CProjectileInfo* CProjectileInfoSA::GetProjectileInfo(DWORD dwIndex)
@@ -122,12 +93,10 @@ CProjectileInfo* CProjectileInfoSA::GetProjectileInfo(DWORD dwIndex)
 
 bool CProjectileInfoSA::AddProjectile(CEntity* creator, eWeaponType eWeapon, CVector vecOrigin, float fForce, CVector* target, CEntity* targetEntity)
 {
-    DEBUG_TRACE("bool CProjectileInfoSA::AddProjectile ( CEntity * creator, eWeaponType eWeapon, CVector vecOffset, float fForce )");
-
     DWORD               dwFunction = FUNC_AddProjectile;
     DWORD               dwReturn = 0;
-    CEntitySAInterface* creatorVC = NULL;
-    if (creator != NULL)
+    CEntitySAInterface* creatorVC = nullptr;
+    if (creator != nullptr)
     {
         CEntitySA* pCreatorSA = dynamic_cast<CEntitySA*>(creator);
         if (pCreatorSA)
@@ -137,16 +106,17 @@ bool CProjectileInfoSA::AddProjectile(CEntity* creator, eWeaponType eWeapon, CVe
         }
     }
 
-    CEntitySAInterface* targetVC = NULL;
+    CEntitySAInterface* targetVC = nullptr;
 
-    if (targetEntity != NULL)
+    if (targetEntity != nullptr)
     {
         CEntitySA* pTargetEntitySA = dynamic_cast<CEntitySA*>(targetEntity);
         if (pTargetEntitySA)
             targetVC = pTargetEntitySA->GetInterface();
     }
 
-    _asm
+    // clang-format off
+    __asm
     {
         push    eax
 
@@ -165,14 +135,15 @@ bool CProjectileInfoSA::AddProjectile(CEntity* creator, eWeaponType eWeapon, CVe
 
         pop     eax
     }
-    pGame->GetWorld()->IgnoreEntity(NULL);
+    // clang-format on
+    pGame->GetWorld()->IgnoreEntity(nullptr);
     return dwReturn != 0;
 }
 
 CEntity* CProjectileInfoSA::GetTarget()
 {
     CEntitySAInterface* pTargetInterface = internalInterface->pEntProjectileTarget;
-    CEntity*            pTarget = NULL;
+    CEntity*            pTarget = nullptr;
     if (pTargetInterface)
     {
         switch (pTargetInterface->nType)
@@ -204,4 +175,29 @@ void CProjectileInfoSA::SetTarget(CEntity* pEntity)
 bool CProjectileInfoSA::IsActive()
 {
     return (internalInterface->bProjectileActive == 1 && internalInterface->dwProjectileType != 0);
+}
+
+void CProjectileInfoSA::SetCounter(DWORD dwCounter)
+{
+    internalInterface->dwCounter = dwCounter + pGame->GetSystemTime();
+}
+
+DWORD CProjectileInfoSA::GetCounter()
+{
+    return internalInterface->dwCounter - pGame->GetSystemTime();
+}
+
+void CProjectileInfoSA::RemoveEntityReferences(CEntity* entity)
+{
+    const CEntitySAInterface* entityInterface = entity->GetInterface();
+    for (int i = 0; i < PROJECTILE_INFO_COUNT; i++)
+    {
+        auto projectileInterface = projectileInfo[i]->internalInterface;
+
+        if (projectileInterface->pEntProjectileOwner == entityInterface)
+            projectileInterface->pEntProjectileOwner = nullptr;
+
+        if (projectileInterface->pEntProjectileTarget == entityInterface)
+            projectileInterface->pEntProjectileTarget = nullptr;
+    }
 }

@@ -3,9 +3,13 @@
  *  PROJECT:     Multi Theft Auto v1.0
  *  LICENSE:     See LICENSE in the top level directory
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
+
+#pragma once
+
+#include <net/SyncStructures.h>
 
 class CSimPacket
 {
@@ -30,7 +34,7 @@ public:
     ZERO_ON_NEW
 
     CSimPlayerPuresyncPacket(ElementID PlayerID, ushort PlayerLatency, uchar PlayerSyncTimeContext, uchar PlayerGotWeaponType, float WeaponRange,
-                             CControllerState& sharedControllerState);
+                             float PlayerMaxHealth, CControllerState& sharedControllerState);
 
     ePacketID     GetPacketID() const { return PACKET_ID_PLAYER_PURESYNC; };
     unsigned long GetFlags() const { return PACKET_MEDIUM_PRIORITY | PACKET_SEQUENCED; };
@@ -51,6 +55,7 @@ public:
     const uchar       m_PlayerSyncTimeContext;
     const uchar       m_PlayerGotWeaponType;
     const float       m_WeaponRange;
+    const float       m_PlayerMaxHealth;
     CControllerState& m_sharedControllerState;
 
     // Set in Read ()
@@ -69,13 +74,13 @@ public:
         CVector              vecCamFwd;
 
         bool   bWeaponCorrect;
-        uchar  ucWeaponSlot;            // Only valid if bWeaponCorrect
-        ushort usAmmoInClip;            // Only valid if bWeaponCorrect
-        ushort usTotalAmmo;             // Only valid if bWeaponCorrect
+        uchar  ucWeaponSlot;  // Only valid if bWeaponCorrect
+        ushort usAmmoInClip;  // Only valid if bWeaponCorrect
+        ushort usTotalAmmo;   // Only valid if bWeaponCorrect
 
         bool    bIsAimFull;
-        float   fAimDirection;              // Only valid if bWeaponCorrect
-        CVector vecSniperSource;            // Only valid if bWeaponCorrect and bIsAimFull
-        CVector vecTargetting;              // Only valid if bWeaponCorrect and bIsAimFull
+        float   fAimDirection;    // Only valid if bWeaponCorrect
+        CVector vecSniperSource;  // Only valid if bWeaponCorrect and bIsAimFull
+        CVector vecTargetting;    // Only valid if bWeaponCorrect and bIsAimFull
     } m_Cache;
 };

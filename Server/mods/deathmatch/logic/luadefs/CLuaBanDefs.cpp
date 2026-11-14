@@ -5,11 +5,15 @@
  *  FILE:        mods/deathmatch/logic/luadefs/CLuaBanDefs.cpp
  *  PURPOSE:     Lua function definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CLuaBanDefs.h"
+#include "CBan.h"
+#include "CStaticFunctionDefinitions.h"
+#include "CScriptArgReader.h"
 
 void CLuaBanDefs::LoadFunctions()
 {

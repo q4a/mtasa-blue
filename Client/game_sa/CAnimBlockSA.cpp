@@ -5,11 +5,17 @@
  *  FILE:        game_sa/CAnimBlockSA.cpp
  *  PURPOSE:     Animation block
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CAnimBlendHierarchySA.h"
+#include "CAnimBlockSA.h"
+#include "CAnimManagerSA.h"
+#include "CGameSA.h"
+
+extern CGameSA* pGame;
 
 int CAnimBlockSAInterface::GetIndex()
 {

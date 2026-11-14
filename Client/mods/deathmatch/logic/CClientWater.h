@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <game/CWaterManager.h>
+
 class CClientWater final : public CClientEntity
 {
     DECLARE_CLASS(CClientWater, CClientEntity)
@@ -37,9 +39,9 @@ public:
 private:
     CWaterPoly*          m_pPoly;
     CClientWaterManager* m_pWaterManager;
-    bool                 m_bTriangle;            // Is this water a triangle or a quad type?
-    bool                 m_bShallow;             // Shallow water?
-    std::vector<CVector> m_Vertices;             // List of vertices for this water
+    bool                 m_bTriangle;  // Is this water a triangle or a quad type?
+    bool                 m_bShallow;   // Shallow water?
+    std::vector<CVector> m_Vertices;   // List of vertices for this water
 
     friend class CClientWaterManager;
 };

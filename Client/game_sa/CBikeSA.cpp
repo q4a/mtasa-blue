@@ -5,38 +5,17 @@
  *  FILE:        game_sa/CBikeSA.cpp
  *  PURPOSE:     Bike vehicle entity
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CBikeSA.h"
 
-CBikeSA::CBikeSA(CBikeSAInterface* bike)
+CBikeSA::CBikeSA(CBikeSAInterface* pInterface)
 {
-    DEBUG_TRACE("CBikeSA::CBikeSA( CBikeSAInterface * bike )");
-    this->m_pInterface = bike;
-}
-
-CBikeSA::CBikeSA(eVehicleTypes dwModelID, unsigned char ucVariation, unsigned char ucVariation2) : CVehicleSA(dwModelID, ucVariation, ucVariation2)
-{
-    DEBUG_TRACE("CBikeSA::CBikeSA( eVehicleTypes dwModelID ):CVehicleSA( dwModelID )");
-    /*if(this->internalInterface)
-    {
-        // create the actual vehicle
-        DWORD dwFunc = FUNC_CBikeContructor;
-        DWORD dwThis = (DWORD)this->internalInterface;
-        _asm
-        {
-            mov     ecx, dwThis
-            push    MISSION_VEHICLE
-            push    dwModelID
-            call    dwFunc
-        }
-
-        this->SetEntityStatus(STATUS_ABANDONED); // so it actually shows up in the world
-
-        pGame->GetWorld()->Add((CEntitySA *)this);
-    }*/
+    SetInterface(pInterface);
+    Init();
 }
 
 CBikeHandlingEntry* CBikeSA::GetBikeHandlingData()
@@ -57,4 +36,14 @@ void CBikeSA::RecalculateBikeHandling()
 {
     if (m_pBikeHandlingData)
         m_pBikeHandlingData->Recalculate();
+}
+
+bool CBikeSA::IsAnyWheelTouchingGround() const
+{
+    CBikeSAInterface* bikeInterface = GetBikeInterface();
+    if (!bikeInterface)
+        return false;
+
+    return bikeInterface->m_wheelRatios[0] < 1.0f || bikeInterface->m_wheelRatios[1] < 1.0f || bikeInterface->m_wheelRatios[2] < 1.0f ||
+           bikeInterface->m_wheelRatios[3] < 1.0f;
 }

@@ -18,7 +18,7 @@ class CLuaFunctionDefinitions;
 
 class CRegisteredCommands;
 
-#define LUA_DECLARE(x) static int x ( lua_State * luaVM );
+#define LUA_DECLARE(x) static int x(lua_State* luaVM);
 
 class CLuaFunctionDefs
 {
@@ -47,8 +47,6 @@ public:
     // Output functions
     LUA_DECLARE(OutputConsole);
     LUA_DECLARE(OutputChatBox);
-    LUA_DECLARE(ShowChat);
-    LUA_DECLARE(IsChatVisible);
     LUA_DECLARE(OutputClientDebugString);
     LUA_DECLARE(SetClipboard);
     LUA_DECLARE(SetWindowFlashing);
@@ -57,12 +55,6 @@ public:
     // Notification functions
     LUA_DECLARE(CreateTrayNotification);
     LUA_DECLARE(IsTrayNotificationEnabled);
-
-    // Clothes and body functions
-    LUA_DECLARE(GetBodyPartName);
-    LUA_DECLARE(GetClothesByTypeIndex);
-    LUA_DECLARE(GetTypeIndexFromClothes);
-    LUA_DECLARE(GetClothesTypeName);
 
     // Cursor funcs
     LUA_DECLARE(GetCursorPosition);
@@ -140,4 +132,6 @@ private:
     static CClientDFFManager*         m_pDFFManager;
     static CClientColModelManager*    m_pColModelManager;
     static CRegisteredCommands*       m_pRegisteredCommands;
+    static CClientIMGManager*         m_pImgManager;
+    static CClientBuildingManager*    m_pBuildingManager;
 };

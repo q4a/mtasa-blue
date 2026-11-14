@@ -5,11 +5,16 @@
  *  FILE:        mods/deathmatch/logic/CConsoleClient.cpp
  *  PURPOSE:     Console connected client class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CConsoleClient.h"
+#include "CConsole.h"
+#include "CMapManager.h"
+#include "CAccountManager.h"
+#include "CGame.h"
 
 CConsoleClient::CConsoleClient(CConsole* pConsole) : CElement(pConsole->GetMapManager()->GetRootElement()), CClient(false)
 {

@@ -5,11 +5,12 @@
  *  FILE:        mods/deathmatch/logic/luadefs/CLuaElementDefs.h
  *  PURPOSE:     Lua element definitions class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
+
 #include "CLuaDefs.h"
 #include "CSpatialDatabase.h"
 
@@ -35,7 +36,6 @@ public:
     LUA_DECLARE(getElementID);
     LUA_DECLARE(getElementByID);
     LUA_DECLARE(getElementByIndex);
-    LUA_DECLARE(getAllElementData);
     LUA_DECLARE(getElementParent);
     LUA_DECLARE_OOP(getElementMatrix);
     LUA_DECLARE_OOP(getElementPosition);
@@ -46,8 +46,8 @@ public:
     LUA_DECLARE(getElementsByType);
     LUA_DECLARE(getElementInterior);
     LUA_DECLARE(getElementsWithinColShape);
-    static CElementResult getElementsWithinRange(CVector pos, float radius, std::optional<std::string> type,
-        std::optional<unsigned short> interior, std::optional<unsigned short> dimension);
+    static CElementResult getElementsWithinRange(CVector pos, float radius, std::optional<std::string> type, std::optional<unsigned short> interior,
+                                                 std::optional<unsigned short> dimension);
     LUA_DECLARE(getElementDimension);
     LUA_DECLARE(getElementZoneName);
     LUA_DECLARE(getElementColShape);
@@ -70,12 +70,14 @@ public:
 
     // Element data
     LUA_DECLARE(GetElementData);
+    static CLuaArguments GetAllElementData(CElement* pElement);
     LUA_DECLARE(HasElementData);
     LUA_DECLARE(setElementData);
     LUA_DECLARE(removeElementData);
     LUA_DECLARE(addElementDataSubscriber);
     LUA_DECLARE(removeElementDataSubscriber);
     LUA_DECLARE(hasElementDataSubscriber);
+    static bool IsElementOnFire(CElement* element) noexcept;
 
     // Attachement
     LUA_DECLARE(attachElements);
@@ -105,4 +107,5 @@ public:
     LUA_DECLARE(setElementFrozen);
     LUA_DECLARE(setLowLODElement);
     LUA_DECLARE(setElementCallPropagationEnabled);
+    static bool SetElementOnFire(CElement* element, bool onFire) noexcept;
 };

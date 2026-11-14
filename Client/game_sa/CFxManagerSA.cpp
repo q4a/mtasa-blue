@@ -5,11 +5,13 @@
  *  FILE:        game_sa/CFxManagerSA.cpp
  *  PURPOSE:     Game effects handling
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CFxManagerSA.h"
+#include "CFxSystemSA.h"
 
 CFxSystem* CFxManagerSA::CreateFxSystem(const char* szBlueprint, const CVector& vecPosition, RwMatrix* pRwMatrixTag, unsigned char bSkipCameraFrustumCheck,
                                         bool bSoundEnable)
@@ -19,7 +21,8 @@ CFxSystem* CFxManagerSA::CreateFxSystem(const char* szBlueprint, const CVector& 
     DWORD                 dwFunc = FUNC_FxManager_c__CreateFxSystem;
     CFxSystemSAInterface* pFxSystem;
 
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThis
         push    bSkipCameraFrustumCheck
@@ -29,6 +32,7 @@ CFxSystem* CFxManagerSA::CreateFxSystem(const char* szBlueprint, const CVector& 
         call    dwFunc
         mov     pFxSystem, eax
     }
+    // clang-format on
 
     if (pFxSystem)
     {
@@ -48,12 +52,14 @@ void CFxManagerSA::DestroyFxSystem(CFxSystem* pFxSystem)
 
     void* pFxSA = pFxSystem->GetInterface();
 
-    _asm
+    // clang-format off
+    __asm
     {
         mov     ecx, dwThis
         push    pFxSA
         call    dwFunc
     }
+    // clang-format on
 }
 
 //

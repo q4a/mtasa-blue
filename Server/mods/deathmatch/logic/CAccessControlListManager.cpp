@@ -5,11 +5,16 @@
  *  FILE:        mods/deathmatch/logic/CAccessControlListManager.cpp
  *  PURPOSE:     Access control list manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CAccessControlListManager.h"
+#include "CLogger.h"
+#include "CGame.h"
+#include "Utils.h"
+#include "CIdArray.h"
 
 CAccessControlListManager::CAccessControlListManager() : CXMLConfig(NULL)
 {

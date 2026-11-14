@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CVehicleDefaultColors.cpp
  *  PURPOSE:     Default GTA vehicle colors file content
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -31,8 +31,8 @@ char szDefaultVehicleColors[] =
     "# Explanations of IDs of colors and vehicles can be found\n"
     "# in these wiki articles:\n"
     "#\n"
-    "# http://development.mtasa.com/index.php?title=Vehicle_Colors\n"
-    "# http://development.mtasa.com/index.php?title=Vehicle_IDs\n"
+    "# https://development.multitheftauto.com/index.php?title=Vehicle_Colors\n"
+    "# https://development.multitheftauto.com/index.php?title=Vehicle_IDs\n"
     "#\n"
     "# If you break something when editing this file, just delete it\n"
     "# and the server will recreate it using GTA's default values.\n"
@@ -692,6 +692,10 @@ char szDefaultVehicleColors[] =
     "536 71 96\n"
     "\n"
     "609 36 36\n"
+    "\n"
+    "611 56 56\n"
+    "611 49 49\n"
+    "611 26 124\n"
     "\n"
     "575 12 1\n"
     "575 19 96\n"

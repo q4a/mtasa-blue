@@ -5,11 +5,12 @@
  *  FILE:        mods/deathmatch/logic/lua/CLuaCFunctions.cpp
  *  PURPOSE:     Lua C-function extension class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CLuaCFunctions.h"
 
 CFastHashMap<lua_CFunction, CLuaCFunction*> CLuaCFunctions::ms_Functions;
 CFastHashMap<SString, CLuaCFunction*>       CLuaCFunctions::ms_FunctionsByName;

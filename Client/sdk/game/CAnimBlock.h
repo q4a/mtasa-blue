@@ -5,7 +5,7 @@
  *  FILE:        sdk/game/CAnimBlock.h
  *  PURPOSE:     Animation block interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -17,8 +17,8 @@ enum EModelRequestType
     NON_BLOCKING
 };
 
-class CAnimBlockSAInterface;
 class CAnimBlendHierarchySAInterface;
+class CAnimBlockSAInterface;
 
 class CAnimBlock
 {

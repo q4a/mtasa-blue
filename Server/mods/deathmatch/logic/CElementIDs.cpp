@@ -5,13 +5,12 @@
  *  FILE:        mods/deathmatch/logic/CElementGroup.cpp
  *  PURPOSE:     Static element array management class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
-
-using namespace std;
+#include "CElementIDs.h"
 
 CStack<ElementID, MAX_SERVER_ELEMENTS - 2>  CElementIDs::m_UniqueIDs;
 SFixedArray<CElement*, MAX_SERVER_ELEMENTS> CElementIDs::m_Elements;

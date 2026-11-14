@@ -5,14 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CPlayerChangeNickPacket.h
  *  PURPOSE:     Player nickname change packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #include "CPacket.h"
-#include "../../Config.h"
 
 class CPlayerChangeNickPacket final : public CPacket
 {

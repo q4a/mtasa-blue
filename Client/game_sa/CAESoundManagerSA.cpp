@@ -5,10 +5,12 @@
  *  FILE:        game_sa/CAESoundManagerSA.cpp
  *  PURPOSE:     Audio engine sound manager
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
+
 #include "StdInc.h"
+#include "CAESoundManagerSA.h"
 
 #define FUNC_CAESoundManager__CancelSoundsInBankSlot 0x4EFC60
 

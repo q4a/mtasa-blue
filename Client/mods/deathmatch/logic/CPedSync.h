@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CPedSync.h
  *  PURPOSE:     Header for ped sync class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -28,7 +28,7 @@ public:
 
     std::list<CClientPed*>::const_iterator IterBegin() { return m_List.begin(); };
     std::list<CClientPed*>::const_iterator IterEnd() { return m_List.end(); };
-    CMappedList<CClientPed*> GetList() { return m_List; };
+    CMappedList<CClientPed*>               GetList() { return m_List; };
 
     bool Exists(CClientPed* pPed);
 

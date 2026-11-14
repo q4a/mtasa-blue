@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CElement.h
  *  PURPOSE:     Base entity (element) class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -18,35 +18,37 @@
 #include "CEvents.h"
 #include <list>
 #include <cstring>
+#include "Enums.h"
 #include "CElementGroup.h"
+#include "CStringName.h"
 
 // Used to check fast version of getElementsByType
-//#define CHECK_ENTITIES_FROM_ROOT  MTA_DEBUG
+// #define CHECK_ENTITIES_FROM_ROOT  MTA_DEBUG
 
-#define IS_BLIP(element)     ((element)->GetType()==CElement::BLIP)
-#define IS_COLSHAPE(element) ((element)->GetType()==CElement::COLSHAPE)
-#define IS_DUMMY(element)    ((element)->GetType()==CElement::DUMMY)
-#define IS_FILE(element)     ((element)->GetType()==CElement::SCRIPTFILE)
-#define IS_MARKER(element)   ((element)->GetType()==CElement::MARKER)
-#define IS_OBJECT(element)   ((element)->GetType()==CElement::OBJECT)
+#define IS_BLIP(element)             ((element)->GetType() == CElement::BLIP)
+#define IS_COLSHAPE(element)         ((element)->GetType() == CElement::COLSHAPE)
+#define IS_DUMMY(element)            ((element)->GetType() == CElement::DUMMY)
+#define IS_FILE(element)             ((element)->GetType() == CElement::SCRIPTFILE)
+#define IS_MARKER(element)           ((element)->GetType() == CElement::MARKER)
+#define IS_OBJECT(element)           ((element)->GetType() == CElement::OBJECT)
 #define IS_PERPLAYER_ENTITY(element) ((element)->IsPerPlayerEntity())
-#define IS_PICKUP(element)   ((element)->GetType()==CElement::PICKUP)
-#define IS_PED(element)      ((element)->GetType()==CElement::PLAYER||(element)->GetType()==CElement::PED)
-#define IS_PLAYER(element)   ((element)->GetType()==CElement::PLAYER)
-#define IS_RADAR_AREA(element) ((element)->GetType()==CElement::RADAR_AREA)
-#define IS_VEHICLE(element)  ((element)->GetType()==CElement::VEHICLE)
-#define IS_CONSOLE(element)  ((element)->GetType()==CElement::CONSOLE)
-#define IS_TEAM(element)     ((element)->GetType()==CElement::TEAM)
-#define IS_WATER(element)    ((element)->GetType()==CElement::WATER)
-#define IS_WEAPON(element)    ((element)->GetType()==CElement::WEAPON)
+#define IS_PICKUP(element)           ((element)->GetType() == CElement::PICKUP)
+#define IS_PED(element)              ((element)->GetType() == CElement::PLAYER || (element)->GetType() == CElement::PED)
+#define IS_PLAYER(element)           ((element)->GetType() == CElement::PLAYER)
+#define IS_RADAR_AREA(element)       ((element)->GetType() == CElement::RADAR_AREA)
+#define IS_VEHICLE(element)          ((element)->GetType() == CElement::VEHICLE)
+#define IS_CONSOLE(element)          ((element)->GetType() == CElement::CONSOLE)
+#define IS_TEAM(element)             ((element)->GetType() == CElement::TEAM)
+#define IS_WATER(element)            ((element)->GetType() == CElement::WATER)
+#define IS_WEAPON(element)           ((element)->GetType() == CElement::WEAPON)
+
+class CLuaMain;
 
 typedef CFastList<CElement*> CChildListType;
 typedef CFastList<CElement*> CElementListType;
 
-// List of elements which is auto deleted when the last user calls Release()
-class CElementListSnapshot final : public std::vector<CElement*>, public CRefCountableST
-{
-};
+typedef std::vector<CElement*>                CElementListSnapshot;
+typedef std::shared_ptr<CElementListSnapshot> CElementListSnapshotRef;
 
 class CElement
 {
@@ -81,6 +83,8 @@ public:
         TRAIN_TRACK,
         ROOT,
         UNKNOWN,
+        BUILDING,
+        _POINTLIGHTS,  // client only
     };
 
 public:
@@ -94,7 +98,7 @@ public:
     void         SetIsBeingDeleted(bool bBeingDeleted) { m_bIsBeingDeleted = bBeingDeleted; };
     virtual void Unlink() = 0;
 
-    ElementID GetID() { return m_ID; };
+    ElementID GetID() const { return m_ID; };
 
     virtual const CVector& GetPosition();
     virtual void           SetPosition(const CVector& vecPosition);
@@ -134,16 +138,18 @@ public:
     void DeleteAllEvents();
 
     void           ReadCustomData(CEvents* pEvents, CXMLNode& Node);
-    CCustomData*   GetCustomDataPointer() { return m_pCustomData; }
-    CLuaArgument*  GetCustomData(const char* szName, bool bInheritData, ESyncType* pSyncType = NULL);
+    CCustomData&   GetCustomDataManager() { return m_CustomData; }
+    CLuaArgument*  GetCustomData(const CStringName& name, bool bInheritData, ESyncType* pSyncType = nullptr,
+                                 eCustomDataClientTrust* clientChangesMode = nullptr);
     CLuaArguments* GetAllCustomData(CLuaArguments* table);
-    bool           GetCustomDataString(const char* szName, char* pOut, size_t sizeBuffer, bool bInheritData);
-    bool           GetCustomDataInt(const char* szName, int& iOut, bool bInheritData);
-    bool           GetCustomDataFloat(const char* szName, float& fOut, bool bInheritData);
-    bool           GetCustomDataBool(const char* szName, bool& bOut, bool bInheritData);
-    void SetCustomData(const char* szName, const CLuaArgument& Variable, ESyncType syncType = ESyncType::BROADCAST, CPlayer* pClient = NULL, bool bTriggerEvent = true);
-    void DeleteCustomData(const char* szName);
-    void SendAllCustomData(CPlayer* pPlayer);
+    bool           GetCustomDataString(const CStringName& name, char* pOut, size_t sizeBuffer, bool bInheritData);
+    bool           GetCustomDataInt(const CStringName& name, int& iOut, bool bInheritData);
+    bool           GetCustomDataFloat(const CStringName& name, float& fOut, bool bInheritData);
+    bool           GetCustomDataBool(const CStringName& name, bool& bOut, bool bInheritData);
+    bool           SetCustomData(const CStringName& name, const CLuaArgument& Variable, ESyncType syncType = ESyncType::BROADCAST, CPlayer* pClient = NULL,
+                                 bool bTriggerEvent = true);
+    bool           DeleteCustomData(const CStringName& name);
+    void           SendAllCustomData(CPlayer* pPlayer);
 
     CXMLNode* OutputToXML(CXMLNode* pNode);
 
@@ -154,7 +160,7 @@ public:
     CChildListType ::const_iterator         IterEnd() { return m_Children.end(); };
     CChildListType ::const_reverse_iterator IterReverseBegin() { return m_Children.rbegin(); };
     CChildListType ::const_reverse_iterator IterReverseEnd() { return m_Children.rend(); };
-    CElementListSnapshot*                   GetChildrenListSnapshot();
+    CElementListSnapshotRef                 GetChildrenListSnapshot();
 
     static uint        GetTypeHashFromString(const SString& strTypeName);
     EElementType       GetType() { return m_iType; };
@@ -171,7 +177,7 @@ public:
     void OnSubtreeAdd(CElement* pElement);
     void OnSubtreeRemove(CElement* pElement);
 
-    virtual void UpdatePerPlayer(){};
+    virtual void UpdatePerPlayer() {};
     void         UpdatePerPlayerEntities();
 
     void                                  AddCollision(class CColShape* pShape) { m_Collisions.push_back(pShape); }
@@ -224,6 +230,9 @@ public:
     bool IsDoubleSided() { return m_bDoubleSided; }
     void SetDoubleSided(bool bDoubleSided) { m_bDoubleSided = bDoubleSided; }
 
+    virtual bool IsOnFire() const noexcept { return false; }
+    virtual void SetOnFire(bool onFire) noexcept {}
+
     // Spatial database
     virtual CSphere GetWorldBoundingSphere();
     virtual void    UpdateSpatialData();
@@ -237,6 +246,7 @@ public:
 protected:
     CElement*    GetRootElement();
     virtual bool ReadSpecialData(const int iLine) = 0;
+    virtual void WriteSpecialData(CXMLNode* pNode);
 
     CElement* FindChildIndex(const char* szName, unsigned int uiIndex, unsigned int& uiCurrentIndex, bool bRecursive);
     CElement* FindChildByTypeIndex(unsigned int uiTypeHash, unsigned int uiIndex, unsigned int& uiCurrentIndex, bool bRecursive);
@@ -246,7 +256,7 @@ protected:
     void CallParentEvent(const char* szName, const CLuaArguments& Arguments, CElement* pSource, CPlayer* pCaller = NULL);
 
     CMapEventManager* m_pEventManager;
-    CCustomData*      m_pCustomData;
+    CCustomData       m_CustomData;
 
     EElementType m_iType;
     ElementID    m_ID;
@@ -255,12 +265,12 @@ protected:
 
     CVector m_vecPosition;
 
-    unsigned int          m_uiTypeHash;
-    std::string           m_strTypeName;
-    std::string           m_strName;
-    CChildListType        m_Children;
-    CElementListSnapshot* m_pChildrenListSnapshot;
-    uint                  m_uiChildrenListSnapshotRevision;
+    unsigned int            m_uiTypeHash;
+    std::string             m_strTypeName;
+    std::string             m_strName;
+    CChildListType          m_Children;
+    CElementListSnapshotRef m_pChildrenListSnapshot;
+    uint                    m_uiChildrenListSnapshotRevision;
 
     std::list<class CPerPlayerEntity*> m_ElementReferenced;
     std::list<class CColShape*>        m_Collisions;
@@ -282,8 +292,8 @@ protected:
     bool                   m_bDoubleSided;
     bool                   m_bUpdatingSpatialData;
     bool                   m_bCallPropagationEnabled;
-    bool                   m_canBeDestroyedByScript = true;            // If true, destroyElement function will
-                                                                       // have no effect on this element
+    bool                   m_canBeDestroyedByScript = true;  // If true, destroyElement function will
+                                                             // have no effect on this element
     // Optimization for getElementsByType starting at root
 public:
     static void StartupEntitiesFromRoot();

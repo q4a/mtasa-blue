@@ -4,7 +4,7 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        mods/deathmatch/logic/CServerInfo.cpp
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -13,11 +13,9 @@
 
 CServerInfo::CServerInfo() : m_MaxPlayersCount(0)
 {
-
 }
 
 void CServerInfo::SetMaxPlayers(uint set)
 {
     m_MaxPlayersCount = set;
-    g_pClientGame->UpdateDiscordState();
 }

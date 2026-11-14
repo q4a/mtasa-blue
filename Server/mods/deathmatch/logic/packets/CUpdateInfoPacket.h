@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CUpdateInfoPacket.h
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
+
+#include "CPacket.h"
 
 class CUpdateInfoPacket final : public CPacket
 {

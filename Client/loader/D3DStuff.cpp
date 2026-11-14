@@ -1,16 +1,21 @@
 /*****************************************************************************
  *
- *  PROJECT:     Multi Theft Auto v1.0
+ *  PROJECT:     Multi Theft Auto
  *  LICENSE:     See LICENSE in the top level directory
- *  FILE:        D3DStuff.cpp
+ *  FILE:        Client/loader/D3DStuff.cpp
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://multitheftauto.com/
  *
  *****************************************************************************/
 
-#include "StdInc.h"
-#include "d3d9.h"
-#include "nvapi/nvapi.h"
+#include "D3DStuff.h"
+#include "Utils.h"
+#include "Dialogs.h"
+#include "../sdk/core/CrashHandlerExports.h"
+
+#include <atomic>
+#include <d3d9.h>
+#include <nvapi/nvapi.h>
 
 namespace
 {
@@ -55,7 +60,48 @@ namespace
     IDirect3D9*                  pD3D9 = NULL;
     IDirect3DDevice9*            pD3DDevice9 = NULL;
     IDirect3DVertexDeclaration9* pD3DVertexDeclarations[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-}            // namespace
+
+    using EnableHandlersFn = BOOL(WINAPI*)(void);
+    std::atomic<EnableHandlersFn> g_enableHandlersImpl{nullptr};
+    std::atomic<bool>             g_enableHandlersPending{false};
+}  // namespace
+
+// Loader is built without core crash handler code; defer to the implementation once core.dll is loaded.
+extern "C" BOOL BUGSUTIL_DLLINTERFACE __stdcall EnableAllHandlersAfterInitialization(void) noexcept
+{
+    if (EnableHandlersFn impl = g_enableHandlersImpl.load(std::memory_order_acquire))
+    {
+        return impl();
+    }
+
+    g_enableHandlersPending.store(true, std::memory_order_release);
+    return TRUE;
+}
+
+void LoaderResolveCrashHandlerExports(HMODULE coreModule) noexcept
+{
+    if (!coreModule)
+        return;
+
+    auto resolved = reinterpret_cast<EnableHandlersFn>(static_cast<void*>(GetProcAddress(coreModule, "EnableAllHandlersAfterInitialization")));
+
+    if (!resolved)
+    {
+        resolved = reinterpret_cast<EnableHandlersFn>(static_cast<void*>(GetProcAddress(coreModule, "_EnableAllHandlersAfterInitialization@0")));
+    }
+
+    g_enableHandlersImpl.store(resolved, std::memory_order_release);
+
+    if (!resolved)
+    {
+        WriteDebugEvent("Loader - Failed to resolve EnableAllHandlersAfterInitialization export");
+    }
+
+    if (resolved && g_enableHandlersPending.exchange(false, std::memory_order_acq_rel))
+    {
+        resolved();
+    }
+}
 
 //////////////////////////////////////////////////////////
 //
@@ -92,8 +138,8 @@ bool NvOptimusDetect()
     bool bFoundOptimus = false;
     for (NvU32 i = 0; i < uiGpuCount; i++)
     {
-        NV_SYSTEM_TYPE    SystemType = (NV_SYSTEM_TYPE)-1;            // 1-Laptop 2-Desktop
-        NV_GPU_TYPE       GpuType = (NV_GPU_TYPE)-1;                  // 1-Integrated 2-Discrete
+        NV_SYSTEM_TYPE    SystemType = (NV_SYSTEM_TYPE)-1;  // 1-Laptop 2-Desktop
+        NV_GPU_TYPE       GpuType = (NV_GPU_TYPE)-1;        // 1-Integrated 2-Discrete
         NvAPI_ShortString szName = "-";
 
         NvAPI_GPU_GetSystemType(nvGPUHandle[i], &SystemType);
@@ -187,6 +233,16 @@ void BeginD3DStuff()
     SetApplicationSettingInt("nvhacks", "optimus", bDetectedOptimus);
     SetApplicationSettingInt("nvhacks", "nvidia", bDetectedNVidia);
 
+    if (int revision = GetApplicationSettingInt("nvhacks", "reset-revision"); revision < 21590)
+    {
+        SetApplicationSettingInt("nvhacks", "reset-revision", 21590);
+        SetApplicationSettingInt("nvhacks", "optimus-startup-option", 0);
+        SetApplicationSettingInt("nvhacks", "optimus-alt-startup", 0);
+        SetApplicationSettingInt("nvhacks", "optimus-export-enablement", 0);
+        SetApplicationSettingInt("nvhacks", "optimus-force-windowed", 0);
+        SetApplicationSettingInt("nvhacks", "optimus-remember-option", 0);
+    }
+
     if (bDetectedOptimus)
     {
         ShowOptimusDialog(g_hInstance);
@@ -195,10 +251,12 @@ void BeginD3DStuff()
     else
     {
         SetApplicationSettingInt("nvhacks", "optimus-alt-startup", 0);
-        SetApplicationSettingInt("nvhacks", "optimus-rename-exe", 0);
         SetApplicationSettingInt("nvhacks", "optimus-export-enablement", 0);
         SetApplicationSettingInt("nvhacks", "optimus-force-windowed", 0);
     }
+
+    // Crash handler enablement now occurs inside the game process once the
+    // Direct3D device is fully created (see CGraphics::OnDeviceCreate).
 }
 
 //////////////////////////////////////////////////////////

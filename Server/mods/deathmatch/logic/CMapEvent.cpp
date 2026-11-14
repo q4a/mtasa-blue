@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/CMapEvent.cpp
  *  PURPOSE:     Map event class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CMapEvent.h"
+#include "lua/CLuaArguments.h"
 
 CMapEvent::CMapEvent(CLuaMain* pMain, const char* szName, const CLuaFunctionRef& iLuaFunction, bool bPropagated, EEventPriorityType eventPriority,
                      float fPriorityMod)

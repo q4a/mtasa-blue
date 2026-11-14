@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/lua/CLuaMain.h
  *  PURPOSE:     Lua virtual machine container class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -19,8 +19,6 @@ class CLuaMain;
 #include "lua/CLuaMatrix.h"
 #include "CLuaModuleManager.h"
 #include "../CTextDisplay.h"
-
-#include "CLuaFunctionDefs.h"
 
 #define MAX_SCRIPTNAME_LENGTH 64
 
@@ -37,7 +35,7 @@ struct CRefInfo
     int               iFunction;
 };
 
-class CLuaMain            //: public CClient
+class CLuaMain  //: public CClient
 {
 public:
     ZERO_ON_NEW
@@ -75,7 +73,7 @@ public:
     unsigned long GetXMLFileCount() const { return m_XMLFiles.size(); };
     unsigned long GetOpenFileCount() const { return m_OpenFilenameList.size(); };
     unsigned long GetTimerCount() const { return m_pLuaTimerManager ? m_pLuaTimerManager->GetTimerCount() : 0; };
-    unsigned long GetElementCount() const { return m_pResource && m_pResource->GetElementGroup() ? m_pResource->GetElementGroup()->GetCount() : 0; };
+    unsigned long GetElementCount() const;
     unsigned long GetTextDisplayCount() const { return m_Displays.size(); };
     unsigned long GetTextItemCount() const { return m_TextItems.size(); };
     void          OnOpenFile(const SString& strFilename);
@@ -142,7 +140,7 @@ private:
 
     bool m_bEnableOOP;
 
-    bool m_bBeingDeleted;            // prevent it being deleted twice
+    bool m_bBeingDeleted;  // prevent it being deleted twice
 
     CElapsedTime         m_FunctionEnterTimer;
     CElapsedTimeApprox   m_WarningTimer;

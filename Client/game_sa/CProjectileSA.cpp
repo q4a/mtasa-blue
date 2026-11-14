@@ -5,29 +5,33 @@
  *  FILE:        game_sa/CProjectileSA.cpp
  *  PURPOSE:     Projectile entity
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CGameSA.h"
+#include "CProjectileInfoSA.h"
+#include "CProjectileSA.h"
+#include "CWorldSA.h"
+
+extern CGameSA* pGame;
 
 CProjectileSA::CProjectileSA(CProjectileSAInterface* projectileInterface) : CObjectSA(projectileInterface)
 {
     internalInterface = projectileInterface;
     projectileInfo = NULL;
-    this->BeingDeleted = false;
-    this->DoNotRemoveFromGame = false;
-    this->internalInterface->bStreamingDontDelete = true;
-    this->internalInterface->bDontStream = true;
-    this->internalInterface->bRemoveFromWorld = false;
+    BeingDeleted = false;
+    DoNotRemoveFromGame = false;
+    internalInterface->bStreamingDontDelete = true;
+    internalInterface->bDontStream = true;
+    internalInterface->bRemoveFromWorld = false;
     m_bDestroyed = false;
 }
 
 CProjectileSA::~CProjectileSA()
 {
-    DEBUG_TRACE("CProjectileSA::~CProjectileSA( )");
-
-    this->BeingDeleted = true;
+    BeingDeleted = true;
     /*
     //OutputDebugString("Attempting to destroy Object\n");
     if(!this->BeingDeleted && DoNotRemoveFromGame == false)
@@ -39,19 +43,23 @@ CProjectileSA::~CProjectileSA()
 
         DWORD dwThis = (DWORD)this->GetInterface();
         DWORD dwFunc = this->GetInterface()->vtbl->Remove;
-        _asm
+        // clang-format off
+        __asm
         {
             mov     ecx, dwThis
             call    dwFunc
         }
+        // clang-format on
 
         dwFunc = this->GetInterface()->vtbl->SCALAR_DELETING_DESTRUCTOR; // we use the vtbl so we can be type independent
-        _asm
+        // clang-format off
+        __asm
         {
             mov     ecx, dwThis
             push    1           //delete too
             call    dwFunc
         }
+        // clang-format on
 
         this->BeingDeleted = true;
         //((CPoolsSA *)pGame->GetPools())->RemoveObject((CObject *)(CObjectSA *)this);
@@ -103,15 +111,15 @@ bool CProjectileSA::CorrectPhysics()
 
                 // create a matrix variable
                 CMatrix attachedToMatrix;
-                if (pCollidedWithInterface->Placeable.matrix != NULL)
+                if (pCollidedWithInterface->matrix != NULL)
                 {
                     // get our matrix
-                    pCollidedWithInterface->Placeable.matrix->ConvertToMatrix(attachedToMatrix);
+                    pCollidedWithInterface->matrix->ConvertToMatrix(attachedToMatrix);
                 }
                 else
                 {
                     // get our matrix
-                    attachedToMatrix = CMatrix(pCollidedWithInterface->Placeable.m_transform.m_translate);
+                    attachedToMatrix = CMatrix(pCollidedWithInterface->m_transform.m_translate);
                 }
 
                 // transform our matrix into local (attached) space

@@ -5,14 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CDestroySatchelsPacket.h
  *  PURPOSE:     Satchel destruction packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
 
 #include "CPacket.h"
-#include <CVector.h>
 
 class CDestroySatchelsPacket final : public CPacket
 {
@@ -24,6 +23,4 @@ public:
 
     bool Read(NetBitStreamInterface& BitStream);
     bool Write(NetBitStreamInterface& BitStream) const;
-
-private:
 };

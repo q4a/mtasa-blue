@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CRPCFunctions.h
  *  PURPOSE:     Remote procedure call functionality class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -19,10 +19,13 @@
 class CPlayer;
 class CGame;
 
-#define DECLARE_RPC(a) static void a ( NetBitStreamInterface& bitStream );
+#define DECLARE_RPC(a) static void a(NetBitStreamInterface& bitStream);
 
 class CRPCFunctions
 {
+protected:
+    //    enum eRPCFunctions;
+
 private:
     typedef void (*pfnRPCHandler)(NetBitStreamInterface& bitStream);
     struct SRPCHandler
@@ -52,4 +55,16 @@ protected:
     static CPlayer* m_pSourcePlayer;
 
     std::vector<SRPCHandler*> m_RPCHandlers;
+
+public:
+    enum eRPCFunctions
+    {
+        PLAYER_INGAME_NOTICE,
+        INITIAL_DATA_STREAM,
+        PLAYER_TARGET,
+        PLAYER_WEAPON,
+        KEY_BIND,
+        CURSOR_EVENT,
+        REQUEST_STEALTH_KILL,
+    };
 };

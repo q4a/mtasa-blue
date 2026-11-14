@@ -5,11 +5,15 @@
  *  FILE:        mods/deathmatch/logic/packets/CPlayerScreenShotPacket.cpp
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPlayerScreenShotPacket.h"
+#include "Enums.h"
+#include "CGame.h"
+#include "CResourceManager.h"
 
 bool CPlayerScreenShotPacket::Read(NetBitStreamInterface& BitStream)
 {
@@ -23,37 +27,29 @@ bool CPlayerScreenShotPacket::Read(NetBitStreamInterface& BitStream)
     uint uiServerGrabTime;
 
     // Read status
-    BitStream.Read(m_ucStatus);
+    if (!BitStream.Read(m_ucStatus))
+        return false;
 
     if (m_ucStatus != EPlayerScreenShotResult::SUCCESS)
     {
         // minimized, disabled or error
         bHasGrabTime = true;
         BitStream.Read(uiServerGrabTime);
-        if (BitStream.Version() >= 0x053)
-        {
-            ushort usResourceNetId;
-            BitStream.Read(usResourceNetId);
-            m_pResource = g_pGame->GetResourceManager()->GetResourceFromNetID(usResourceNetId);
-        }
-        else
-        {
-            SString strResourceName;
-            BitStream.ReadString(strResourceName);
-            m_pResource = g_pGame->GetResourceManager()->GetResource(strResourceName);
-        }
+
+        ushort usResourceNetId;
+        BitStream.Read(usResourceNetId);
+        m_pResource = g_pGame->GetResourceManager()->GetResourceFromNetID(usResourceNetId);
 
         if (!BitStream.ReadString(m_strTag))
             return false;
 
-        if (BitStream.Version() >= 0x53)
-            BitStream.ReadString(m_strError);
+        BitStream.ReadString(m_strError);
     }
     else if (m_ucStatus == EPlayerScreenShotResult::SUCCESS)
     {
         // Read info
-        BitStream.Read(m_usScreenShotId);
-        BitStream.Read(m_usPartNumber);
+        if (!BitStream.Read(m_usScreenShotId) || !BitStream.Read(m_usPartNumber))
+            return false;
 
         // Read data
         ushort usNumBytes = 0;
@@ -68,21 +64,11 @@ bool CPlayerScreenShotPacket::Read(NetBitStreamInterface& BitStream)
         if (m_usPartNumber == 0)
         {
             bHasGrabTime = true;
-            BitStream.Read(uiServerGrabTime);
-            BitStream.Read(m_uiTotalBytes);
-            BitStream.Read(m_usTotalParts);
-            if (BitStream.Version() >= 0x053)
-            {
-                ushort usResourceNetId;
-                BitStream.Read(usResourceNetId);
-                m_pResource = g_pGame->GetResourceManager()->GetResourceFromNetID(usResourceNetId);
-            }
-            else
-            {
-                SString strResourceName;
-                BitStream.ReadString(strResourceName);
-                m_pResource = g_pGame->GetResourceManager()->GetResource(strResourceName);
-            }
+            ushort usResourceNetId;
+            if (!BitStream.Read(uiServerGrabTime) || !BitStream.Read(m_uiTotalBytes) || !BitStream.Read(m_usTotalParts) || !BitStream.Read(usResourceNetId))
+                return false;
+            m_pResource = g_pGame->GetResourceManager()->GetResourceFromNetID(usResourceNetId);
+
             if (!BitStream.ReadString(m_strTag))
                 return false;
         }

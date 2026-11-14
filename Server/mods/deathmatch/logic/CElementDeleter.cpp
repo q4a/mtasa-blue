@@ -5,11 +5,14 @@
  *  FILE:        mods/deathmatch/logic/CElementDeleter.cpp
  *  PURPOSE:     Element lazy deletion manager class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CElementDeleter.h"
+#include "CGame.h"
+#include "CMapManager.h"
 
 extern CGame* g_pGame;
 
@@ -34,7 +37,7 @@ void CElementDeleter::Delete(class CElement* pElement, bool bUnlink, bool bUpdat
             // Flag it as being deleted and unlink it from the tree/managers
             pElement->SetIsBeingDeleted(true);
             pElement->ClearChildren();
-            pElement->SetParentObject(NULL, bUpdatePerPlayerEntities);
+            pElement->SetParentObject(nullptr, bUpdatePerPlayerEntities);
 
             if (bUnlink)
                 pElement->Unlink();
@@ -49,19 +52,78 @@ void CElementDeleter::DoDeleteAll()
         delete *m_List.begin();
 }
 
-void CElementDeleter::Unreference(CElement* pElement)
+void CElementDeleter::Unreference(CElement* element)
 {
-    m_List.remove(pElement);
+    m_List.remove(element);
 }
 
-bool CElementDeleter::IsBeingDeleted(CElement* pElement)
+bool CElementDeleter::IsBeingDeleted(CElement* element) const
 {
-    return ListContains(m_List, pElement);
+    return ListContains(m_List, element);
 }
 
-void CElementDeleter::CleanUpForVM(CLuaMain* pLuaMain)
+void CElementDeleter::DeleteTree(CElement* rootElement, bool unlink, bool updatePerPlayerEntities)
 {
-    CElementListType::const_iterator iter = m_List.begin();
-    for (; iter != m_List.end(); iter++)
-        (*iter)->DeleteEvents(pLuaMain, false);
+    if (!rootElement || IsBeingDeleted(rootElement) || rootElement->GetType() == CElement::PLAYER || rootElement->GetType() == CElement::CONSOLE)
+        return;
+
+    std::vector<CElement*> elementsToDelete;
+    CollectTreeElements(rootElement, elementsToDelete);
+
+    for (auto* element : elementsToDelete)
+    {
+        if (IsBeingDeleted(element) || element->GetType() == CElement::PLAYER || element->GetType() == CElement::CONSOLE)
+            continue;
+
+        CLuaArguments arguments;
+        element->CallEvent("onElementDestroy", arguments);
+
+        if (!element->IsBeingDeleted())
+            m_List.push_back(element);
+
+        g_pGame->GetPlayerManager()->ClearElementData(element);
+        element->SetIsBeingDeleted(true);
+    }
+
+    for (auto* element : elementsToDelete)
+    {
+        element->ClearChildren();
+        element->SetParentObject(nullptr, false);
+
+        if (unlink)
+            element->Unlink();
+    }
+
+    if (updatePerPlayerEntities && rootElement)
+        rootElement->UpdatePerPlayerEntities();
+}
+
+void CElementDeleter::CollectTreeElements(CElement* element, std::vector<CElement*>& elements)
+{
+    if (!element || IsBeingDeleted(element) || element->GetType() == CElement::PLAYER || element->GetType() == CElement::CONSOLE)
+        return;
+
+    auto iter = element->IterBegin();
+    while (iter != element->IterEnd())
+    {
+        CElement* child = *iter;
+        // Players and system consoles must never be deleted via tree removal; preserve them under root
+        if (child->GetType() == CElement::PLAYER || child->GetType() == CElement::CONSOLE)
+        {
+            child->SetParentObject(g_pGame->GetMapManager()->GetRootElement(), false);
+            iter = element->IterBegin();
+            continue;
+        }
+
+        CollectTreeElements(child, elements);
+        ++iter;
+    }
+
+    elements.push_back(element);
+}
+
+void CElementDeleter::CleanUpForVM(CLuaMain* luaMain)
+{
+    for (auto* element : m_List)
+        element->DeleteEvents(luaMain, false);
 }

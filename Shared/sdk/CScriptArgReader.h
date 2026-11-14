@@ -5,17 +5,23 @@
  *  FILE:        CScriptArgReader.h
  *  PURPOSE:
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
+
 #pragma once
+
+#include "CVector2D.h"
 #include <limits>
 #include <type_traits>
 #include <cfloat>
 #include "CStringMap.h"
+#include "CScriptDebugging.h"
+#include "CStringName.h"
+#include "LuaInlineUserdata.h"
 
-#ifdef MTA_CLIENT
-    #include "CScriptDebugging.h"
+#ifndef MTA_CLIENT
+    #include "CGame.h"
 #endif
 
 /////////////////////////////////////////////////////////////////////////
@@ -55,7 +61,8 @@ public:
             // The string received may not actually be a number
             if (!lua_isnumber(m_luaVM, m_iIndex))
             {
-                SetCustomWarning("Expected number, got non-convertible string. This warning may be an error in future versions.");
+                SetCustomError("Expected number, got non-convertible string", "Bad argument");
+                return;
             }
 
             // Returns 0 even if the string cannot be parsed as a number
@@ -72,7 +79,8 @@ public:
             {
                 if (checkSign && number < -FLT_EPSILON)
                 {
-                    SetCustomWarning("Expected positive value, got negative. This warning may be an error in future versions.");
+                    SetCustomError("Expected positive value, got negative", "Bad argument");
+                    return;
                 }
                 outValue = static_cast<T>(static_cast<int64_t>(number));
                 return;
@@ -99,7 +107,8 @@ public:
             // The string received may not actually be a number
             if (!lua_isnumber(m_luaVM, m_iIndex))
             {
-                SetCustomWarning("Expected number, got non-convertible string. This warning may be an error in future versions.");
+                SetCustomError("Expected number, got non-convertible string", "Bad argument");
+                return;
             }
 
             // Returns 0 even if the string cannot be parsed as a number
@@ -114,7 +123,8 @@ public:
 
             if (checkSign && std::is_unsigned<T>() && number < -FLT_EPSILON)
             {
-                SetCustomWarning("Expected positive value, got negative. This warning may be an error in future versions.");
+                SetCustomError("Expected positive value, got negative", "Bad argument");
+                return;
             }
 
             outValue = static_cast<T>(number);
@@ -146,23 +156,23 @@ public:
         }
         else if (iArgument == LUA_TUSERDATA)
         {
-            if (NextIsUserDataOfType<CLuaVector2D>())
+            if (NextIsUserDataOfType<CVector2D>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector2D* pVector = NULL;
+                CVector2D* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
-                    outValue = *pVector;
+                    outValue = static_cast<CVector2D&>(*pVector);
                     return;
                 }
                 outValue = CVector2D();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
-            else if (NextIsUserDataOfType<CLuaVector3D>())
+            else if (NextIsUserDataOfType<CVector>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector3D* pVector = NULL;
+                CVector* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
@@ -170,12 +180,12 @@ public:
                     return;
                 }
                 outValue = CVector2D();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
-            else if (NextIsUserDataOfType<CLuaVector4D>())
+            else if (NextIsUserDataOfType<CVector4D>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector4D* pVector = NULL;
+                CVector4D* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
@@ -183,7 +193,7 @@ public:
                     return;
                 }
                 outValue = CVector2D();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
         }
 
@@ -207,23 +217,23 @@ public:
         }
         else if (iArgument == LUA_TUSERDATA)
         {
-            if (NextIsUserDataOfType<CLuaVector2D>())
+            if (NextIsUserDataOfType<CVector2D>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector2D* pVector = NULL;
+                CVector2D* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
-                    outValue = *pVector;
+                    outValue = static_cast<CVector2D&>(*pVector);
                     return;
                 }
                 outValue = CVector2D();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
-            else if (NextIsUserDataOfType<CLuaVector3D>())
+            else if (NextIsUserDataOfType<CVector>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector3D* pVector = NULL;
+                CVector* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
@@ -231,12 +241,12 @@ public:
                     return;
                 }
                 outValue = CVector2D();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
-            else if (NextIsUserDataOfType<CLuaVector4D>())
+            else if (NextIsUserDataOfType<CVector4D>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector4D* pVector = NULL;
+                CVector4D* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
@@ -244,7 +254,7 @@ public:
                     return;
                 }
                 outValue = CVector2D();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
         }
         else if (iArgument == LUA_TNIL || iArgument == LUA_TNONE)
@@ -272,23 +282,23 @@ public:
         }
         else if (iArgument == LUA_TUSERDATA)
         {
-            if (NextIsUserDataOfType<CLuaVector3D>())
+            if (NextIsUserDataOfType<CVector>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector3D* pVector = NULL;
+                CVector* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
-                    outValue = *pVector;
+                    outValue = static_cast<CVector&>(*pVector);
                     return;
                 }
                 outValue = CVector();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
-            else if (NextIsUserDataOfType<CLuaVector4D>())
+            else if (NextIsUserDataOfType<CVector4D>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector4D* pVector = NULL;
+                CVector4D* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
@@ -296,7 +306,7 @@ public:
                     return;
                 }
                 outValue = CVector4D();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
         }
 
@@ -321,23 +331,23 @@ public:
         }
         else if (iArgument == LUA_TUSERDATA)
         {
-            if (NextIsUserDataOfType<CLuaVector3D>())
+            if (NextIsUserDataOfType<CVector>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector3D* pVector = NULL;
+                CVector* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
-                    outValue = *pVector;
+                    outValue = static_cast<CVector&>(*pVector);
                     return;
                 }
                 outValue = CVector();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
-            else if (NextIsUserDataOfType<CLuaVector4D>())
+            else if (NextIsUserDataOfType<CVector4D>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector4D* pVector = NULL;
+                CVector4D* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
@@ -345,7 +355,7 @@ public:
                     return;
                 }
                 outValue = CVector4D();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
         }
         else if (iArgument == LUA_TNIL || iArgument == LUA_TNONE)
@@ -374,18 +384,18 @@ public:
         }
         else if (iArgument == LUA_TUSERDATA)
         {
-            if (NextIsUserDataOfType<CLuaVector4D>())
+            if (NextIsUserDataOfType<CVector4D>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector4D* pVector = NULL;
+                CVector4D* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
-                    outValue = *pVector;
+                    outValue = static_cast<CVector4D&>(*pVector);
                     return;
                 }
                 outValue = CVector4D();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
         }
 
@@ -411,18 +421,18 @@ public:
         }
         else if (iArgument == LUA_TUSERDATA)
         {
-            if (NextIsUserDataOfType<CLuaVector4D>())
+            if (NextIsUserDataOfType<CVector4D>())
             {
                 // we don't pass around the pointer as it may get destroyed any time
-                CLuaVector4D* pVector = NULL;
+                CVector4D* pVector = nullptr;
                 ReadUserData(pVector);
                 if (pVector)
                 {
-                    outValue = *pVector;
+                    outValue = static_cast<CVector4D&>(*pVector);
                     return;
                 }
                 outValue = CVector4D();
-                return;            // Error set in ReadUserData
+                return;  // Error set in ReadUserData
             }
         }
         else if (iArgument == LUA_TNIL || iArgument == LUA_TNONE)
@@ -460,15 +470,15 @@ public:
         else if (iArgument == LUA_TUSERDATA)
         {
             // we don't pass around the pointer as it may get destroyed any time
-            CLuaMatrix* pMatrix = NULL;
+            CMatrix* pMatrix = nullptr;
             ReadUserData(pMatrix);
             if (pMatrix)
             {
-                outValue = *pMatrix;
+                outValue = static_cast<CMatrix&>(*pMatrix);
                 return;
             }
             outValue = CMatrix();
-            return;            // Error set in ReadUserData
+            return;  // Error set in ReadUserData
         }
 
         outValue = CMatrix();
@@ -515,6 +525,22 @@ public:
         bOutValue = false;
         SetTypeError("bool");
         m_iIndex++;
+    }
+
+    //
+    // Read next bool or false if failed
+    // Intended for use in pair with NextIsBool()
+    //
+    bool ReadBool()
+    {
+        int iArgument = lua_type(m_luaVM, m_iIndex);
+        if (iArgument == LUA_TBOOLEAN)
+        {
+            return lua_toboolean(m_luaVM, m_iIndex++) ? true : false;
+        }
+
+        m_iIndex++;
+        return false;
     }
 
     //
@@ -587,6 +613,35 @@ public:
     }
 
     //
+    // Read next string name
+    //
+    void ReadStringName(CStringName& outValue)
+    {
+        const int iArgument = lua_type(m_luaVM, m_iIndex);
+        if (iArgument == LUA_TSTRING)
+        {
+            size_t      length;
+            const char* str = lua_tolstring(m_luaVM, m_iIndex, &length);
+            unsigned    hash = lua_tostringhash(m_luaVM, m_iIndex++);
+
+            try
+            {
+                outValue = CStringName::FromStringAndHash(std::string_view(str, length), hash);
+            }
+            catch (const std::bad_alloc&)
+            {
+                SetCustomError("out of memory", "Memory allocation");
+            }
+
+            return;
+        }
+
+        outValue.Clear();
+        SetTypeError("string");
+        m_iIndex++;
+    }
+
+    //
     // Force-reads next argument as string
     //
     void ReadAnyAsString(SString& outValue)
@@ -597,7 +652,7 @@ public:
             m_iIndex = -1;
             ReadAnyAsString(outValue);
 
-            lua_pop(m_luaVM, 1);            // Clean up stack
+            lua_pop(m_luaVM, 1);  // Clean up stack
             m_iIndex = oldIndex + 1;
             return;
         }
@@ -767,7 +822,7 @@ public:
             // If will be coercing a string to an enum, make sure string contains only digits
             size_t uiPos = strValue.find_first_not_of("0123456789");
             if (uiPos != SString::npos || strValue.empty())
-                iArgument = LUA_TNONE;            //  Force error
+                iArgument = LUA_TNONE;  //  Force error
         }
 
         if (iArgument == LUA_TSTRING || iArgument == LUA_TNUMBER)
@@ -792,33 +847,49 @@ protected:
     template <class T>
     void InternalReadUserData(bool bAllowNilResult, T*& outValue, bool bHasDefaultValue, T* defaultValue = (T*)-2)
     {
-        outValue = NULL;
+        outValue = nullptr;
         int iArgument = lua_type(m_luaVM, m_iIndex);
 
-        if (iArgument == LUA_TLIGHTUSERDATA)
+        if constexpr (is_inline_userdata_type<T>::value)
         {
-            outValue = (T*)UserDataCast<T>((T*)0, lua_touserdata(m_luaVM, m_iIndex), m_luaVM);
-            if (outValue)
+            if (iArgument == LUA_TUSERDATA)
             {
-                m_iIndex++;
-                return;
+                if (lua_isclass(m_luaVM, m_iIndex, GetInlineUserdataClassName<T>()))
+                {
+                    outValue = static_cast<T*>(lua_touserdata(m_luaVM, m_iIndex));
+                    m_iIndex++;
+                    return;
+                }
             }
         }
-        else if (iArgument == LUA_TUSERDATA)
+        else
         {
-            outValue = (T*)UserDataCast<T>((T*)0, *((void**)lua_touserdata(m_luaVM, m_iIndex)), m_luaVM);
-            if (outValue)
+            if (iArgument == LUA_TLIGHTUSERDATA)
             {
-                m_iIndex++;
-                return;
+                outValue = (T*)UserDataCast((T*)lua_touserdata(m_luaVM, m_iIndex), m_luaVM);
+                if (outValue)
+                {
+                    m_iIndex++;
+                    return;
+                }
+            }
+            else if (iArgument == LUA_TUSERDATA)
+            {
+                outValue = (T*)UserDataCast(*((T**)lua_touserdata(m_luaVM, m_iIndex)), m_luaVM);
+                if (outValue)
+                {
+                    m_iIndex++;
+                    return;
+                }
             }
         }
-        else if (iArgument == LUA_TNONE || iArgument == LUA_TNIL)
+
+        if (iArgument == LUA_TNONE || iArgument == LUA_TNIL)
         {
             if (bHasDefaultValue)
                 outValue = defaultValue;
             else
-                outValue = NULL;
+                outValue = nullptr;
 
             if (outValue || bAllowNilResult)
             {
@@ -827,7 +898,7 @@ protected:
             }
         }
 
-        outValue = NULL;
+        outValue = nullptr;
         SetTypeError(GetClassTypeName((T*)0));
         m_iIndex++;
     }
@@ -904,10 +975,7 @@ public:
     void ReadLuaArguments(CLuaArguments& outValue)
     {
         outValue.ReadArguments(m_luaVM, m_iIndex);
-        for (int i = outValue.Count(); i > 0; i--)
-        {
-            m_iIndex++;
-        }
+        m_iIndex += outValue.Count();
     }
 
     //
@@ -944,17 +1012,27 @@ public:
             // int idx = lua_tonumber ( m_luaVM, -2 );
             int iArgumentType = lua_type(m_luaVM, -1);
 
-            T* value = NULL;
-            if (iArgumentType == LUA_TLIGHTUSERDATA)
+            T* value = nullptr;
+            if constexpr (is_inline_userdata_type<T>::value)
             {
-                value = (T*)UserDataCast<T>((T*)0, lua_touserdata(m_luaVM, -1), m_luaVM);
+                if (iArgumentType == LUA_TUSERDATA && lua_isclass(m_luaVM, -1, GetInlineUserdataClassName<T>()))
+                {
+                    value = static_cast<T*>(lua_touserdata(m_luaVM, -1));
+                }
             }
-            else if (iArgumentType == LUA_TUSERDATA)
+            else
             {
-                value = (T*)UserDataCast<T>((T*)0, *((void**)lua_touserdata(m_luaVM, -1)), m_luaVM);
+                if (iArgumentType == LUA_TLIGHTUSERDATA)
+                {
+                    value = (T*)UserDataCast((T*)lua_touserdata(m_luaVM, -1), m_luaVM);
+                }
+                else if (iArgumentType == LUA_TUSERDATA)
+                {
+                    value = (T*)UserDataCast(*((T**)lua_touserdata(m_luaVM, -1)), m_luaVM);
+                }
             }
 
-            if (value != NULL)
+            if (value != nullptr)
                 outList.push_back(value);
         }
         m_iIndex++;
@@ -1101,7 +1179,7 @@ protected:
                 // Dumb number -> string convertion to avoid stack perturbations
                 if (keyType == LUA_TNUMBER)
                 {
-                    char s[LUAI_MAXNUMBER2STR];
+                    char       s[LUAI_MAXNUMBER2STR];
                     lua_Number n = lua_tonumber(m_luaVM, -2);
                     lua_number2str(s, n);
 
@@ -1120,8 +1198,6 @@ protected:
     // Reads { key, value } as a pair
     void InternalReadPairTable(std::vector<std::pair<SString, SString>>& outPairs, int iIndex)
     {
-        std::pair<SString, SString> keyValue;
-
         // lua_next has a bug after it calling findindex internally
         // But we have to iterate sequentially right now. So luaL_getn is the solution.
         for (int i = 1; i <= luaL_getn(m_luaVM, iIndex); ++i)
@@ -1136,6 +1212,8 @@ protected:
 
                 lua_pushnumber(m_luaVM, 2);
                 lua_gettable(m_luaVM, -3);
+
+                std::pair<SString, SString> keyValue;
 
                 if (InternalReadPair(keyValue))
                     outPairs.push_back(std::move(keyValue));
@@ -1152,9 +1230,10 @@ protected:
     {
         lua_pushnil(m_luaVM);
 
-        std::pair<SString, SString> keyValue;
         while (lua_next(m_luaVM, iIndex) != 0)
         {
+            std::pair<SString, SString> keyValue;
+
             if (InternalReadPair(keyValue))
                 outPairs.push_back(std::move(keyValue));
 
@@ -1281,35 +1360,47 @@ public:
     bool NextIsUserDataOfType(int iOffset = 0) const
     {
         int iArgument = lua_type(m_luaVM, m_iIndex + iOffset);
-        if (iArgument == LUA_TLIGHTUSERDATA)
+        if constexpr (is_inline_userdata_type<T>::value)
         {
-            if (UserDataCast<T>((T*)0, lua_touserdata(m_luaVM, m_iIndex + iOffset), m_luaVM))
-                return true;
+            if (iArgument == LUA_TUSERDATA)
+            {
+                return lua_isclass(m_luaVM, m_iIndex + iOffset, GetInlineUserdataClassName<T>());
+            }
+            return false;
         }
-        else if (iArgument == LUA_TUSERDATA)
+        else
         {
-            if (UserDataCast<T>((T*)0, *((void**)lua_touserdata(m_luaVM, m_iIndex + iOffset)), m_luaVM))
-                return true;
+            if (iArgument == LUA_TLIGHTUSERDATA)
+            {
+                if (UserDataCast((T*)lua_touserdata(m_luaVM, m_iIndex + iOffset), m_luaVM))
+                    return true;
+            }
+            else if (iArgument == LUA_TUSERDATA)
+            {
+                if (UserDataCast(*((T**)lua_touserdata(m_luaVM, m_iIndex + iOffset)), m_luaVM))
+                    return true;
+            }
+            return false;
         }
-        return false;
     }
 
     bool NextIsVector4D() const
     {
-        return (NextCouldBeNumber() && NextCouldBeNumber(1) && NextCouldBeNumber(2) && NextCouldBeNumber(3)) || NextIsUserDataOfType<CLuaVector4D>();
+        return (NextCouldBeNumber() && NextCouldBeNumber(1) && NextCouldBeNumber(2) && NextCouldBeNumber(3)) || NextIsUserDataOfType<CVector4D>();
     }
 
     bool NextIsVector3D() const
     {
-        return (NextCouldBeNumber() && NextCouldBeNumber(1) && NextCouldBeNumber(2)) || NextIsUserDataOfType<CLuaVector3D>() ||
-               NextIsUserDataOfType<CLuaVector4D>();
+        return (NextCouldBeNumber() && NextCouldBeNumber(1) && NextCouldBeNumber(2)) || NextIsUserDataOfType<CVector>() || NextIsUserDataOfType<CVector4D>();
     }
 
     bool NextIsVector2D() const
     {
-        return (NextCouldBeNumber() && NextCouldBeNumber(1)) || NextIsUserDataOfType<CLuaVector2D>() || NextIsUserDataOfType<CLuaVector3D>() ||
-               NextIsUserDataOfType<CLuaVector4D>();
+        return (NextCouldBeNumber() && NextCouldBeNumber(1)) || NextIsUserDataOfType<CVector2D>() || NextIsUserDataOfType<CVector>() ||
+               NextIsUserDataOfType<CVector4D>();
     }
+
+    bool NextIsMatrix() const { return NextIsUserDataOfType<CMatrix>(); }
 
     //
     // Conditional reads. Default required in case condition is not met.
@@ -1337,7 +1428,7 @@ public:
         if (NextIsNumber())
             ReadNumber(outValue, defaultValue);
         else
-            outValue = defaultValue;
+            outValue = static_cast<T>(defaultValue);
     }
 
     void ReadIfNextIsString(SString& outValue, const char* defaultValue)
@@ -1403,11 +1494,11 @@ public:
         // Output warning here (there's no better way to integrate it without huge code changes
         if (!m_bError && !m_strCustomWarning.empty())
         {
-            #ifdef MTA_CLIENT
+#ifdef MTA_CLIENT
             CLuaFunctionDefs::m_pScriptDebugging->LogWarning(m_luaVM, m_strCustomWarning);
-            #else
+#else
             g_pGame->GetScriptDebugging()->LogWarning(m_luaVM, m_strCustomWarning);
-            #endif
+#endif
 
             m_strCustomWarning.clear();
         }
@@ -1466,7 +1557,16 @@ public:
             }
             else if (iArgument == LUA_TUSERDATA)
             {
-                m_strErrorGotArgumentType = GetUserDataClassName(*((void**)lua_touserdata(m_luaVM, m_iErrorIndex)), m_luaVM);
+                if (lua_isclass(m_luaVM, m_iErrorIndex, "Vector3"))
+                    m_strErrorGotArgumentType = "vector3";
+                else if (lua_isclass(m_luaVM, m_iErrorIndex, "Vector2"))
+                    m_strErrorGotArgumentType = "vector2";
+                else if (lua_isclass(m_luaVM, m_iErrorIndex, "Vector4"))
+                    m_strErrorGotArgumentType = "vector4";
+                else if (lua_isclass(m_luaVM, m_iErrorIndex, "Matrix"))
+                    m_strErrorGotArgumentType = "matrix";
+                else
+                    m_strErrorGotArgumentType = GetUserDataClassName(*((void**)lua_touserdata(m_luaVM, m_iErrorIndex)), m_luaVM);
                 m_strErrorGotArgumentValue = "";
             }
         }

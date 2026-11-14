@@ -5,7 +5,7 @@
  *  FILE:        core/CConnectManager.h
  *  PURPOSE:     Header file for connect manager
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -21,20 +21,22 @@ public:
     CConnectManager();
     ~CConnectManager();
 
-    bool Connect(const char* szHost, unsigned short usPort, const char* szNick, const char* szPassword, bool bNotifyServerBrowser = false, const char* szSecret = nullptr);
+    bool Connect(const char* szHost, unsigned short usPort, const char* szNick, const char* szPassword, bool bNotifyServerBrowser = false);
     bool Reconnect(const char* szHost, unsigned short usPort, const char* szPassword, bool bSave = true);
 
     bool Abort();
+
+    bool WasQuickConnect() const noexcept { return m_quickConnect; }
 
     void DoPulse();
 
     void OnServerExists();
 
+    void SetQuickConnect(bool quick) noexcept { m_quickConnect = quick; }
+
     static void OpenServerFirewall(in_addr Address, ushort usHttpPort = 80, bool bHighPriority = false);
 
     static bool StaticProcessPacket(unsigned char ucPacketID, class NetBitStreamInterface& bitStream);
-
-    SString GetJoinSecret();
 
     std::string    m_strLastHost;
     unsigned short m_usLastPort;
@@ -54,7 +56,6 @@ private:
     bool           m_bSave;
     time_t         m_tConnectStarted;
     bool           m_bHasTriedSecondConnect;
-    SString        m_strDiscordSecretJoin;
 
     GUI_CALLBACK* m_pOnCancelClick;
 
@@ -62,4 +63,5 @@ private:
     bool             m_bNotifyServerBrowser;
 
     bool CheckNickProvided(const char* szNick);
+    bool m_quickConnect{false};
 };

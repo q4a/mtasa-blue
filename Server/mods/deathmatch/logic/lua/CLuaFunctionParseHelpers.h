@@ -1,15 +1,24 @@
 /*****************************************************************************
  *
- *  PROJECT:     Multi Theft Auto v1.0
- *               (Shared logic for modifications)
+ *  PROJECT:     Multi Theft Auto
  *  LICENSE:     See LICENSE in the top level directory
- *  FILE:        MTA10_Server/mods/deathmatch/logic/lua/CLuaFunctionParseHelpers.h
- *  PURPOSE:
+ *  FILE:        Server/mods/deathmatch/logic/lua/CLuaFunctionParseHelpers.h
  *
  *****************************************************************************/
+
 #pragma once
+
+#include "LuaCommon.h"
 #include "CElementIDs.h"
 #include "CConsoleClient.h"
+#include "CAccount.h"
+#include "CEasingCurve.h"
+#include "CAccessControlListRight.h"
+#include <type_traits>
+#include "lua/CLuaVector2.h"
+#include "lua/CLuaVector3.h"
+#include "lua/CLuaVector4.h"
+#include "lua/CLuaMatrix.h"
 
 // Forward declare enum reflection stuff
 enum eLuaType
@@ -28,6 +37,7 @@ DECLARE_ENUM(CAccessControlListRight::ERightType);
 DECLARE_ENUM(CElement::EElementType);
 DECLARE_ENUM(CAccountPassword::EAccountPasswordType);
 DECLARE_ENUM_CLASS(ESyncType);
+DECLARE_ENUM_CLASS(eCustomDataClientTrust)
 
 enum eHudComponent
 {
@@ -45,6 +55,11 @@ enum eHudComponent
     HUD_WANTED,
     HUD_CROSSHAIR,
     HUD_ALL,
+    HUD_VITAL_STATS,  // Unused on server, but used on client side
+    HUD_HELP_TEXT,    // Unused on server, but used on client side
+    HUD_RADAR_MAP,
+    HUD_RADAR_BLIPS,
+    HUD_RADAR_ALTIMETER,
 };
 DECLARE_ENUM(eHudComponent);
 
@@ -160,11 +175,12 @@ inline SString GetClassTypeName(CPed*)
 {
     return "ped";
 }
-inline SString GetClassTypeName(CRemoteCall*)
+inline SString GetClassTypeName(class CRemoteCall*)
 {
-    return "remotecall";
+    return "request";
 }
-inline SString GetClassTypeName(CColShape*) {
+inline SString GetClassTypeName(CColShape*)
+{
     return "colshape";
 }
 inline SString GetClassTypeName(CDummy*)
@@ -248,217 +264,84 @@ inline SString GetClassTypeName(CLuaMatrix*)
 //
 // CResource from userdata
 //
-template <class T>
-CResource* UserDataCast(CResource*, void* ptr, lua_State*)
-{
-    return g_pGame->GetResourceManager()->GetResourceFromScriptID(reinterpret_cast<unsigned long>(ptr));
-}
+CResource* UserDataCast(CResource* ptr, lua_State* luaState);
 
 //
 // CXMLNode from userdata
 //
-template <class T>
-CXMLNode* UserDataCast(CXMLNode*, void* ptr, lua_State*)
-{
-    return g_pServerInterface->GetXML()->GetNodeFromID(reinterpret_cast<unsigned long>(ptr));
-}
+CXMLNode* UserDataCast(CXMLNode* ptr, lua_State* luaState);
 
 //
 // CLuaTimer from userdata
 //
-template <class T>
-CLuaTimer* UserDataCast(CLuaTimer*, void* ptr, lua_State* luaVM)
-{
-    CLuaMain* pLuaMain = g_pGame->GetLuaManager()->GetVirtualMachine(luaVM);
-    if (pLuaMain)
-    {
-        return pLuaMain->GetTimerManager()->GetTimerFromScriptID(reinterpret_cast<unsigned long>(ptr));
-    }
-    return NULL;
-}
+CLuaTimer* UserDataCast(CLuaTimer* ptr, lua_State* luaState);
 
 //
 // CAccount from userdata
 //
-template <class T>
-CAccount* UserDataCast(CAccount*, void* ptr, lua_State* luaVM)
-{
-    return g_pGame->GetAccountManager()->GetAccountFromScriptID(reinterpret_cast<unsigned long>(ptr));
-}
+CAccount* UserDataCast(CAccount* ptr, lua_State* luaState);
 
 //
 // CDbJobData from userdata
 //
-template <class T>
-CDbJobData* UserDataCast(CDbJobData*, void* ptr, lua_State*)
-{
-    return g_pGame->GetDatabaseManager()->GetQueryFromId(reinterpret_cast<SDbJobId>(ptr));
-}
+CDbJobData* UserDataCast(CDbJobData* ptr, lua_State* luaState);
 
 //
 // CAccessControlList from userdata
 //
-template <class T>
-CAccessControlList* UserDataCast(CAccessControlList*, void* ptr, lua_State*)
-{
-    return g_pGame->GetACLManager()->GetACLFromScriptID(reinterpret_cast<unsigned long>(ptr));
-}
+CAccessControlList* UserDataCast(CAccessControlList* ptr, lua_State* luaState);
 
 //
 // CAccessControlListGroup from userdata
 //
-template <class T>
-CAccessControlListGroup* UserDataCast(CAccessControlListGroup*, void* ptr, lua_State*)
-{
-    return g_pGame->GetACLManager()->GetGroupFromScriptID(reinterpret_cast<unsigned long>(ptr));
-}
+CAccessControlListGroup* UserDataCast(CAccessControlListGroup* ptr, lua_State* luaState);
 
 //
 // CTextItem from userdata
 //
-template <class T>
-CTextItem* UserDataCast(CTextItem*, void* ptr, lua_State* luaVM)
-{
-    CLuaMain* pLuaMain = g_pGame->GetLuaManager()->GetVirtualMachine(luaVM);
-    if (pLuaMain)
-    {
-        return pLuaMain->GetTextItemFromScriptID(reinterpret_cast<unsigned long>(ptr));
-    }
-    return NULL;
-}
+CTextItem* UserDataCast(CTextItem* ptr, lua_State* luaState);
 
 //
 // CTextDisplay from userdata
 //
-template <class T>
-CTextDisplay* UserDataCast(CTextDisplay*, void* ptr, lua_State* luaVM)
-{
-    CLuaMain* pLuaMain = g_pGame->GetLuaManager()->GetVirtualMachine(luaVM);
-    if (pLuaMain)
-    {
-        return pLuaMain->GetTextDisplayFromScriptID(reinterpret_cast<unsigned long>(ptr));
-    }
-    return NULL;
-}
+CTextDisplay* UserDataCast(CTextDisplay* ptr, lua_State* luaState);
 
 //
 // CBan from userdata
 //
-template <class T>
-CBan* UserDataCast(CBan*, void* ptr, lua_State*)
-{
-    return g_pGame->GetBanManager()->GetBanFromScriptID(reinterpret_cast<unsigned long>(ptr));
-}
-
-//
-// CLuaVector2D from userdata
-//
-template <class T>
-CLuaVector2D* UserDataCast(CLuaVector2D*, void* ptr, lua_State* luaVM)
-{
-    return CLuaVector2D::GetFromScriptID(reinterpret_cast<unsigned long>(ptr));
-}
-
-//
-// CLuaVector3D from userdata
-//
-template <class T>
-CLuaVector3D* UserDataCast(CLuaVector3D*, void* ptr, lua_State* luaVM)
-{
-    return CLuaVector3D::GetFromScriptID(reinterpret_cast<unsigned long>(ptr));
-}
-
-//
-// CLuaVector4D from userdata
-//
-template <class T>
-CLuaVector4D* UserDataCast(CLuaVector4D*, void* ptr, lua_State* luaVM)
-{
-    return CLuaVector4D::GetFromScriptID(reinterpret_cast<unsigned long>(ptr));
-}
-
-//
-// CLuaMatrix from userdata
-//
-template <class T>
-CLuaMatrix* UserDataCast(CLuaMatrix*, void* ptr, lua_State* luaVM)
-{
-    return CLuaMatrix::GetFromScriptID(reinterpret_cast<unsigned long>(ptr));
-}
+CBan* UserDataCast(CBan* ptr, lua_State* luaState);
 
 //
 // CElement from userdata
 //
-template <class T>
-CElement* UserDataCast(CElement*, void* ptr, lua_State*)
+CElement* UserDataToElementCast(CElement* ptr, eEntityType entityType, lua_State* luaState);
+
+template <typename T, typename = std::enable_if_t<std::is_base_of_v<CElement, T>>>
+T* UserDataCast(T* ptr, lua_State* luaState)
 {
-    ElementID ID = TO_ELEMENTID(ptr);
-    CElement* pElement = CElementIDs::GetElement(ID);
-    if (!pElement || pElement->IsBeingDeleted() || (pElement->GetType() != GetClassType((T*)0) && GetClassType((T*)0) != -1))
-        return NULL;
-    return pElement;
+    return reinterpret_cast<T*>(UserDataToElementCast(ptr, GetClassType(static_cast<T*>(nullptr)), luaState));
 }
 
 //
 // CPed from userdata
 //
-// Will now properly convert CPlayers to CPeds
-template <class T>
-CPed* UserDataCast(CPed*, void* ptr, lua_State*)
-{
-    ElementID ID = TO_ELEMENTID(ptr);
-    CElement* pElement = CElementIDs::GetElement(ID);
-    if (!pElement || pElement->IsBeingDeleted() || (pElement->GetType() != CElement::PED && pElement->GetType() != CElement::PLAYER))
-        return NULL;
-    return (CPed*)pElement;
-}
+CPed* UserDataCast(CPed* ptr, lua_State* luaState);
 
 //
 // CRemoteCall from userdata
 //
-template <class T>
-CRemoteCall* UserDataCast(CRemoteCall*, void* ptr, lua_State*)
-{
-    CRemoteCall* pRemoteCall = (CRemoteCall*)ptr;
-
-    if (pRemoteCall && g_pGame->GetRemoteCalls()->CallExists(pRemoteCall))
-        return pRemoteCall;
-
-    return nullptr;
-}
+CRemoteCall* UserDataCast(CRemoteCall* ptr, lua_State* luaState);
 
 //
 // CPlayer from userdata
-//
 // Disallows conversion of CPeds to CPlayers
 //
-template <class T>
-CPlayer* UserDataCast(CPlayer*, void* ptr, lua_State*)
-{
-    ElementID ID = TO_ELEMENTID(ptr);
-    CElement* pElement = CElementIDs::GetElement(ID);
-    if (!pElement || pElement->IsBeingDeleted() || (pElement->GetType() != CElement::PLAYER))
-        return NULL;
-    return (CPlayer*)pElement;
-}
+CPlayer* UserDataCast(CPlayer* ptr, lua_State* luaState);
 
+//
 // CClient from CConsoleClient or a CPlayer
-template <class T>
-CClient* UserDataCast(CClient*, void* ptr, lua_State*)
-{
-    ElementID ID = TO_ELEMENTID(ptr);
-    CElement* pElement = CElementIDs::GetElement(ID);
-    if (!pElement || pElement->IsBeingDeleted())
-        return nullptr;
-
-    CClient* pClient = nullptr;
-    if (pElement->GetType() == CElement::PLAYER)
-        pClient = reinterpret_cast<CPlayer*>(pElement);
-    else if (pElement->GetType() == CElement::CONSOLE)
-        pClient = reinterpret_cast<CConsoleClient*>(pElement);
-
-    return pClient;
-}
+//
+CClient* UserDataCast(CClient* ptr, lua_State* luaState);
 
 //
 // CElement ( something )
@@ -491,6 +374,7 @@ void    MixedReadResourceString(CScriptArgReader& argStream, CResource*& pOutRes
 bool    StringToBool(const SString& strText);
 void    MinServerReqCheck(CScriptArgReader& argStream, const char* szVersionReq, const char* szReason);
 void    ReadPregFlags(CScriptArgReader& argStream, pcrecpp::RE_Options& pOptions);
+bool    IsValidMatrixLuaTable(lua_State* luaVM, std::uint32_t argIndex) noexcept;
 bool    ReadMatrix(lua_State* luaVM, uint uiArgIndex, CMatrix& outMatrix);
 
 //

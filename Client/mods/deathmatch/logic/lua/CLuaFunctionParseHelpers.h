@@ -1,10 +1,8 @@
 /*****************************************************************************
  *
- *  PROJECT:     Multi Theft Auto v1.0
- *               (Shared logic for modifications)
+ *  PROJECT:     Multi Theft Auto
  *  LICENSE:     See LICENSE in the top level directory
- *  FILE:        MTA10/mods/shared_logic/lua/CLuaFunctionParseHelpers.h
- *  PURPOSE:
+ *  FILE:        Client/mods/deathmatch/logic/lua/CLuaFunctionParseHelpers.h
  *
  *****************************************************************************/
 
@@ -12,6 +10,25 @@
 
 // Forward declare enum reflection stuff
 #include <gui/CGUIEnumDefs.h>
+#include <game/CAudioEngine.h>
+#include <game/CRenderWare.h>
+#include <game/CHud.h>
+#include <game/CStreaming.h>
+#include <type_traits>
+#include "lua/CLuaVector2.h"
+#include "lua/CLuaVector3.h"
+#include "lua/CLuaVector4.h"
+#include "lua/CLuaMatrix.h"
+
+#include "enums/WeaponProperty.h"
+#include "enums/FxParticleSystems.h"
+#include "enums/WorldProperty.h"
+#include "enums/ObjectProperty.h"
+#include "enums/VehicleAudioSettingProperty.h"
+#include "enums/SoundEffectParams.h"
+#include "enums/SoundEffectType.h"
+#include "enums/ObjectGroupPhysicalProperties.h"
+#include "enums/PostFXType.h"
 
 enum eLuaType
 {
@@ -29,7 +46,7 @@ DECLARE_ENUM(eAmbientSoundType)
 DECLARE_ENUM(eCGUIType);
 DECLARE_ENUM(eDxTestMode)
 DECLARE_ENUM(eWeaponType)
-DECLARE_ENUM(eWeaponProperty)
+DECLARE_ENUM(WeaponProperty::Enum)
 DECLARE_ENUM(eWeaponSkill)
 DECLARE_ENUM(ERenderFormat);
 DECLARE_ENUM(ETextureType);
@@ -39,13 +56,12 @@ DECLARE_ENUM(EBlendModeType)
 DECLARE_ENUM(EEntityTypeMask);
 DECLARE_ENUM(eWeaponState);
 DECLARE_ENUM(eWeaponFlags);
-DECLARE_ENUM(eVehicleComponent);
-DECLARE_ENUM(eObjectProperty);
-DECLARE_ENUM(eObjectGroup::Modifiable);
-DECLARE_ENUM(eObjectGroup::DamageEffect);
-DECLARE_ENUM(eObjectGroup::CollisionResponse);
-DECLARE_ENUM(eObjectGroup::FxType);
-DECLARE_ENUM(eObjectGroup::BreakMode);
+DECLARE_ENUM(ObjectProperty::Enum);
+DECLARE_ENUM(ObjectGroupPhysicalProperties::Modifiable);
+DECLARE_ENUM(ObjectGroupPhysicalProperties::DamageEffect);
+DECLARE_ENUM(ObjectGroupPhysicalProperties::CollisionResponse);
+DECLARE_ENUM(ObjectGroupPhysicalProperties::FxType);
+DECLARE_ENUM(ObjectGroupPhysicalProperties::BreakMode);
 DECLARE_ENUM(eFontType);
 DECLARE_ENUM(eFontQuality);
 DECLARE_ENUM(eAudioLookupIndex);
@@ -57,8 +73,9 @@ DECLARE_ENUM(eTrayIconType)
 DECLARE_ENUM(eCursorType)
 DECLARE_ENUM(eWheelPosition)
 DECLARE_ENUM(D3DPRIMITIVETYPE);
-DECLARE_ENUM(eVehicleDummies);
-DECLARE_ENUM_CLASS(eResizableVehicleWheelGroup);
+DECLARE_ENUM(VehicleDummies::Enum);
+DECLARE_ENUM_CLASS(eGrainMultiplierType);
+DECLARE_ENUM(ResizableVehicleWheelGroup::Enum);
 DECLARE_ENUM(eSurfaceProperties);
 DECLARE_ENUM(eSurfaceAudio);
 DECLARE_ENUM(eSurfaceBulletEffect);
@@ -66,6 +83,29 @@ DECLARE_ENUM(eSurfaceWheelEffect);
 DECLARE_ENUM(eSurfaceSkidMarkType);
 DECLARE_ENUM(eSurfaceAdhesionGroup);
 DECLARE_ENUM_CLASS(eClientModelType);
+DECLARE_ENUM(SoundEffectType::Enum);
+DECLARE_ENUM_CLASS(SoundEffectParams::Chorus);
+DECLARE_ENUM_CLASS(SoundEffectParams::Compressor);
+DECLARE_ENUM_CLASS(SoundEffectParams::Distortion);
+DECLARE_ENUM_CLASS(SoundEffectParams::Echo);
+DECLARE_ENUM_CLASS(SoundEffectParams::Flanger);
+DECLARE_ENUM_CLASS(SoundEffectParams::Gargle);
+DECLARE_ENUM_CLASS(SoundEffectParams::I3DL2Reverb);
+DECLARE_ENUM_CLASS(SoundEffectParams::ParamEq);
+DECLARE_ENUM_CLASS(SoundEffectParams::Reverb);
+DECLARE_ENUM_CLASS(eModelIdeFlag);
+DECLARE_ENUM_CLASS(_D3DFORMAT);
+DECLARE_ENUM_CLASS(eRenderStage);
+DECLARE_ENUM(FxParticleSystems::Enum);
+DECLARE_ENUM(ePools);
+DECLARE_ENUM(WorldProperty::Enum);
+DECLARE_ENUM_CLASS(eModelLoadState);
+DECLARE_ENUM_CLASS(PreloadAreaOption);
+DECLARE_ENUM_CLASS(RestreamOption);
+DECLARE_ENUM_CLASS(taskType);
+DECLARE_ENUM(eEntityType);
+DECLARE_ENUM(VehicleAudioSettingProperty::Enum);
+DECLARE_ENUM(PostFXType::Enum);
 
 class CRemoteCall;
 
@@ -86,6 +126,9 @@ enum eDXVerticalAlign
 DECLARE_ENUM(eDXVerticalAlign);
 
 DECLARE_ENUM(eHudComponent);
+DECLARE_ENUM_CLASS(eHudComponentProperty);
+DECLARE_ENUM_CLASS(eFontStyle);
+DECLARE_ENUM_CLASS(eFontAlignment);
 
 enum eFieldOfViewMode
 {
@@ -197,10 +240,6 @@ inline SString GetClassTypeName(CClientObject*)
 {
     return "object";
 }
-inline SString GetClassTypeName(CClientCivilian*)
-{
-    return "civilian";
-}
 inline SString GetClassTypeName(CClientPickup*)
 {
     return "pickup";
@@ -223,7 +262,7 @@ inline SString GetClassTypeName(CClientPed*)
 }
 inline SString GetClassTypeName(CRemoteCall*)
 {
-    return "remotecall";
+    return "request";
 }
 inline SString GetClassTypeName(CClientProjectile*)
 {
@@ -256,6 +295,14 @@ inline SString GetClassTypeName(CClientColModel*)
 inline SString GetClassTypeName(CClientTXD*)
 {
     return "txd";
+}
+inline SString GetClassTypeName(CClientIMG*)
+{
+    return "img";
+}
+inline SString GetClassTypeName(CClientBuilding*)
+{
+    return "building";
 }
 inline SString GetClassTypeName(CClientSound*)
 {
@@ -407,7 +454,7 @@ inline SString GetClassTypeName(D3DPRIMITIVETYPE*)
 {
     return "primitive-type";
 }
-inline SString GetClassTypeName(eVehicleDummies*)
+inline SString GetClassTypeName(VehicleDummies::Enum*)
 {
     return "vehicle-dummy";
 }
@@ -435,126 +482,91 @@ inline SString GetClassTypeName(eSurfaceAdhesionGroup*)
 {
     return "surface-adhesion-group";
 }
-inline SString GetClassByTypeName(eObjectGroup::Modifiable*)
+inline SString GetClassTypeName(SoundEffectType::Enum*)
 {
-    return "objectgroup-modifiable";
+    return "soundeffect-type";
 }
-inline SString GetClassByTypeName(eObjectGroup::DamageEffect*)
+inline SString GetClassTypeName(SoundEffectParams::Chorus*)
 {
-    return "objectgroup-damageeffect";
+    return "soundeffect-params-chorus";
 }
-inline SString GetClassByTypeName(eObjectGroup::CollisionResponse*)
+inline SString GetClassTypeName(SoundEffectParams::Compressor*)
 {
-    return "objectgroup-collisionresponse";
+    return "soundeffect-params-compressor";
 }
-inline SString GetClassByTypeName(eObjectGroup::FxType*)
+inline SString GetClassTypeName(SoundEffectParams::Distortion*)
 {
-    return "objectgroup-fxtype";
+    return "soundeffect-params-distortion";
 }
-inline SString GetClassByTypeName(eObjectGroup::BreakMode*)
+inline SString GetClassTypeName(SoundEffectParams::Echo*)
 {
-    return "objectgroup-breakmode";
+    return "soundeffect-params-echo";
+}
+inline SString GetClassTypeName(SoundEffectParams::Flanger*)
+{
+    return "soundeffect-params-flanger";
+}
+inline SString GetClassTypeName(SoundEffectParams::Gargle*)
+{
+    return "soundeffect-params-gargle";
+}
+inline SString GetClassTypeName(SoundEffectParams::I3DL2Reverb*)
+{
+    return "soundeffect-params-i3dl2reverb";
+}
+inline SString GetClassTypeName(SoundEffectParams::ParamEq*)
+{
+    return "soundeffect-params-parameq";
+}
+inline SString GetClassTypeName(SoundEffectParams::Reverb*)
+{
+    return "soundeffect-params-reverb";
+}
+inline SString GetClassTypeName(WorldProperty::Enum*)
+{
+    return "world-property";
 }
 
-inline SString GetClassByTypeName(eClientModelType)
+inline SString GetClassTypeName(CClientVectorGraphic*)
 {
-    return "client-model-type";
+    return "svg";
+}
+
+inline SString GetClassByTypeName(VehicleAudioSettingProperty::Enum)
+{
+    return "vehicle-audio-setting";
 }
 
 //
 // CResource from userdata
 //
-template <class T>
-CResource* UserDataCast(CResource*, void* ptr, lua_State*)
-{
-    return g_pClientGame->GetResourceManager()->GetResourceFromScriptID(reinterpret_cast<unsigned long>(ptr));
-}
+CResource* UserDataCast(CResource* ptr, lua_State* luaState);
 
 //
 // CXMLNode from userdata
 //
-template <class T>
-CXMLNode* UserDataCast(CXMLNode*, void* ptr, lua_State*)
-{
-    return g_pCore->GetXML()->GetNodeFromID(reinterpret_cast<unsigned long>(ptr));
-}
+CXMLNode* UserDataCast(CXMLNode* ptr, lua_State* luaState);
 
 //
 // CLuaTimer from userdata
 //
-template <class T>
-CLuaTimer* UserDataCast(CLuaTimer*, void* ptr, lua_State* luaVM)
-{
-    CLuaMain* pLuaMain = CLuaDefs::m_pLuaManager->GetVirtualMachine(luaVM);
-    if (pLuaMain)
-    {
-        return pLuaMain->GetTimerManager()->GetTimerFromScriptID(reinterpret_cast<unsigned long>(ptr));
-    }
-    return NULL;
-}
-
-//
-// CLuaVector2D from userdata
-//
-template <class T>
-CLuaVector2D* UserDataCast(CLuaVector2D*, void* ptr, lua_State* luaVM)
-{
-    return CLuaVector2D::GetFromScriptID(reinterpret_cast<unsigned int>(ptr));
-}
-
-//
-// CLuaVector3D from userdata
-//
-template <class T>
-CLuaVector3D* UserDataCast(CLuaVector3D*, void* ptr, lua_State* luaVM)
-{
-    return CLuaVector3D::GetFromScriptID(reinterpret_cast<unsigned int>(ptr));
-}
-
-//
-// CLuaVector4D from userdata
-//
-template <class T>
-CLuaVector4D* UserDataCast(CLuaVector4D*, void* ptr, lua_State* luaVM)
-{
-    return CLuaVector4D::GetFromScriptID(reinterpret_cast<unsigned int>(ptr));
-}
-
-//
-// CLuaMatrix from userdata
-//
-template <class T>
-CLuaMatrix* UserDataCast(CLuaMatrix*, void* ptr, lua_State* luaVM)
-{
-    return CLuaMatrix::GetFromScriptID(reinterpret_cast<unsigned int>(ptr));
-}
+CLuaTimer* UserDataCast(CLuaTimer* ptr, lua_State* luaState);
 
 //
 // CClientEntity from userdata
 //
-template <class T>
-CClientEntity* UserDataCast(CClientEntity*, void* ptr, lua_State*)
+CClientEntity* UserDataToElementCast(CClientEntity* ptr, SharedUtil::ClassId classId, lua_State* luaState);
+
+template <typename T, typename = std::enable_if_t<std::is_base_of_v<CClientEntity, T>>>
+T* UserDataCast(T* ptr, lua_State* luaState)
 {
-    ElementID      ID = TO_ELEMENTID(ptr);
-    CClientEntity* pEntity = CElementIDs::GetElement(ID);
-    if (!pEntity || pEntity->IsBeingDeleted() || !pEntity->IsA(T::GetClassId()))
-        return NULL;
-    return pEntity;
+    return reinterpret_cast<T*>(UserDataToElementCast(ptr, T::GetClassId(), luaState));
 }
 
 //
 // CRemoteCall from userdata
 //
-template <class T>
-CRemoteCall* UserDataCast(CRemoteCall*, void* ptr, lua_State*)
-{
-    CRemoteCall* pRemoteCall = (CRemoteCall*)ptr;
-
-    if (pRemoteCall && g_pClientGame->GetRemoteCalls()->CallExists(pRemoteCall))
-        return pRemoteCall;
-
-    return nullptr;
-}
+CRemoteCall* UserDataCast(CRemoteCall* ptr, lua_State* luaState);
 
 //
 // CClientGUIElement ( CGUIElement )
@@ -578,7 +590,9 @@ class CScriptArgReader;
 void MixedReadDxFontString(CScriptArgReader& argStream, eFontType& outFontType, eFontType defaultFontType, CClientDxFont*& poutDxFontElement);
 void MixedReadGuiFontString(CScriptArgReader& argStream, SString& strFontName, const char* szDefaultFontName, CClientGuiFont*& poutGuiFontElement);
 void MixedReadMaterialString(CScriptArgReader& argStream, CClientMaterial*& pMaterialElement);
+bool IsValidMatrixLuaTable(lua_State* luaVM, std::uint32_t argIndex) noexcept;
 bool ReadMatrix(lua_State* luaVM, uint uiArgIndex, CMatrix& outMatrix);
+void MinClientReqCheck(lua_State* luaVM, const char* szVersionReq, const char* szReason);
 bool MinClientReqCheck(CScriptArgReader& argStream, const char* szVersionReq, const char* szReason = nullptr);
 void ReadPregFlags(CScriptArgReader& argStream, pcrecpp::RE_Options& pOptions);
 
@@ -593,5 +607,5 @@ void CheckCanAccessOtherResourceFile(CScriptArgReader& argStream, CResource* pTh
 //
 // Other misc helpers
 //
-bool IsWeaponPropertyFlag(eWeaponProperty weaponProperty);
-uint GetWeaponPropertyFlagBit(eWeaponProperty weaponProperty);
+bool IsWeaponPropertyFlag(WeaponProperty::Enum weaponProperty);
+uint GetWeaponPropertyFlagBit(WeaponProperty::Enum weaponProperty);

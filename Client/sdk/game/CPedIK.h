@@ -5,14 +5,11 @@
  *  FILE:        sdk/game/CPedIK.h
  *  PURPOSE:     Ped inverse kinematics interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
-
-#include <windows.h>
-#include <CVector.h>
 
 // Structure containing current state of limb
 struct LimbOrientation

@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CBlip.h
  *  PURPOSE:     Blip entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -27,13 +27,14 @@ public:
     const CVector& GetPosition();
     void           SetPosition(const CVector& vecPosition);
 
-    SColor GetColor() const { return m_Color; }
+    SColor GetColor() const noexcept { return m_Color; }
     void   SetColor(const SColor color) { m_Color = color; }
 
     void AttachTo(CElement* pElement);
 
 protected:
     bool ReadSpecialData(const int iLine) override;
+    void WriteSpecialData(CXMLNode* pNode) override;
 
 private:
     class CBlipManager* m_pBlipManager;

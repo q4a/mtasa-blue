@@ -5,22 +5,19 @@
  *  FILE:        sdk/game/CDoor.h
  *  PURPOSE:     Door entity interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
-
-#include <windows.h>
-
-#include "Common.h"
+#include "enums/DoorState.h"
 
 class CDoor
 {
 public:
-    virtual FLOAT      GetAngleOpenRatio() = 0;
-    virtual BOOL       IsClosed() = 0;
-    virtual BOOL       IsFullyOpen() = 0;
-    virtual VOID       Open(float fRatio) = 0;
-    virtual eDoorState GetDoorState() = 0;
+    virtual float           GetAngleOpenRatio() = 0;
+    virtual bool            IsClosed() = 0;
+    virtual bool            IsFullyOpen() = 0;
+    virtual void            Open(float fRatio) = 0;
+    virtual DoorState::Enum GetDoorState() = 0;
 };

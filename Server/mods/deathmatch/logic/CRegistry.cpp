@@ -5,11 +5,17 @@
  *  FILE:        mods/deathmatch/logic/CRegistry.cpp
  *  PURPOSE:     SQLite registry abstraction class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CRegistry.h"
+#include "CDatabaseType.h"
+#include "CPerfStatModule.h"
+#include "CGame.h"
+#include "CMainConfig.h"
+#include "Utils.h"
 
 CRegistry::CRegistry(const std::string& strFileName)
 {
@@ -88,7 +94,7 @@ bool CRegistry::IntegrityCheck()
             CLogger::ErrorPrintf("%s\n", GetLastError().c_str());
             CLogger::ErrorPrintf("Errors were encountered loading '%s' database\n", *ExtractFilename(PathConform(m_strFileName)));
             CLogger::ErrorPrintf("Maybe now is the perfect time to panic.\n");
-            CLogger::ErrorPrintf("See - http://wiki.multitheftauto.com/wiki/fixdb\n");
+            CLogger::ErrorPrintf("See - https://wiki.multitheftauto.com/wiki/fixdb\n");
             CLogger::ErrorPrintf("************************\n");
             return false;
         }
@@ -118,7 +124,7 @@ bool CRegistry::IntegrityCheck()
             CLogger::ErrorPrintf("%s\n", GetLastError().c_str());
             CLogger::ErrorPrintf("Errors were encountered compacting '%s' database\n", *ExtractFilename(PathConform(m_strFileName)));
             CLogger::ErrorPrintf("Maybe now is the perfect time to panic.\n");
-            CLogger::ErrorPrintf("See - http://wiki.multitheftauto.com/wiki/fixdb\n");
+            CLogger::ErrorPrintf("See - https://wiki.multitheftauto.com/wiki/fixdb\n");
             CLogger::ErrorPrintf("************************\n");
             // Allow server to continue
         }

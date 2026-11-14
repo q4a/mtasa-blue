@@ -5,11 +5,13 @@
  *  FILE:        mods/deathmatch/logic/packets/CPlayerChangeNickPacket.cpp
  *  PURPOSE:     Player nickname change packet class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #include "StdInc.h"
+#include "CPlayerChangeNickPacket.h"
+#include "CElement.h"
 
 CPlayerChangeNickPacket::CPlayerChangeNickPacket(const char* szNewNick)
 {
@@ -25,7 +27,7 @@ bool CPlayerChangeNickPacket::Write(NetBitStreamInterface& BitStream) const
         BitStream.Write(ID);
 
         // Write the nick
-        BitStream.WriteStringCharacters(m_strNewNick, m_strNewNick.length());
+        BitStream.WriteStringCharacters(m_strNewNick);
         return true;
     }
 

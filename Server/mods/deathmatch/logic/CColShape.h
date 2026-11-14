@@ -5,7 +5,7 @@
  *  FILE:        mods/deathmatch/logic/CColShape.h
  *  PURPOSE:     Base shaped collision entity class
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -45,32 +45,34 @@ public:
 
     void                CallHitCallback(CElement& Element);
     void                CallLeaveCallback(CElement& Element);
+    class CColCallback* GetCallback() { return m_pCallback; };
     class CColCallback* SetCallback(class CColCallback* pCallback) { return (m_pCallback = pCallback); };
 
     bool GetAutoCallEvent() { return m_bAutoCallEvent; };
     void SetAutoCallEvent(bool bAutoCallEvent) { m_bAutoCallEvent = bAutoCallEvent; };
 
-    void                      AddCollider(CElement* pElement) { m_Colliders.push_back(pElement); }
-    void                      RemoveCollider(CElement* pElement) { m_Colliders.remove(pElement); }
-    bool                      ColliderExists(CElement* pElement);
-    void                      RemoveAllColliders();
-    list<CElement*>::iterator CollidersBegin() { return m_Colliders.begin(); }
-    list<CElement*>::iterator CollidersEnd() { return m_Colliders.end(); }
+    void AddCollider(CElement* pElement) { m_Colliders.push_back(pElement); }
+    void RemoveCollider(CElement* pElement) { m_Colliders.remove(pElement); }
+    bool ColliderExists(CElement* pElement);
+    void RemoveAllColliders();
+
+    std::list<CElement*>::iterator CollidersBegin() { return m_Colliders.begin(); }
+    std::list<CElement*>::iterator CollidersEnd() { return m_Colliders.end(); }
 
     bool IsPartnered() { return m_bPartnered; }
 
     void SizeChanged();
 
 protected:
-    CVector m_vecPosition;
-    class CColManager*  m_pManager;
+    CVector            m_vecPosition;
+    class CColManager* m_pManager;
 
 private:
     bool                m_bIsEnabled;
     class CColCallback* m_pCallback;
     bool                m_bAutoCallEvent;
 
-    list<CElement*> m_Colliders;
+    std::list<CElement*> m_Colliders;
 
     bool m_bPartnered;
 };

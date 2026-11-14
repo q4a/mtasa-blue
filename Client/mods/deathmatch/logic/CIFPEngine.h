@@ -4,7 +4,7 @@
  *  LICENSE:     See LICENSE in the top level directory
  *  FILE:        Client/mods/deathmatch/logic/CIFPEngine.h
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
@@ -28,6 +28,7 @@ public:
                                                               const SString& strCustomBlockName, const SString& strCustomAnimName);
     static bool                        EngineRestoreAnimation(CClientEntity* pEntity, const SString& strInternalBlockName, const SString& strInternalAnimName,
                                                               const eRestoreAnimation& eRestoreType);
-    static bool                        EngineApplyAnimation(CClientPed& Ped, CAnimBlendHierarchySAInterface* pOriginalHierarchyInterface, CAnimBlendHierarchySAInterface* pAnimHierarchyInterface);
+    static bool                        EngineApplyAnimation(CClientPed& Ped, CAnimBlendHierarchySAInterface* pOriginalHierarchyInterface,
+                                                            CAnimBlendHierarchySAInterface* pAnimHierarchyInterface);
     static bool                        IsIFPData(const SString& strData);
 };

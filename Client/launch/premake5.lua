@@ -4,6 +4,7 @@ project "Client Launcher"
 	targetname "Multi Theft Auto"
 	targetdir(buildpath("."))
 	debugdir(buildpath("."))
+	clangtidy "On"
 
 	includedirs {
 		"../../Shared/sdk",
@@ -18,7 +19,7 @@ project "Client Launcher"
 	vpaths {
 		["Headers/*"] = "**.h",
 		["Sources/*"] = "**.cpp",
-		["Resources/*"] = {"*.rc", "*.ico", "**.xml"},
+		["Resources/*"] = {"*.rc", "**.ico", "**.xml", "**.manifest"},
 		["*"] = "premake5.lua"
 	}
 
@@ -31,13 +32,15 @@ project "Client Launcher"
 	filter "system:windows"
 		staticruntime "On"
 		files {
-			"NEU/GDFImp.gdf.xml",
-			"GDFImp.rc",
+			"NEU/gameicon_NEU.ico",
+			"NEU/Multi Theft Auto.gdf.xml",
 			"launch.rc",
-			"mtaicon.ico"
+			"Multi Theft Auto.rc",
+			"Multi Theft Auto.manifest",
+			"resource/mtaicon.ico"
 		}
-		
-	filter "architecture:x64"
+
+	filter "architecture:not x86"
 		flags { "ExcludeFromBuild" }
 
 	filter "system:not windows"

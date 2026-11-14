@@ -25,7 +25,9 @@
 #endif
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h> /* Get InterlockedCompareExchange */
 #endif
 
@@ -65,9 +67,9 @@ int lh_ptr_equal(const void *k1, const void *k2)
 
 /*
  * hashlittle from lookup3.c, by Bob Jenkins, May 2006, Public Domain.
- * http://burtleburtle.net/bob/c/lookup3.c
+ * https://burtleburtle.net/bob/c/lookup3.c
  * minor modifications to make functions static so no symbols are exported
- * minor mofifications to compile with -Werror
+ * minor modifications to compile with -Werror
  */
 
 /*
@@ -81,7 +83,7 @@ if SELF_TEST is defined.  You can use this free for any purpose.  It's in
 the public domain.  It has no warranty.
 
 You probably want to use hashlittle().  hashlittle() and hashbig()
-hash byte arrays.  hashlittle() is is faster than hashbig() on
+hash byte arrays.  hashlittle() is faster than hashbig() on
 little-endian machines.  Intel and AMD are little-endian machines.
 On second thought, you probably want hashlittle2(), which is identical to
 hashlittle() except it returns two 32-bit hashes for the price of one.
@@ -156,7 +158,7 @@ satisfy this are
    14  9  3  7 17  3
 Well, "9 15 3 18 27 15" didn't quite get 32 bits diffing
 for "differ" defined as + with a one-bit base and a two-bit delta.  I
-used http://burtleburtle.net/bob/hash/avalanche.html to choose
+used https://burtleburtle.net/bob/hash/avalanche.html to choose
 the operations, constants, and arrangements of the variables.
 
 This does not achieve avalanche.  There are input bits of (a,b,c)
@@ -285,9 +287,9 @@ static uint32_t hashlittle(const void *key, size_t length, uint32_t initval)
 		 * rest of the string.  Every machine with memory protection I've seen
 		 * does it on word boundaries, so is OK with this.  But VALGRIND will
 		 * still catch it and complain.  The masking trick does make the hash
-		 * noticably faster for short strings (like English words).
+		 * noticeably faster for short strings (like English words).
 		 * AddressSanitizer is similarly picky about overrunning
-		 * the buffer. (http://clang.llvm.org/docs/AddressSanitizer.html
+		 * the buffer. (https://clang.llvm.org/docs/AddressSanitizer.html)
 		 */
 #ifdef VALGRIND
 #define PRECISE_MEMORY_ACCESS 1
@@ -439,8 +441,8 @@ static uint32_t hashlittle(const void *key, size_t length, uint32_t initval)
 }
 /* clang-format on */
 
-/* a simple hash function similiar to what perl does for strings.
- * for good results, the string should not be excessivly large.
+/* a simple hash function similar to what perl does for strings.
+ * for good results, the string should not be excessively large.
  */
 static unsigned long lh_perllike_str_hash(const void *k)
 {
@@ -465,7 +467,7 @@ static unsigned long lh_char_hash(const void *k)
 	if (random_seed == -1)
 	{
 		RANDOM_SEED_TYPE seed;
-		/* we can't use -1 as it is the unitialized sentinel */
+		/* we can't use -1 as it is the uninitialized sentinel */
 		while ((seed = json_c_get_random_seed()) == -1) {}
 #if SIZEOF_INT == 8 && defined __GCC_HAVE_SYNC_COMPARE_AND_SWAP_8
 #define USE_SYNC_COMPARE_AND_SWAP 1
@@ -481,12 +483,12 @@ static unsigned long lh_char_hash(const void *k)
 #elif defined _MSC_VER || defined __MINGW32__
 		InterlockedCompareExchange(&random_seed, seed, -1);
 #else
-		//#warning "racy random seed initializtion if used by multiple threads"
+		//#warning "racy random seed initialization if used by multiple threads"
 		random_seed = seed; /* potentially racy */
 #endif
 	}
 
-	return hashlittle((const char *)k, strlen((const char *)k), random_seed);
+	return hashlittle((const char *)k, strlen((const char *)k), (uint32_t)random_seed);
 }
 
 int lh_char_equal(const void *k1, const void *k2)
@@ -546,7 +548,7 @@ int lh_table_resize(struct lh_table *t, int new_size)
 		unsigned long h = lh_get_hash(new_t, ent->k);
 		unsigned int opts = 0;
 		if (ent->k_is_constant)
-			opts = JSON_C_OBJECT_KEY_IS_CONSTANT;
+			opts = JSON_C_OBJECT_ADD_CONSTANT_KEY;
 		if (lh_table_insert_w_hash(new_t, ent->k, ent->v, h, opts) != 0)
 		{
 			lh_table_free(new_t);
@@ -599,7 +601,7 @@ int lh_table_insert_w_hash(struct lh_table *t, const void *k, const void *v, con
 	}
 
 	t->table[n].k = k;
-	t->table[n].k_is_constant = (opts & JSON_C_OBJECT_KEY_IS_CONSTANT);
+	t->table[n].k_is_constant = (opts & JSON_C_OBJECT_ADD_CONSTANT_KEY);
 	t->table[n].v = v;
 	t->count++;
 
@@ -666,6 +668,8 @@ int lh_table_delete_entry(struct lh_table *t, struct lh_entry *e)
 	/* CAW: fixed to be 64bit nice, still need the crazy negative case... */
 	ptrdiff_t n = (ptrdiff_t)(e - t->table);
 
+	assert(n >= 0 && n < t->size);
+
 	/* CAW: this is bad, really bad, maybe stack goes other direction on this machine... */
 	if (n < 0)
 	{
@@ -699,6 +703,22 @@ int lh_table_delete_entry(struct lh_table *t, struct lh_entry *e)
 		t->table[n].next->prev = t->table[n].prev;
 	}
 	t->table[n].next = t->table[n].prev = NULL;
+	return 0;
+}
+
+int lh_table_delete_entry_to_tail(struct lh_table *t, struct lh_entry *first_entry)
+{
+	struct lh_entry *del_entry = t->tail;
+	do
+	{
+		struct lh_entry *prev = del_entry->prev;
+		// Could probably micro-optimize this, but better to avoid code duplication for now
+		if (lh_table_delete_entry(t, del_entry) != 0)
+			return -1;
+		if (del_entry == first_entry)
+			break;
+		del_entry = prev;
+	} while (del_entry != NULL);
 	return 0;
 }
 

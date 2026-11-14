@@ -13,6 +13,8 @@
 #include <list>
 #include "CClientEntity.h"
 
+class CColModel;
+
 class CClientColModel final : public CClientEntity
 {
     DECLARE_CLASS(CClientColModel, CClientEntity)
@@ -22,7 +24,6 @@ public:
 
     eClientEntityType GetType() const { return CCLIENTCOL; }
 
-    bool LoadCol(const SString& strFile, bool bIsRawData);
     bool Load(bool isRaw, SString input);
 
     bool IsLoaded() { return m_pColModel != NULL; };
@@ -35,9 +36,9 @@ public:
     static bool IsCOLData(const SString& strData);
 
     // Sorta a hack that these are required by CClientEntity...
-    void Unlink(){};
+    void Unlink() {};
     void GetPosition(CVector& vecPosition) const {};
-    void SetPosition(const CVector& vecPosition){};
+    void SetPosition(const CVector& vecPosition) {};
 
 private:
     bool LoadFromFile(SString filePath);

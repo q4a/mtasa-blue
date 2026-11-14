@@ -5,17 +5,17 @@
  *  FILE:        sdk/game/CFx.h
  *  PURPOSE:     Game effects interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
+#include "enums/FxParticleSystems.h"
 
-#include "RenderWare.h"
-
-class CVector;
 class CEntity;
+class CVector;
 class CVehicle;
+struct RwColor;
 
 class CFx
 {
@@ -35,4 +35,6 @@ public:
     virtual void TriggerWaterSplash(CVector& vecPosition) = 0;
     virtual void TriggerBulletSplash(CVector& vecPosition) = 0;
     virtual void TriggerFootSplash(CVector& vecPosition) = 0;
+    virtual void AddParticle(FxParticleSystems::Enum eFxParticle, const CVector& vecPosition, const CVector& vecDirection, float fR, float fG, float fB,
+                             float fA, bool bRandomizeColors, std::uint32_t iCount, float fBrightness, float fSize, bool bRandomizeSizes, float fLife) = 0;
 };

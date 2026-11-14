@@ -5,13 +5,11 @@
  *  FILE:        sdk/game/CPedModelInfo.h
  *  PURPOSE:     Ped model information interface
  *
- *  Multi Theft Auto is available from http://www.multitheftauto.com/
+ *  Multi Theft Auto is available from https://www.multitheftauto.com/
  *
  *****************************************************************************/
 
 #pragma once
-
-#include "CModelInfo.h"
 
 typedef unsigned long AssocGroupId;
 
